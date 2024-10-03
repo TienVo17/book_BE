@@ -17,7 +17,7 @@ public class HinhAnh {
     private Boolean icon;
     @Column(name="url_hinh")
     private String urlHinh;
-    @Column(name="du_lieu_anh")
+    @Column(name="du_lieu_anh",columnDefinition = "LONGTEXT")
     @Lob
     private String dataImage;// Dữ liệu ảnh
     @ManyToOne(cascade = {
