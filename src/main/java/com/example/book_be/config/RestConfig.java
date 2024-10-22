@@ -32,15 +32,15 @@ public class RestConfig implements RepositoryRestConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "DELETE");
 
         // Chặn các phương thức HTTP cho các entity cụ thể
-        HttpMethod[] disableMethods = {
-                HttpMethod.POST,
-                HttpMethod.PUT,
-                HttpMethod.PATCH,
-                HttpMethod.DELETE,
-        };
-
-        blockHttpMethods(TheLoai.class, config, disableMethods);  // Ví dụ chặn cho entity 'TheLoai'
-        blockHttpMethods(NguoiDung.class, config, new HttpMethod[]{HttpMethod.DELETE});  // Ví dụ chặn DELETE cho 'NguoiDung'
+//        HttpMethod[] disableMethods = {
+//                HttpMethod.POST,
+//                HttpMethod.PUT,
+//                HttpMethod.PATCH,
+//                HttpMethod.DELETE,
+//        };
+//
+//        blockHttpMethods(TheLoai.class, config, disableMethods);  // Ví dụ chặn cho entity 'TheLoai'
+//        blockHttpMethods(NguoiDung.class, config, new HttpMethod[]{HttpMethod.DELETE});  // Ví dụ chặn DELETE cho 'NguoiDung'
     }
 
     // Phương thức hỗ trợ chặn các phương thức HTTP cho các entity cụ thể
