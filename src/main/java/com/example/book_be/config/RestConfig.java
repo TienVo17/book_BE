@@ -27,9 +27,9 @@ public class RestConfig implements RepositoryRestConfigurer {
                 .toArray(Class[]::new));
 
         // Cấu hình CORS, cho phép các nguồn khác truy cập với các phương thức HTTP cụ thể
-        cors.addMapping("/**")
-                .allowedOrigins(url)  // Thay bằng URL frontend của bạn
-                .allowedMethods("GET", "POST", "PUT", "DELETE");
+//        cors.addMapping("/**")
+//                .allowedOrigins(url)  // Thay bằng URL frontend của bạn
+//                .allowedMethods("GET", "POST", "PUT", "DELETE");
 
         // Chặn các phương thức HTTP cho các entity cụ thể
 //        HttpMethod[] disableMethods = {
