@@ -1,5 +1,6 @@
 package com.example.book_be.entity;
 
+
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -44,4 +45,10 @@ public class Sach {
     List<ChiTietDonHang> listChiTietDonHang;
     @OneToMany(mappedBy = "sach", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     List<SachYeuThich> listSachYeuThich;
+    @ManyToOne(cascade = {
+            CascadeType.DETACH,CascadeType.MERGE,CascadeType.REFRESH,CascadeType.PERSIST
+    })
+    @JoinColumn(name="ma_nha_cung_cap",nullable = false)
+    private NhaCungCap nhaCungCap;
+
 }
