@@ -14,7 +14,7 @@ public class Endpoints {
 
     public static final String[] PUBLIC_POST_ENDPOINS = {
             "/tai-khoan/dang-ky",
-            "/tai-khoan/kich-hoat",
+            "/tai-khoan/dang-nhap",
     };
 
     public static final String[] ADMIN_GET_ENDPOINS = {
