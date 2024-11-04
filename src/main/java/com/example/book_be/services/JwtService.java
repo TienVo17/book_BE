@@ -1,28 +1,51 @@
 package com.example.book_be.services;
 
+import com.example.book_be.entity.NguoiDung;
+import com.example.book_be.entity.Quyen;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Component
 public class JwtService {
     public static final String SECRET = "U29tZVZlcnlMb25nU2VjdXJlS2V5VGhhdFNhdGlzZmllczMyQnl0ZXM=";
 
+    @Autowired
+    private UserService userService;
+
     // tạo JWT dựa trên tên đăng nhập
     public String generateToken(String tenDangNhap) {
         Map<String, Object> claims = new HashMap<>();
-//        claims.put("isAdmin", true);
+        NguoiDung nguoiDung = userService.findByUsername(tenDangNhap);
+        boolean isAdmin = false;
+        boolean isStaff = false;
+        boolean isUser = false;
+        if (nguoiDung != null && nguoiDung.getDanhSachQuyen().size() > 0) {
+            List<Quyen> list = nguoiDung.getDanhSachQuyen();
+            for (Quyen q : list) {
+                if (q.getTenQuyen().equals("ADMIN")) {
+                    isAdmin = true;
+                }
+                if (q.getTenQuyen().equals("STAFF")) {
+                    isStaff = true;
+                }
+                if (q.getTenQuyen().equals("USER")) {
+                    isUser = true;
+                }
+            }
+        }
+        claims.put("isAdmin", isAdmin);
+        claims.put("isStaff", isStaff);
+        claims.put("isUser", isUser);
         return createToken(claims, tenDangNhap);
 
     }
@@ -71,10 +94,11 @@ public class JwtService {
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
+
     // Kiểm tra tính hợp lệ
-    public Boolean validateToken(String token, UserDetails userDetails){
+    public Boolean validateToken(String token, UserDetails userDetails) {
         final String tenDangNhap = extractUsername(token);
         System.out.println(tenDangNhap);
-        return (tenDangNhap.equals(userDetails.getUsername())&&!isTokenExpired(token));
+        return (tenDangNhap.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 }

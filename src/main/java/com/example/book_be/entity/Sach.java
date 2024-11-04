@@ -17,7 +17,7 @@ public class Sach {
     @Column(name = "ten_sach", length = 256)
     private String tenSach;
     @Column(name = "ten_tac_gia", length = 512)
-    private String tacGia;
+    private String tenTacGia;
     @Column(name = "mo_ta", columnDefinition = "text")
     private String moTa;
     @Column(name = "gia_niem_yet")
@@ -48,7 +48,7 @@ public class Sach {
     @ManyToOne(cascade = {
             CascadeType.DETACH,CascadeType.MERGE,CascadeType.REFRESH,CascadeType.PERSIST
     })
-    @JoinColumn(name="ma_nha_cung_cap",nullable = false)
+    @JoinColumn(name="ma_nha_cung_cap",nullable = true)
     private NhaCungCap nhaCungCap;
 
 }

@@ -34,7 +34,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(username);
+        NguoiDung nguoiDung = findByUsername(username);
 
         if (nguoiDung == null) {
             throw new UsernameNotFoundException("Tài khoản không tồn tại!");
