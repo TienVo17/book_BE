@@ -3,6 +3,7 @@ package com.example.book_be.services;
 import com.example.book_be.dao.NguoiDungRepository;
 import com.example.book_be.entity.NguoiDung;
 import com.example.book_be.entity.ThongBao;
+import com.example.book_be.services.email.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -64,7 +65,7 @@ public class TaiKhoanService {
             return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại!"));
         }
 
-        if (nguoiDung.isDaKichHoat()) {
+        if (nguoiDung.getDaKichHoat()) {
             return ResponseEntity.badRequest().body(new ThongBao("Tài khoản đã được kích hoạt!"));
         }
 
@@ -82,7 +83,7 @@ public class TaiKhoanService {
         if (nguoiDung == null) {
             return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
         }
-        if (nguoiDung.isDaKichHoat()) {
+        if (nguoiDung.getDaKichHoat()) {
             return ResponseEntity.badRequest().body(new ThongBao("Tài khoản đã được kích hoạt"));
         }
         if(maKichHoat.equals(nguoiDung.getMaKichHoat())) {

@@ -31,8 +31,8 @@ public class NguoiDung {
     private String diaChiMuaHang;
     @Column(name = "dia_chi_giao_hang")
     private String diaChiGiaoHang;
-    @Column(name = "da_kich_hoat")
-    private boolean daKichHoat;
+    @Column(name = "da_kich_hoat", nullable = false)
+    private Boolean daKichHoat = false;
     @Column(name = "ma_kich_hoat")
     private String maKichHoat;
     //    private String avatar;
@@ -46,6 +46,8 @@ public class NguoiDung {
     private List<Quyen> danhSachQuyen;
     @OneToMany(mappedBy = "nguoiDung", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH})
     private List<DonHang> danhSachDonhang;
+    @OneToMany(mappedBy = "nguoiDung",fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<GioHang> danhSachGioHang;
 
     @Override
     public String toString() {
