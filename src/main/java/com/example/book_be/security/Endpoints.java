@@ -33,5 +33,14 @@ public class Endpoints {
     };
     public static final String[] ADMIN_POST_ENDPOINS = {
             "/sach",
+            "/sach/**",
+    };
+    public static final String[] ADMIN_PUT_ENDPOINS = {
+            "/sach",
+            "/sach/**",
+    };
+    public static final String[] ADMIN_DELETE_ENDPOINS = {
+            "/sach",
+            "/sach/**",
     };
 }

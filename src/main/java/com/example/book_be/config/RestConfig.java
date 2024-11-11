@@ -28,6 +28,27 @@ public class RestConfig implements RepositoryRestConfigurer {
 
         // Cấu hình CORS, cho phép các nguồn khác truy cập với các phương thức HTTP cụ thể
 //        cors.addMapping("/**")
+//                .allowedOrigins(front_end_host)
+//                .allowedMethods("GET", "POST", "PUT", "DELETE");
+
+        // Cấu hình CORS, cho phép tất cả các nguồn khác truy cập với tất cả các phương thức HTTP
+//        cors.addMapping("/**");
+
+        // Cấu hình CORS, chặn tất cả các nguồn khác truy cập
+//        cors.addMapping("/**")
+//                .allowedOrigins("http://localhost:3000")
+//                .allowedMethods("GET", "POST", "PUT", "DELETE");
+
+        // Cấu hình CORS, chặn tất cả các nguồn khác truy cập
+//        cors.addMapping("/**")
+//                .allowedOrigins(url)
+//                .allowedMethods("GET", "POST", "PUT", "DELETE");
+
+        // Cấu hình CORS, cho phép tất cả các nguồn khác truy cập với tất cả các phương thức HTTP
+        cors.addMapping("/**");
+
+        // Cấu hình CORS, cho phép các nguồn khác truy cập với các phương thức HTTP cụ thể
+//        cors.addMapping("/**")
 //                .allowedOrigins(url)  // Thay bằng URL frontend của bạn
 //                .allowedMethods("GET", "POST", "PUT", "DELETE");
 
