@@ -17,6 +17,7 @@ public class Endpoints {
             "/tai-khoan/dang-ky",
             "/tai-khoan/dang-nhap",
             "/gio-hang/them",
+            "/api/danh-gia/them-danh-gia"
     };
     public static final String[] PUBLIC_PUT_ENDPOINS = {
             "/gio-hang/**"
@@ -34,6 +35,7 @@ public class Endpoints {
     public static final String[] ADMIN_POST_ENDPOINS = {
             "/sach",
             "/sach/**",
+            "/api/danh-gia/them-danh-gia"
     };
     public static final String[] ADMIN_PUT_ENDPOINS = {
             "/sach",
