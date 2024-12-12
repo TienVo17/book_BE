@@ -33,7 +33,7 @@ public class NguoiDung {
     @Column(name = "dia_chi_giao_hang")
     private String diaChiGiaoHang;
     @Column(name = "da_kich_hoat", nullable = false)
-    private Boolean daKichHoat = false;
+    private Boolean daKichHoat = true;
     @Column(name = "ma_kich_hoat")
     private String maKichHoat;
     //    private String avatar;
