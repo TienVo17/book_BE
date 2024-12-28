@@ -28,7 +28,11 @@ public class SachServiceImpl implements SachService {
     public SachServiceImpl(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-
+    @Override
+    public Page<Sach> findBookByName(String tenSach, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return sachRepository.findByTenSachContaining(tenSach, pageable);
+    }
     @Override
     public Page<Sach> findAll(SachBo model) {
         Pageable pageable = PageRequest.of(model.getPage(), model.getPageSize());

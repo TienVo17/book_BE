@@ -29,7 +29,7 @@ public class SachUserController {
     public ResponseEntity<Page<Sach>> findAll(@RequestParam("page") Integer page) {
         SachBo model = new SachBo();
         model.setPage(page);
-        model.setPageSize(10);
+        model.setPageSize(8);
         model.setIsAdmin(false);
         Page<Sach> result = sachService.findAll(model); // or pass multiple params if needed
         return new ResponseEntity<>(result, HttpStatus.OK);
@@ -79,5 +79,11 @@ public class SachUserController {
         ));
     }
 
+    @GetMapping("/search")
+    public Page<Sach> searchBooks(@RequestParam("tensach") String tenSach,
+                                  @RequestParam("page") int page,
+                                  @RequestParam("size") int size) {
+        return sachService.findBookByName(tenSach, page, size);
+    }
 
 }

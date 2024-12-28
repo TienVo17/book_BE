@@ -39,9 +39,13 @@ public class Sach {
 //    private int soldQuantity;
 //    @Column(name = "ma_sach")// Đã bán bao nhiêu
 //    private int discountPercent;// Giảm giá bao nhiêu %
+
+    @JsonIgnore
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH})
     @JoinTable(name = "sach_theloai", joinColumns = @JoinColumn(name = "ma_sach"), inverseJoinColumns = @JoinColumn(name = "ma_the_loai"))
     List<TheLoai> listTheLoai;
+
+    @JsonIgnore
     @OneToMany(mappedBy = "sach", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH, CascadeType.REMOVE})
     List<HinhAnh> listHinhAnh;
 
@@ -63,9 +67,12 @@ public class Sach {
     @JsonIgnore
     @JoinColumn(name = "ma_nha_cung_cap", nullable = true)
     private NhaCungCap nhaCungCap;
+
+    @JsonIgnore
     @OneToMany(mappedBy = "sach", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     List<GioHang> gioHangList;
 
+    @JsonIgnore
     @Transient
     private List<String> listImageStr;
 
