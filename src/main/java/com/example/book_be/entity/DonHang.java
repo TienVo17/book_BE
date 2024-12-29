@@ -30,6 +30,10 @@ public class DonHang {
 
     private double tongTien;
 
+    @Column(name = "ho_ten")
+    private String hoTen;
+    @Column(name = "so_dien_thoai")
+    private String soDienThoai;
 
 
 

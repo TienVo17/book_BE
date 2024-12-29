@@ -3,10 +3,7 @@ package com.example.book_be.controller;
 import com.example.book_be.dao.ChiTietDonHangRepository;
 import com.example.book_be.dao.DonHangRepository;
 import com.example.book_be.dao.NguoiDungRepository;
-import com.example.book_be.entity.ChiTietDonHang;
-import com.example.book_be.entity.DonHang;
-import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.entity.*;
 import com.example.book_be.services.VNPayService;
 import com.example.book_be.services.cart.OrderService;
 import com.example.book_be.services.email.EmailService;
@@ -22,8 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("api/don-hang")
@@ -184,5 +180,34 @@ public class DonHangController {
                 "</body>" +
                 "</html>";
     }
+    @PostMapping("/them-don-hang-moi")
+    public DonHang themDonHangMoi(
+            @RequestParam String hoTen,
+            @RequestParam String soDienThoai,
+            @RequestParam String diaChiNhanHang) {
+        DonHang donHang = new DonHang();
+
+        // Gán các giá trị cần thiết
+        donHang.setHoTen(hoTen);
+        donHang.setSoDienThoai(soDienThoai);
+        donHang.setDiaChiNhanHang(diaChiNhanHang);
+        donHang.setNgayTao(new Date());
+        donHang.setTongTien(0);
+        donHang.setTrangThaiThanhToan(0);
+        donHang.setTrangThaiGiaoHang(0);
+
+        // Gán mã đơn hàng ngẫu nhiên
+        Random random = new Random();
+        int randomMaDonHang = 1000 + random.nextInt(9000);
+        donHang.setMaDonHang(randomMaDonHang);
+
+        // Gán giá trị mặc định cho NguoiDung
+        NguoiDung defaultNguoiDung = new NguoiDung();
+        defaultNguoiDung.setMaNguoiDung(1); // ID mặc định trong cơ sở dữ liệu
+        donHang.setNguoiDung(defaultNguoiDung);
+
+        return donHangRepository.save(donHang);
+    }
+
 
 }

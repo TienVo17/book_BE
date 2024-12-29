@@ -13,14 +13,16 @@ public class Endpoints {
             "/gio-hang/**",
             "/api/admin/user**",
             "/api/admin/sach**",
-            "/api/sach/search"
+            "/api/sach/search",
+            "/api/don-hang/them-don-hang-moi"
     };
 
     public static final String[] PUBLIC_POST_ENDPOINS = {
             "/tai-khoan/dang-ky",
             "/tai-khoan/dang-nhap",
             "/gio-hang/them",
-            "/api/admin/sach"
+            "/api/admin/sach",
+            "/api/don-hang/them-don-hang-moi"
     };
     public static final String[] PUBLIC_PUT_ENDPOINS = {
             "/gio-hang/**"

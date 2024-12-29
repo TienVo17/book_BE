@@ -71,6 +71,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/admin/danh-gia/findAll**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/don-hang/them-don-hang-moi").permitAll()
         );
 
         // Cấu hình CORS
