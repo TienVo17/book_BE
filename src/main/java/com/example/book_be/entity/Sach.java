@@ -33,8 +33,8 @@ public class Sach {
     private String ISBN;
 
 
-    @Column(name = "is_active")
-    private Integer isActive;
+    @Column(name = "is_active", columnDefinition = "integer default 1")
+    private Integer isActive = 1;
     //    @Column(name = "ma_sach")
 //    private int soldQuantity;
 //    @Column(name = "ma_sach")// Đã bán bao nhiêu

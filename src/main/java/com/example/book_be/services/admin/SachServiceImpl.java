@@ -39,7 +39,7 @@ public class SachServiceImpl implements SachService {
         Page<Sach> sachPage = sachRepository.findAll((root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
             if(Boolean.FALSE.equals(model.getIsAdmin())){
-                predicates.add(builder.equal(root.get("isActive"),1));
+                predicates.add(builder.equal(builder.coalesce(root.get("isActive"), 1), 1));
             }
             query.orderBy(builder.desc(root.get("maSach")));
             return builder.and(predicates.toArray(new Predicate[0]));

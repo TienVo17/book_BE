@@ -39,8 +39,12 @@ public class TaiKhoanService {
         // Neu khong co loi luu nguoi dung
         NguoiDung nguoiDung_DaDangKy = nguoiDungRepository.save(nguoiDung);
 
-        // gửi email kích hoạt
-        guiEmailKichHoat(nguoiDung.getEmail(), nguoiDung.getMaKichHoat());
+        // gửi email kích hoạt (không fail nếu gửi email lỗi)
+        try {
+            guiEmailKichHoat(nguoiDung.getEmail(), nguoiDung.getMaKichHoat());
+        } catch (Exception e) {
+            // Log lỗi nhưng không fail registration
+        }
         return ResponseEntity.ok("Đăng ký thành công");
     }
 
