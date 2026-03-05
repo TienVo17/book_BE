@@ -15,6 +15,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 @RestController
 @CrossOrigin(origins = "http://localhost:3000/")
 @RequestMapping("/tai-khoan")
@@ -27,6 +30,12 @@ public class TaiKhoanController {
     private UserService userService;
     @Autowired
     private JwtService jwtService;
+
+    // Rate limiting: theo dõi số lần đăng nhập sai theo username
+    // long[0] = số lần sai, long[1] = thời điểm lần sai cuối cùng (ms)
+    private final Map<String, long[]> loginAttempts = new ConcurrentHashMap<>();
+    private static final int MAX_ATTEMPTS = 5;
+    private static final long LOCK_TIME_MS = 5 * 60 * 1000; // 5 phút
 
     @PostMapping("/dang-ky")
     public ResponseEntity<?> dangKyNguoiDung(@Validated @RequestBody NguoiDung nguoiDung) {
@@ -42,17 +51,36 @@ public class TaiKhoanController {
 
     @PostMapping("/dang-nhap")
     public ResponseEntity<?> dangNhap(@RequestBody LoginRequest loginRequest) {
+        String username = loginRequest.getUsername();
+
+        // Kiểm tra rate limit - nếu đăng nhập sai quá nhiều thì khóa tạm thời
+        long[] attemptData = loginAttempts.get(username);
+        if (attemptData != null && attemptData[0] >= MAX_ATTEMPTS) {
+            long lockUntil = attemptData[1] + LOCK_TIME_MS;
+            if (System.currentTimeMillis() < lockUntil) {
+                long remainingSec = (lockUntil - System.currentTimeMillis()) / 1000;
+                return ResponseEntity.status(429)
+                        .body("Tài khoản tạm khóa do đăng nhập sai quá " + MAX_ATTEMPTS + " lần. Vui lòng thử lại sau " + remainingSec + " giây.");
+            }
+            // Hết thời gian khóa, reset
+            loginAttempts.remove(username);
+        }
+
         try {
             Authentication authentication = AuthenticationManager.authenticate(new
-                    UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword())
-
-
+                    UsernamePasswordAuthenticationToken(username, loginRequest.getPassword())
             );
             if (authentication.isAuthenticated()) {
-                final String jwt = jwtService.generateToken(loginRequest.getUsername());
+                // Đăng nhập thành công, xóa record đếm lần sai
+                loginAttempts.remove(username);
+                final String jwt = jwtService.generateToken(username);
                 return ResponseEntity.ok(new JwtResponse(jwt));
             }
         } catch (AuthenticationException a) {
+            // Đăng nhập thất bại, tăng bộ đếm
+            long now = System.currentTimeMillis();
+            loginAttempts.merge(username, new long[]{1, now},
+                    (old, v) -> new long[]{old[0] + 1, now});
             return ResponseEntity.badRequest().body("Tên đăng nhập hoặc mật khẩu không chính xác. ");
         }
         return ResponseEntity.badRequest().body("Xác thực không thành công.");
