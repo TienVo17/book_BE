@@ -103,6 +103,9 @@ public class DonHangController {
         System.out.println("======" + orderInfo);
 
         DonHang donHang = donHangRepository.findById(Long.valueOf(orderInfo)).orElse(null);
+        if (donHang == null) {
+            return "orderfail";
+        }
         List<ChiTietDonHang> chiTietDonHangs = chiTietDonHangRepository.findAll((root, query, builder) -> builder.equal(
                 root.get("donHang").get("maDonHang"), donHang.getMaDonHang()
         ));
@@ -128,12 +131,15 @@ public class DonHangController {
     }
 
     @PostMapping("/cap-nhat-trang-thai-giao-hang/{maDonHang}")
-    public void submidOrder(@PathVariable Long maDonHang,
+    public ResponseEntity<?> submidOrder(@PathVariable Long maDonHang,
                               HttpServletRequest request) {
         DonHang donHang = donHangRepository.findById(maDonHang).orElse(null);
+        if (donHang == null) {
+            return ResponseEntity.badRequest().body("Đơn hàng không tồn tại");
+        }
         donHang.setTrangThaiGiaoHang(2);
-        donHang.setTrangThaiThanhToan(1);
         donHangRepository.save(donHang);
+        return ResponseEntity.ok(donHang);
     }
 
     public String generateOrderEmailBody(String orderId, String customerName, String orderDate, String diaChi, String tongTien, List<ChiTietDonHang> chiTietDonHangs) {
@@ -181,13 +187,12 @@ public class DonHangController {
                 "</html>";
     }
     @PostMapping("/them-don-hang-moi")
-    public DonHang themDonHangMoi(
+    public ResponseEntity<?> themDonHangMoi(
             @RequestParam String hoTen,
             @RequestParam String soDienThoai,
             @RequestParam String diaChiNhanHang) {
         DonHang donHang = new DonHang();
 
-        // Gán các giá trị cần thiết
         donHang.setHoTen(hoTen);
         donHang.setSoDienThoai(soDienThoai);
         donHang.setDiaChiNhanHang(diaChiNhanHang);
@@ -196,17 +201,18 @@ public class DonHangController {
         donHang.setTrangThaiThanhToan(0);
         donHang.setTrangThaiGiaoHang(0);
 
-        // Gán mã đơn hàng ngẫu nhiên
-        Random random = new Random();
-        int randomMaDonHang = 1000 + random.nextInt(9000);
-        donHang.setMaDonHang(randomMaDonHang);
+        // Lấy user đang đăng nhập nếu có
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName())) {
+            NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+            if (nguoiDung != null) {
+                donHang.setNguoiDung(nguoiDung);
+            }
+        }
 
-        // Gán giá trị mặc định cho NguoiDung
-        NguoiDung defaultNguoiDung = new NguoiDung();
-        defaultNguoiDung.setMaNguoiDung(1); // ID mặc định trong cơ sở dữ liệu
-        donHang.setNguoiDung(defaultNguoiDung);
-
-        return donHangRepository.save(donHang);
+        // Để DB tự generate maDonHang (auto-increment)
+        return ResponseEntity.ok(donHangRepository.save(donHang));
     }
 
 

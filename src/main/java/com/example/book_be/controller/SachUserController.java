@@ -26,12 +26,17 @@ public class SachUserController {
     private HinhAnhRepository hinhAnhRepository;
 
     @GetMapping
-    public ResponseEntity<Page<Sach>> findAll(@RequestParam("page") Integer page) {
+    public ResponseEntity<Page<Sach>> findAll(
+            @RequestParam("page") Integer page,
+            @RequestParam(value = "tensach", required = false) String tenSach,
+            @RequestParam(value = "maTheLoai", required = false, defaultValue = "0") Integer maTheLoai) {
         SachBo model = new SachBo();
         model.setPage(page);
         model.setPageSize(8);
         model.setIsAdmin(false);
-        Page<Sach> result = sachService.findAll(model); // or pass multiple params if needed
+        model.setTenSach(tenSach);
+        model.setMaTheLoai(maTheLoai);
+        Page<Sach> result = sachService.findAll(model);
         return new ResponseEntity<>(result, HttpStatus.OK);
     }
 

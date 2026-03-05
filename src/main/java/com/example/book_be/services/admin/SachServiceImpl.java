@@ -41,6 +41,20 @@ public class SachServiceImpl implements SachService {
             if(Boolean.FALSE.equals(model.getIsAdmin())){
                 predicates.add(builder.equal(builder.coalesce(root.get("isActive"), 1), 1));
             }
+            // Tìm kiếm theo tên sách hoặc tên tác giả
+            if (model.getTenSach() != null && !model.getTenSach().isEmpty()) {
+                String keyword = "%" + model.getTenSach().toLowerCase() + "%";
+                predicates.add(builder.or(
+                        builder.like(builder.lower(root.get("tenSach")), keyword),
+                        builder.like(builder.lower(root.get("tenTacGia")), keyword)
+                ));
+            }
+            // Lọc theo thể loại
+            if (model.getMaTheLoai() != null && model.getMaTheLoai() > 0) {
+                predicates.add(builder.equal(
+                        root.join("listTheLoai").get("maTheLoai"), model.getMaTheLoai()
+                ));
+            }
             query.orderBy(builder.desc(root.get("maSach")));
             return builder.and(predicates.toArray(new Predicate[0]));
         }, pageable);
