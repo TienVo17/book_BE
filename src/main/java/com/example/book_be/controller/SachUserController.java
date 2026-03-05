@@ -1,6 +1,5 @@
 package com.example.book_be.controller;
 
-
 import com.example.book_be.bo.SachBo;
 import com.example.book_be.dao.HinhAnhRepository;
 import com.example.book_be.entity.HinhAnh;
@@ -55,15 +54,11 @@ public class SachUserController {
         return new ResponseEntity<>(sachService.unactive(id), HttpStatus.OK);
     }
 
-
-
-
     @PutMapping("update/{id}")
     public ResponseEntity<Sach> update(@PathVariable Long id, @RequestBody Sach bo) throws Exception {
         Sach sach = sachService.update(bo);
         return new ResponseEntity<>(sach, HttpStatus.OK);
     }
-
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<Sach> delete(@PathVariable Long id) {
@@ -71,7 +66,8 @@ public class SachUserController {
         return new ResponseEntity<>(sach, HttpStatus.OK);
     }
 
-    @GetMapping("{id}")
+    // Restrict to numeric IDs only to avoid conflict with /ban-chay, /moi-nhat, /slug etc.
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<Sach> findById(@PathVariable Long id) {
         Sach sach = sachService.findById(id);
         return new ResponseEntity<>(sach, HttpStatus.OK);
@@ -91,4 +87,35 @@ public class SachUserController {
         return sachService.findBookByName(tenSach, page, size);
     }
 
+    // Best-selling books
+    @GetMapping("/ban-chay")
+    public ResponseEntity<List<Sach>> findBanChay(
+            @RequestParam(value = "limit", defaultValue = "10") int limit) {
+        return ResponseEntity.ok(sachService.findBanChay(limit));
+    }
+
+    // Newest books
+    @GetMapping("/moi-nhat")
+    public ResponseEntity<List<Sach>> findMoiNhat(
+            @RequestParam(value = "limit", defaultValue = "10") int limit) {
+        return ResponseEntity.ok(sachService.findMoiNhat(limit));
+    }
+
+    // Related books by book ID
+    @GetMapping("/{id:\\d+}/lien-quan")
+    public ResponseEntity<List<Sach>> findLienQuan(
+            @PathVariable int id,
+            @RequestParam(value = "limit", defaultValue = "6") int limit) {
+        return ResponseEntity.ok(sachService.findLienQuan(id, limit));
+    }
+
+    // Lookup book by slug
+    @GetMapping("/slug/{slug}")
+    public ResponseEntity<Sach> findBySlug(@PathVariable String slug) {
+        Sach sach = sachService.findBySlug(slug);
+        if (sach == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(sach);
+    }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.Date;
 import java.util.List;
 
 @Data
@@ -36,11 +37,22 @@ public class NguoiDung {
     private Boolean daKichHoat = true;
     @Column(name = "ma_kich_hoat")
     private String maKichHoat;
-    //    private String avatar;
+
+    @Column(name = "reset_password_token")
+    private String resetPasswordToken;
+
+    @Column(name = "reset_password_token_expiry")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date resetPasswordTokenExpiry;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "nguoiDung", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<DiaChiGiaoHang> danhSachDiaChi;
 
     @JsonIgnore
     @OneToMany(mappedBy = "nguoiDung", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH})
     private List<SuDanhGia> danhSachSuDanhGia;
+    @JsonIgnore
     @OneToMany(mappedBy = "nguoiDung", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH})
     private List<SachYeuThich> danhSachSachYeuThich;
 
@@ -64,18 +76,12 @@ public class NguoiDung {
                 ", hoDem='" + hoDem + '\'' +
                 ", ten='" + ten + '\'' +
                 ", tenDangNhap='" + tenDangNhap + '\'' +
-                ", matKhau='" + matKhau + '\'' +
                 ", gioiTinh=" + gioiTinh +
                 ", email='" + email + '\'' +
                 ", soDienThoai='" + soDienThoai + '\'' +
                 ", diaChiMuaHang='" + diaChiMuaHang + '\'' +
                 ", diaChiGiaoHang='" + diaChiGiaoHang + '\'' +
                 ", daKichHoat=" + daKichHoat +
-                ", maKichHoat='" + maKichHoat + '\'' +
-                ", danhSachSuDanhGia=" + danhSachSuDanhGia +
-                ", danhSachSachYeuThich=" + danhSachSachYeuThich +
-                ", danhSachQuyen=" + danhSachQuyen +
-                ", danhSachDonhang=" + danhSachDonhang +
                 '}';
     }
 }

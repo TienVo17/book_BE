@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -97,6 +98,71 @@ public class TaiKhoanService {
         }else {
             return ResponseEntity.badRequest().body(new ThongBao("Mã kích hoạt không chính xác"));
         }
+    }
+
+    // ---- Đổi mật khẩu ----
+    public ResponseEntity<?> doiMatKhau(String tenDangNhap, String matKhauCu, String matKhauMoi) {
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
+        if (nguoiDung == null) {
+            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
+        }
+        if (!bCryptPasswordEncoder.matches(matKhauCu, nguoiDung.getMatKhau())) {
+            return ResponseEntity.badRequest().body(new ThongBao("Mật khẩu cũ không chính xác"));
+        }
+        nguoiDung.setMatKhau(bCryptPasswordEncoder.encode(matKhauMoi));
+        nguoiDungRepository.save(nguoiDung);
+        return ResponseEntity.ok("Đổi mật khẩu thành công");
+    }
+
+    // ---- Quên mật khẩu: tạo token và gửi email ----
+    public ResponseEntity<?> quenMatKhau(String email) {
+        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
+        if (nguoiDung == null) {
+            return ResponseEntity.badRequest().body(new ThongBao("Email không tồn tại trong hệ thống"));
+        }
+        String token = UUID.randomUUID().toString();
+        // Hết hạn sau 10 phút
+        Date expiry = new Date(System.currentTimeMillis() + 10 * 60 * 1000L);
+        nguoiDung.setResetPasswordToken(token);
+        nguoiDung.setResetPasswordTokenExpiry(expiry);
+        nguoiDungRepository.save(nguoiDung);
+        try {
+            guiEmailResetPassword(email, token);
+        } catch (Exception e) {
+            // Log lỗi nhưng không fail
+        }
+        return ResponseEntity.ok("Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.");
+    }
+
+    // ---- Đặt lại mật khẩu bằng token ----
+    public ResponseEntity<?> datLaiMatKhau(String email, String token, String matKhauMoi) {
+        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
+        if (nguoiDung == null) {
+            return ResponseEntity.badRequest().body(new ThongBao("Email không tồn tại trong hệ thống"));
+        }
+        if (nguoiDung.getResetPasswordToken() == null || !nguoiDung.getResetPasswordToken().equals(token)) {
+            return ResponseEntity.badRequest().body(new ThongBao("Token không hợp lệ"));
+        }
+        if (nguoiDung.getResetPasswordTokenExpiry() == null
+                || nguoiDung.getResetPasswordTokenExpiry().before(new Date())) {
+            return ResponseEntity.badRequest().body(new ThongBao("Token đã hết hạn"));
+        }
+        nguoiDung.setMatKhau(bCryptPasswordEncoder.encode(matKhauMoi));
+        nguoiDung.setResetPasswordToken(null);
+        nguoiDung.setResetPasswordTokenExpiry(null);
+        nguoiDungRepository.save(nguoiDung);
+        return ResponseEntity.ok("Đặt lại mật khẩu thành công");
+    }
+
+    // ---- Helper: gửi email reset password ----
+    private void guiEmailResetPassword(String email, String token) {
+        String subject = "Đặt lại mật khẩu tại WebBanSach";
+        String url = "http://localhost:3000/dat-lai-mat-khau/" + email + "/" + token;
+        String text = "Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản <" + email + ">."
+                + "<html><body><br/>Token của bạn: <b>" + token + "</b>"
+                + "<br/>Hoặc click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
+                + "<br/><a href=" + url + ">" + url + "</a></body></html>";
+        emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
     }
 
     public static void main(String[] args) {

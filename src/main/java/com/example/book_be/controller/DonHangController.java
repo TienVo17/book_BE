@@ -25,7 +25,6 @@ import java.util.*;
 @RequestMapping("api/don-hang")
 public class DonHangController {
 
-
     @Autowired
     private OrderService orderService;
 
@@ -63,6 +62,31 @@ public class DonHangController {
 
             return builder.and(predicates.toArray(new Predicate[0]));
         }, pageable);
+    }
+
+    // Get a single order by ID - only accessible by the order's owner
+    @GetMapping("/{id}")
+    public ResponseEntity<?> findById(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        NguoiDung currentUser = null;
+        if (authentication != null && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName())) {
+            currentUser = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        }
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body("Chưa đăng nhập");
+        }
+
+        DonHang donHang = donHangRepository.findById(id).orElse(null);
+        if (donHang == null) {
+            return ResponseEntity.notFound().build();
+        }
+        // Owner check: only the order's user may access it
+        if (donHang.getNguoiDung() == null
+                || donHang.getNguoiDung().getMaNguoiDung() != currentUser.getMaNguoiDung()) {
+            return ResponseEntity.status(403).body("Không có quyền truy cập đơn hàng này");
+        }
+        return ResponseEntity.ok(donHang);
     }
 
     @PostMapping("/them")
@@ -161,7 +185,6 @@ public class DonHangController {
                 "<p><b>Mã Đơn Hàng : </b>" + orderId + "</p>" +
                 "<p><b>Ngày Đặt Hàng : </b>" + orderDate + "</p>" +
                 "<table style=\"width: 100%; border: 1px solid #ddd; border-collapse: collapse;\">" +
-                // Phần tiêu đề bảng (thead)
                 "<thead style=\"background-color: #f4f4f4;\">" +
                 "<tr>" +
                 "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Mã chi tiết đơn hàng</th>" +
@@ -171,21 +194,18 @@ public class DonHangController {
                 "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Thanh toán</th>" +
                 "</tr>" +
                 "</thead>" +
-
-                // Phần nội dung bảng (tbody)
                 "<tbody>" +
                 chiTienDonHang +
                 "</tbody>" +
                 "</table>" +
-
                 "<p style=\"color:red; border-top: 2px solid red; padding-top: 10px;\"><b>Tổng tiền: " + tongTien + "</b></p>" +
                 "<p><b>Địa chỉ nhận hàng: " + diaChi + "</b></p>" +
-
                 "<p style=\"border-top: 1px solid #ddd; padding-top: 10px;\">Đơn hàng của bạn sẽ được xử lý trong vòng 24 giờ. Chúng tôi sẽ thông báo khi hàng hóa được gửi đi.</p>" +
                 "<p style=\"border-top: 1px solid #ddd; padding-top: 10px;\">Trân trọng cảm ơn!</p>" +
                 "</body>" +
                 "</html>";
     }
+
     @PostMapping("/them-don-hang-moi")
     public ResponseEntity<?> themDonHangMoi(
             @RequestParam String hoTen,
@@ -214,6 +234,4 @@ public class DonHangController {
         // Để DB tự generate maDonHang (auto-increment)
         return ResponseEntity.ok(donHangRepository.save(donHang));
     }
-
-
 }

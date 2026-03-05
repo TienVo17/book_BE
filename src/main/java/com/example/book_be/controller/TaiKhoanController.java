@@ -12,6 +12,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -84,5 +85,39 @@ public class TaiKhoanController {
             return ResponseEntity.badRequest().body("Tên đăng nhập hoặc mật khẩu không chính xác. ");
         }
         return ResponseEntity.badRequest().body("Xác thực không thành công.");
+    }
+
+    // ---- Đổi mật khẩu (yêu cầu đăng nhập) ----
+    @PutMapping("/doi-mat-khau")
+    public ResponseEntity<?> doiMatKhau(@RequestBody Map<String, String> body) {
+        String tenDangNhap = SecurityContextHolder.getContext().getAuthentication().getName();
+        String matKhauCu = body.get("matKhauCu");
+        String matKhauMoi = body.get("matKhauMoi");
+        if (matKhauCu == null || matKhauMoi == null) {
+            return ResponseEntity.badRequest().body("Thiếu thông tin mật khẩu");
+        }
+        return taiKhoanService.doiMatKhau(tenDangNhap, matKhauCu, matKhauMoi);
+    }
+
+    // ---- Quên mật khẩu: gửi email reset ----
+    @PostMapping("/quen-mat-khau")
+    public ResponseEntity<?> quenMatKhau(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body("Email không được để trống");
+        }
+        return taiKhoanService.quenMatKhau(email);
+    }
+
+    // ---- Đặt lại mật khẩu bằng token ----
+    @PostMapping("/dat-lai-mat-khau")
+    public ResponseEntity<?> datLaiMatKhau(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String token = body.get("token");
+        String matKhauMoi = body.get("matKhauMoi");
+        if (email == null || token == null || matKhauMoi == null) {
+            return ResponseEntity.badRequest().body("Thiếu thông tin đặt lại mật khẩu");
+        }
+        return taiKhoanService.datLaiMatKhau(email, token, matKhauMoi);
     }
 }

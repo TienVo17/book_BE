@@ -32,6 +32,8 @@ public class Sach {
     @Column(name = "isbn", length = 256)
     private String ISBN;
 
+    @Column(name = "slug", unique = true, length = 512)
+    private String slug;
 
     @Column(name = "is_active", columnDefinition = "integer default 1")
     private Integer isActive = 1;
