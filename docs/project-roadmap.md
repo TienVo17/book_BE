@@ -1,79 +1,78 @@
-﻿# L盻・Trﾃｬnh Phﾃ｡t Tri盻ハ
+# Lộ Trình Phát Triển
 
-## Tr蘯｡ng Thﾃ｡i Hi盻㌻ T蘯｡i: MVP Hoﾃn Thi盻㌻
+## Trạng Thái Hiện Tại: MVP Hoàn Thiện
 
-### Giai ﾄ塵蘯｡n 1: Core Backend (Hoﾃn thﾃnh)
-- [x] Thi蘯ｿt k蘯ｿ database schema (14 b蘯｣ng)
-- [x] Entity JPA v盻嬖 ﾄ黛ｺｧy ﾄ黛ｻｧ quan h盻・
-- [x] Spring Data REST auto-expose repositories
-- [x] CORS configuration
-- [x] Lombok integration
+### Giai Đoạn 1: Core Backend
+- [x] Thiết kế database schema
+- [x] Entity JPA và repository cho các bảng chính
+- [x] REST controller cho sách, tài khoản, giỏ hàng, đơn hàng
+- [x] Dockerfile và Docker Compose cho local stack
 
-### Giai ﾄ塵蘯｡n 2: Xﾃ｡c Th盻ｱc & B蘯｣o M蘯ｭt (Hoﾃn thﾃnh)
-- [x] ﾄ斉ハg kﾃｽ tﾃi kho蘯｣n
-- [x] Kﾃｭch ho蘯｡t qua email (Gmail SMTP)
-- [x] ﾄ斉ハg nh蘯ｭp JWT (30 phﾃｺt expiry)
+### Giai Đoạn 2: Xác Thực và Bảo Mật
+- [x] Đăng ký tài khoản
+- [x] Kích hoạt qua email
+- [x] Đăng nhập JWT
 - [x] BCrypt password hashing
-- [x] Phﾃ｢n quy盻］ ADMIN/STAFF/USER
-- [x] Rate limiting ﾄ惰ハg nh蘯ｭp (5 l蘯ｧn/5 phﾃｺt)
-- [x] Stateless session
+- [x] Phân quyền `ADMIN` / `STAFF` / `USER`
+- [x] Rate limiting đăng nhập
+- [x] CORS và stateless session
+- [x] Cấu hình JWT expiration qua env `JWT_EXPIRATION_MS`
 
-### Giai ﾄ塵蘯｡n 3: Qu蘯｣n Lﾃｽ Sﾃ｡ch (Hoﾃn thﾃnh)
-- [x] CRUD sﾃ｡ch
-- [x] Tﾃｬm ki蘯ｿm theo tﾃｪn
-- [x] L盻皇 theo th盻・lo蘯｡i
-- [x] Phﾃ｢n trang
-- [x] Qu蘯｣n lﾃｽ hﾃｬnh 蘯｣nh sﾃ｡ch
-- [x] Kﾃｭch ho蘯｡t/vﾃｴ hi盻㎡ hﾃｳa sﾃ｡ch
+### Giai Đoạn 3: Quản Lý Sách và Catalog
+- [x] CRUD sách
+- [x] Tìm kiếm, lọc theo thể loại, phân trang
+- [x] API sách bán chạy, mới nhất, liên quan
+- [x] SEO slug cho sách
+- [x] Quản lý hình ảnh sách
+- [x] Kích hoạt / vô hiệu hóa sách
 
-### Giai ﾄ塵蘯｡n 4: Gi盻・Hﾃng & ﾄ脆｡n Hﾃng (Hoﾃn thﾃnh)
-- [x] Thﾃｪm/xﾃｳa/c蘯ｭp nh蘯ｭt gi盻・hﾃng
-- [x] ﾄ雪ｺｷt hﾃng (cﾃｳ ﾄ惰ハg nh蘯ｭp)
-- [x] ﾄ雪ｺｷt hﾃng nhanh (khﾃｴng ﾄ惰ハg nh蘯ｭp)
-- [x] Thanh toﾃ｡n VNPay (sandbox)
-- [x] Email xﾃ｡c nh蘯ｭn ﾄ柁｡n hﾃng
-- [x] C蘯ｭp nh蘯ｭt tr蘯｡ng thﾃ｡i giao hﾃng
+### Giai Đoạn 4: Thương Mại và Đơn Hàng
+- [x] Giỏ hàng
+- [x] Đặt hàng có đăng nhập
+- [x] Đặt hàng nhanh không đăng nhập
+- [x] Thanh toán VNPay sandbox
+- [x] Email xác nhận đơn hàng
+- [x] Cập nhật trạng thái giao hàng
 
-### Giai ﾄ塵蘯｡n 5: ﾄ静｡nh Giﾃ｡ & Admin (Hoﾃn thﾃnh)
-- [x] ﾄ静｡nh giﾃ｡ sﾃ｡ch
-- [x] Admin ki盻ノ duy盻㏄ bﾃｬnh lu蘯ｭn
-- [x] Admin qu蘯｣n lﾃｽ ngﾆｰ盻拱 dﾃｹng
-- [x] Admin phﾃ｢n quy盻］
-- [x] Admin qu蘯｣n lﾃｽ ﾄ柁｡n hﾃng
+### Giai Đoạn 5: Đánh Giá, Admin, Coupon
+- [x] Đánh giá sách
+- [x] Admin kiểm duyệt bình luận
+- [x] Admin quản lý người dùng và phân quyền
+- [x] Admin thống kê tổng quan
+- [x] CRUD coupon
 
-### Giai ﾄ塵蘯｡n 6: Docker & Deployment (Hoﾃn thﾃnh)
-- [x] Dockerfile multi-stage build
-- [x] docker-compose (MySQL + Backend + Frontend)
-- [x] SQL init scripts cho Docker
+### Giai Đoạn 6: Cloudinary Migration
+- [x] Ngừng lưu base64 mới vào DB
+- [x] Upload multipart ảnh sách lên Cloudinary
+- [x] Lưu `cloudinary_public_id` để quản lý asset
+- [x] Endpoint migrate ảnh legacy base64 theo batch
+- [x] FE admin thêm/sửa sách đổi sang luồng upload file
 
-## C蘯｣i Ti蘯ｿn Ti盻［ Nﾄハg
+## Mục Tiêu Tiếp Theo
 
-### B蘯｣o M蘯ｭt
-- [ ] Chuy盻ハ VNPay sang production
-- [ ] Refresh token mechanism
-- [ ] Rate limiting phﾃ｢n tﾃ｡n (Redis thay ConcurrentHashMap)
-- [ ] Input validation/sanitization ch蘯ｷt ch蘯ｽ hﾆ｡n
-- [ ] HTTPS enforcement
+### Bảo Mật
+- [ ] Refresh token / re-auth flow rõ ràng hơn
+- [ ] Global exception handler cho API
+- [ ] Logging bảo mật và audit admin actions
+- [ ] Rate limiting phân tán bằng Redis
+- [ ] HTTPS và reverse proxy deployment guide
 
-### Hi盻㎡ Nﾄハg
-- [ ] Caching (Redis/Caffeine)
-- [ ] Database indexing optimization
-- [ ] Connection pooling tuning (HikariCP)
-- [ ] Lazy loading optimization
+### Hiệu Năng
+- [ ] Cache cho catalog và SEO
+- [ ] Tối ưu index database
+- [ ] Tối ưu truy vấn admin và dashboard
+- [ ] Giảm phụ thuộc `open-in-view`
 
-### Tﾃｭnh Nﾄハg
-- [x] Upload hinh anh sach qua Cloudinary, ngung luu base64 moi
-- [ ] Tﾃｬm ki蘯ｿm nﾃ｢ng cao (Elasticsearch)
-- [ ] Thﾃｴng bﾃ｡o real-time (WebSocket)
-- [ ] Qu蘯｣n lﾃｽ kho hﾃng
-- [ ] Bﾃ｡o cﾃ｡o th盻創g kﾃｪ
-- [ ] API documentation (Swagger/OpenAPI)
+### Tính Năng
+- [ ] Swagger / OpenAPI
+- [ ] Quản lý kho hàng chi tiết hơn
+- [ ] WebSocket / thông báo real-time
+- [ ] Search nâng cao
+- [ ] Workflow xóa asset Cloudinary khi xóa sách/ảnh
 
-### Code Quality
-- [ ] Unit tests & integration tests
-- [ ] Constructor injection thay field injection
-- [ ] Global exception handler (`@ControllerAdvice`)
-- [ ] DTO pattern nh蘯･t quﾃ｡n (tﾃ｡ch entity kh盻淑 API response)
-- [ ] API versioning
-- [ ] Logging framework (SLF4J structured logging)
-
+### Chất Lượng Mã Nguồn
+- [ ] Unit tests và integration tests
+- [ ] Constructor injection nhất quán
+- [ ] Tách DTO response/request rõ ràng hơn
+- [ ] Structured logging
+- [ ] Chuẩn hóa validation thông điệp lỗi

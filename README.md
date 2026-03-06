@@ -1,130 +1,133 @@
-﻿# Web Bﾃ｡n Sﾃ｡ch - Backend API
+# Web Bán Sách - Backend API
 
-H盻・th盻創g backend REST API cho website thﾆｰﾆ｡ng m蘯｡i ﾄ訴盻㌻ t盻ｭ bﾃ｡n sﾃ｡ch tr盻ｱc tuy蘯ｿn.
+Backend REST API cho website thương mại điện tử bán sách trực tuyến.
 
-## Cﾃｴng Ngh盻・
+## Công Nghệ
 
-- **Java 17** + **Spring Boot 3.3.4**
-- **MySQL 8.0** + JPA/Hibernate
-- **Spring Security** + JWT (jjwt 0.11.5)
-- **VNPay** (thanh toﾃ｡n tr盻ｱc tuy蘯ｿn)
-- **Spring Mail** (Gmail SMTP)
-- **Lombok**, **Docker**
+- Java 17 + Spring Boot 3.3.4
+- MySQL 8.0 + Spring Data JPA/Hibernate
+- Spring Security + JWT
+- Cloudinary cho lưu trữ hình ảnh sách
+- VNPay cho thanh toán trực tuyến
+- Spring Mail (Gmail SMTP)
+- Docker Compose cho local stack
 
-## Yﾃｪu C蘯ｧu
+## Yêu Cầu
 
 - Java 17+
-- MySQL 8.0+
 - Maven 3.9+
+- MySQL 8.0+ hoặc Docker Desktop
 
-## Cﾃi ﾄ雪ｺｷt
-
-### Cﾃ｡ch 1: Docker (Khuy蘯ｿn ngh盻・
+## Chạy Bằng Docker
 
 ```bash
 docker compose up --build -d
 ```
 
-T盻ｱ ﾄ黛ｻ冢g kh盻殃 t蘯｡o:
-- MySQL (port 3306) + seed data
-- Backend (port 8080)
-- Frontend (port 3000)
+Stack khởi tạo:
 
-### Cﾃ｡ch 2: Ch蘯｡y th盻ｧ cﾃｴng
+- `mysql` trên port `3306`
+- `backend` trên port `8080`
+- `frontend` từ repo `../book_FE` trên port `3000`
 
-1. **T蘯｡o database MySQL:**
+## Chạy Thủ Công
+
+1. Tạo database:
+
 ```sql
 CREATE DATABASE web_ban_sach CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-2. **Import d盻ｯ li盻㎡ m蘯ｫu:**
+2. Import dữ liệu mẫu:
+
 ```bash
 mysql -u root web_ban_sach < db/init/web_ban_sach.sql
 mysql -u root web_ban_sach < db/init/zz-setup-admin-and-defaults.sql
 ```
 
-3. **C蘯･u hﾃｬnh** (`src/main/resources/application.properties`):
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/web_ban_sach
-spring.datasource.username=root
-spring.datasource.password=
-```
+3. Cấu hình biến môi trường hoặc `application.properties`
 
-4. **Ch蘯｡y 盻ｩng d盻･ng:**
+4. Chạy ứng dụng:
+
 ```bash
 ./mvnw spring-boot:run
 ```
 
-Backend s蘯ｽ ch蘯｡y t蘯｡i `http://localhost:8080`
+Backend mặc định tại `http://localhost:8080`.
 
-## Bi蘯ｿn Mﾃｴi Trﾆｰ盻拵g
+## Biến Môi Trường
 
-| Bi蘯ｿn | M蘯ｷc ﾄ黛ｻ杵h | Mﾃｴ t蘯｣ |
-|------|---------|-------|
+| Biến | Mặc định | Mô tả |
+|------|----------|-------|
 | `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL |
 | `DB_USERNAME` | `root` | DB username |
-| `DB_PASSWORD` | (tr盻創g) | DB password |
+| `DB_PASSWORD` | rỗng | DB password |
 | `JWT_SECRET` | Base64 key | JWT signing key |
-| `MAIL_USERNAME` | Gmail address | SMTP username |
-| `MAIL_PASSWORD` | App password | SMTP password |
-| `VNPAY_TMN_CODE` | Sandbox code | VNPay merchant code |
-| `VNPAY_HASH_SECRET` | Sandbox key | VNPay secret key |
+| `JWT_EXPIRATION_MS` | `28800000` | Thời gian hết hạn JWT, mặc định 8 giờ |
+| `MAIL_USERNAME` | rỗng | SMTP username |
+| `MAIL_PASSWORD` | rỗng | SMTP password |
+| `VNPAY_TMN_CODE` | rỗng | VNPay merchant code |
+| `VNPAY_HASH_SECRET` | rỗng | VNPay secret |
+| `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary |
+| `FRONTEND_URL` | `http://localhost:3000` | Base URL frontend cho SEO |
 
-## API Endpoints
+## Luồng Ảnh Sách
 
-### Cﾃｴng khai
-| Method | Path | Mﾃｴ t蘯｣ |
-|--------|------|-------|
-| POST | `/tai-khoan/dang-ky` | ﾄ斉ハg kﾃｽ tﾃi kho蘯｣n |
-| POST | `/tai-khoan/dang-nhap` | ﾄ斉ハg nh蘯ｭp (tr蘯｣ JWT) |
-| GET | `/tai-khoan/kich-hoat` | Kﾃｭch ho蘯｡t email |
-| GET | `/api/sach?page=0` | Danh sﾃ｡ch sﾃ｡ch |
-| GET | `/api/sach/search?tensach=x&page=0&size=8` | Tﾃｬm ki蘯ｿm |
-| GET | `/api/sach/{id}` | Chi ti蘯ｿt sﾃ｡ch |
+Hệ thống đã chuyển sang lưu URL ảnh trên Cloudinary thay vì lưu base64 mới trong database.
 
-### Yﾃｪu c蘯ｧu ﾄ惰ハg nh蘯ｭp
-| Method | Path | Mﾃｴ t蘯｣ |
-|--------|------|-------|
-| POST | `/api/don-hang/them` | ﾄ雪ｺｷt hﾃng |
-| GET | `/api/don-hang/findAll?page=0` | ﾄ脆｡n hﾃng c盻ｧa tﾃｴi |
-| POST | `/api/danh-gia/them-danh-gia-v1` | Thﾃｪm ﾄ妥｡nh giﾃ｡ |
+- Thêm/sửa sách có thể đồng bộ danh sách URL ảnh còn lại qua `listImageStr`
+- Upload file mới qua endpoint multipart `POST /api/admin/sach/{id}/hinh-anh`
+- Có endpoint admin migrate dữ liệu legacy base64: `POST /api/admin/sach/migrate-hinh-anh-base64?limit=20`
+- Bảng `hinh_anh` lưu thêm `cloudinary_public_id` để hỗ trợ xóa/thay thế asset
+
+## API Chính
+
+### Public
+
+- `POST /tai-khoan/dang-ky`
+- `POST /tai-khoan/dang-nhap`
+- `GET /tai-khoan/kich-hoat`
+- `GET /api/sach`
+- `GET /api/sach/search`
+- `GET /api/sach/{id}`
+- `GET /api/sach/ban-chay`
+- `GET /api/sach/moi-nhat`
+- `GET /api/sach/{id}/lien-quan`
+- `GET /api/seo/**`
+
+### Authenticated
+
+- `POST /api/don-hang/them`
+- `GET /api/don-hang/findAll**`
+- `GET /api/don-hang/submitOrder**`
+- `POST /api/danh-gia/them-danh-gia-v1`
 
 ### Admin
-| Method | Path | Mﾃｴ t蘯｣ |
-|--------|------|-------|
-| POST | `/api/admin/sach/insert` | Thﾃｪm sﾃ｡ch |
-| PUT | `/api/admin/sach/update/{id}` | S盻ｭa sﾃ｡ch |
-| POST | `/api/admin/user/phan-quyen` | Phﾃ｢n quy盻］ |
 
-## C蘯･u Trﾃｺc D盻ｱ ﾃ］
+- `POST /api/admin/sach/insert`
+- `PUT /api/admin/sach/update/{id}`
+- `POST /api/admin/sach/{id}/hinh-anh`
+- `POST /api/admin/sach/migrate-hinh-anh-base64`
+- `POST /api/admin/sach/active/{id}`
+- `POST /api/admin/sach/unactive/{id}`
+- `GET /api/admin/thong-ke`
+- `POST /api/admin/user/phan-quyen`
+- `GET /api/admin/coupon/**`
+- `POST /api/admin/coupon`
+- `PUT /api/admin/coupon/**`
+- `DELETE /api/admin/coupon/**`
 
-```
-src/main/java/com/example/book_be/
-笏懌楳笏 bo/           # Business Objects (DTO)
-笏懌楳笏 config/       # C蘯･u hﾃｬnh (REST, VNPay)
-笏懌楳笏 controller/   # REST Controllers
-笏・  笏披楳笏 admin/    # Admin controllers
-笏懌楳笏 dao/          # JPA Repositories
-笏懌楳笏 entity/       # JPA Entities (14 b蘯｣ng)
-笏懌楳笏 security/     # Spring Security + JWT config
-笏披楳笏 services/     # Business logic
-    笏懌楳笏 JWT/      # JWT service & filter
-    笏懌楳笏 admin/    # Qu蘯｣n lﾃｽ sﾃ｡ch, user
-    笏懌楳笏 cart/     # Gi盻・hﾃng, ﾄ柁｡n hﾃng
-    笏懌楳笏 email/    # G盻ｭi email
-    笏披楳笏 review/   # ﾄ静｡nh giﾃ｡
-```
+## Tài Liệu
 
-## Tﾃi Li盻㎡
+Xem thêm trong thư mục `docs/`:
 
-Xem thﾃｪm trong thﾆｰ m盻･c `docs/`:
-- [T盻貧g quan d盻ｱ ﾃ｡n](docs/project-overview-pdr.md)
-- [Tﾃｳm t蘯ｯt mﾃ｣ ngu盻渡](docs/codebase-summary.md)
-- [Tiﾃｪu chu蘯ｩn code](docs/code-standards.md)
-- [Ki蘯ｿn trﾃｺc h盻・th盻創g](docs/system-architecture.md)
-- [L盻・trﾃｬnh phﾃ｡t tri盻ハ](docs/project-roadmap.md)
+- `docs/project-overview-pdr.md`
+- `docs/codebase-summary.md`
+- `docs/code-standards.md`
+- `docs/system-architecture.md`
+- `docs/project-roadmap.md`
 
 ## Frontend
 
-Frontend React nam o repo rieng: `../book_FE` (port 3000). Docker Compose se build FE tu duong dan nay.
-
+Frontend React nằm ở repo riêng: `../book_FE`.
+Docker Compose trong repo backend sẽ build frontend từ đường dẫn này.
