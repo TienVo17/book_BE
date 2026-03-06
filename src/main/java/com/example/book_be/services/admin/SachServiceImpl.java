@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +31,9 @@ public class SachServiceImpl implements SachService {
 
     @Autowired
     private HinhAnhRepository hinhAnhRepository;
+
+    @Autowired
+    private BookImageStorageService bookImageStorageService;
 
     public SachServiceImpl(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -65,62 +69,35 @@ public class SachServiceImpl implements SachService {
             return builder.and(predicates.toArray(new Predicate[0]));
         }, pageable);
 
-        sachPage.getContent().forEach(sach -> {
-            List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
-                    builder.equal(root.get("sach").get("maSach"), sach.getMaSach())
-            );
-            sach.setListHinhAnh(hinhAnhList);
-        });
+        sachPage.getContent().forEach(this::loadImages);
         return sachPage;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Sach save(Sach sach) {
-        // Save first to get generated ID, then assign slug if missing
-        Sach bo = sachRepository.save(sach);
-        generateSlugIfMissing(bo);
-        sachRepository.save(bo);
-
-        if (bo.getListImageStr() != null && !bo.getListImageStr().isEmpty()) {
-            for (String urlString : bo.getListImageStr()) {
-                HinhAnh hinhAnh = new HinhAnh();
-                hinhAnh.setTenHinhAnh("img" + bo.getTenSach());
-                hinhAnh.setUrlHinh(urlString);
-                hinhAnh.setIcon(false);
-                hinhAnh.setSach(bo);
-                hinhAnhRepository.save(hinhAnh);
-            }
-        }
-        return bo;
+        Sach persisted = sachRepository.save(sach);
+        generateSlugIfMissing(persisted);
+        persisted = sachRepository.save(persisted);
+        persistBookImages(persisted, sach.getListImageStr());
+        loadImages(persisted);
+        return persisted;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Sach update(Sach bo) throws Exception {
-        Sach sach = sachRepository.findById(Long.valueOf(bo.getMaSach())).orElse(null);
-        if (sach == null) {
+        Sach existing = sachRepository.findById(Long.valueOf(bo.getMaSach())).orElse(null);
+        if (existing == null) {
             throw new Exception("Sach not found");
         }
-        sach = objectMapper.convertValue(bo, Sach.class);
-        generateSlugIfMissing(sach);
 
-        Sach finalSach = sach;
-        List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
-                builder.equal(root.get("sach").get("maSach"), finalSach.getMaSach())
-        );
-        if (!hinhAnhList.isEmpty()) {
-            hinhAnhRepository.deleteAll(hinhAnhList);
-        }
-        if (bo.getListImageStr() != null && !bo.getListImageStr().isEmpty()) {
-            for (String urlString : bo.getListImageStr()) {
-                HinhAnh hinhAnh = new HinhAnh();
-                hinhAnh.setTenHinhAnh("img" + bo.getTenSach());
-                hinhAnh.setUrlHinh(urlString);
-                hinhAnh.setIcon(false);
-                hinhAnh.setSach(sach);
-                hinhAnhRepository.save(hinhAnh);
-            }
-        }
-        return sachRepository.save(sach);
+        mergeUpdatableFields(existing, bo);
+        generateSlugIfMissing(existing);
+        Sach savedSach = sachRepository.save(existing);
+        persistBookImages(savedSach, bo.getListImageStr());
+        loadImages(savedSach);
+        return savedSach;
     }
 
     @Override
@@ -132,10 +109,7 @@ public class SachServiceImpl implements SachService {
     public Sach findById(Long id) {
         Sach sach = sachRepository.findById(id).orElse(null);
         if (sach != null) {
-            List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
-                    builder.equal(root.get("sach").get("maSach"), sach.getMaSach())
-            );
-            sach.setListHinhAnh(hinhAnhList);
+            loadImages(sach);
         }
         return sach;
     }
@@ -158,7 +132,7 @@ public class SachServiceImpl implements SachService {
     public List<Sach> findBanChay(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         List<Sach> result = sachRepository.findBanChay(pageable);
-        loadHinhAnh(result);
+        result.forEach(this::loadImages);
         return result;
     }
 
@@ -166,7 +140,7 @@ public class SachServiceImpl implements SachService {
     public List<Sach> findMoiNhat(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         List<Sach> result = sachRepository.findByIsActiveOrderByMaSachDesc(1, pageable);
-        loadHinhAnh(result);
+        result.forEach(this::loadImages);
         return result;
     }
 
@@ -182,7 +156,7 @@ public class SachServiceImpl implements SachService {
                 .collect(Collectors.toList());
         Pageable pageable = PageRequest.of(0, limit);
         List<Sach> result = sachRepository.findLienQuan(maTheLoais, maSach, pageable);
-        loadHinhAnh(result);
+        result.forEach(this::loadImages);
         return result;
     }
 
@@ -190,15 +164,43 @@ public class SachServiceImpl implements SachService {
     public Sach findBySlug(String slug) {
         Sach sach = sachRepository.findBySlug(slug);
         if (sach != null) {
-            List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
-                    builder.equal(root.get("sach").get("maSach"), sach.getMaSach())
-            );
-            sach.setListHinhAnh(hinhAnhList);
+            loadImages(sach);
         }
         return sach;
     }
 
-    // Auto-generate slug if not set
+    private void mergeUpdatableFields(Sach target, Sach source) {
+        target.setTenSach(source.getTenSach());
+        target.setTenTacGia(source.getTenTacGia());
+        target.setMoTa(source.getMoTa());
+        target.setGiaNiemYet(source.getGiaNiemYet());
+        target.setGiaBan(source.getGiaBan());
+        target.setSoLuong(source.getSoLuong());
+        target.setTrungBinhXepHang(source.getTrungBinhXepHang());
+        target.setISBN(source.getISBN());
+
+        if (source.getSlug() != null && !source.getSlug().isBlank()) {
+            target.setSlug(source.getSlug());
+        }
+        if (source.getIsActive() != null) {
+            target.setIsActive(source.getIsActive());
+        }
+        if (source.getNhaCungCap() != null) {
+            target.setNhaCungCap(source.getNhaCungCap());
+        }
+        if (source.getListTheLoai() != null) {
+            target.setListTheLoai(source.getListTheLoai());
+        }
+    }
+
+    private void persistBookImages(Sach sach, List<String> imageSources) {
+        try {
+            bookImageStorageService.syncBookImages(sach, imageSources);
+        } catch (IOException e) {
+            throw new IllegalStateException("Khong the dong bo anh sach", e);
+        }
+    }
+
     private void generateSlugIfMissing(Sach sach) {
         if (sach.getSlug() == null || sach.getSlug().isEmpty()) {
             String slug = SlugUtil.toSlug(sach.getTenSach());
@@ -209,13 +211,10 @@ public class SachServiceImpl implements SachService {
         }
     }
 
-    // Load hinhAnh list for a batch of books
-    private void loadHinhAnh(List<Sach> sachList) {
-        sachList.forEach(sach -> {
-            List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
-                    builder.equal(root.get("sach").get("maSach"), sach.getMaSach())
-            );
-            sach.setListHinhAnh(hinhAnhList);
-        });
+    private void loadImages(Sach sach) {
+        List<HinhAnh> hinhAnhList = hinhAnhRepository.findAll((root, query, builder) ->
+                builder.equal(root.get("sach").get("maSach"), sach.getMaSach())
+        );
+        sach.setListHinhAnh(hinhAnhList);
     }
 }

@@ -13,7 +13,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,21 +34,22 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        List<NguoiDung> nguoiDungs = nguoiDungRepository.findAll((root, query, criteriaBuilder) -> criteriaBuilder.equal(
-                root.get("tenDangNhap"),username
-        ));
-        NguoiDung nguoiDung = nguoiDungs.stream().findFirst().orElse(null);
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(username);
 
         if (nguoiDung == null) {
-            throw new UsernameNotFoundException("Tài khoản không tồn tại!");
+            throw new UsernameNotFoundException("Tai khoan khong ton tai: " + username);
         }
-        User user = new User(nguoiDung.getTenDangNhap(), nguoiDung.getMatKhau(), rolesToAuthorities(nguoiDung.getDanhSachQuyen()));
-        return user;
 
-
+        return new User(
+                nguoiDung.getTenDangNhap(),
+                nguoiDung.getMatKhau(),
+                rolesToAuthorities(nguoiDung.getDanhSachQuyen())
+        );
     }
 
     private Collection<? extends GrantedAuthority> rolesToAuthorities(Collection<Quyen> quyens) {
-        return quyens.stream().map(quyen -> new SimpleGrantedAuthority(quyen.getTenQuyen())).collect(Collectors.toList());
+        return quyens.stream()
+                .map(quyen -> new SimpleGrantedAuthority(quyen.getTenQuyen()))
+                .collect(Collectors.toList());
     }
 }

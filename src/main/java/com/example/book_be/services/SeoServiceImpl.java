@@ -55,7 +55,7 @@ public class SeoServiceImpl implements SeoService {
         );
         if (!images.isEmpty()) {
             String url = images.get(0).getUrlHinh();
-            ogImage = (url != null && url.startsWith("http")) ? url : frontendUrl + url;
+            ogImage = (url != null && (url.startsWith("http") || url.startsWith("data:image/"))) ? url : frontendUrl + url;
         }
 
         // JSON-LD Schema.org Book
@@ -131,3 +131,4 @@ public class SeoServiceImpl implements SeoService {
         return sb.toString();
     }
 }
+

@@ -1,7 +1,4 @@
-version: '3.8'
-
-services:
-  # ── 1. Database ────────────────────────────────────────────
+﻿services:
   mysql:
     image: mysql:8.0
     container_name: web_ban_sach_db
@@ -20,9 +17,9 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
 
-  # ── 2. Backend Spring Boot ─────────────────────────────────
   backend:
     build:
       context: .
@@ -32,18 +29,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/web_ban_sach?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ""
+      DB_URL: jdbc:mysql://mysql:3306/web_ban_sach?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: root
+      DB_PASSWORD: ""
+      JWT_SECRET: ${JWT_SECRET:-U29tZVZlcnlMb25nU2VjdXJlS2V5VGhhdFNhdGlzZmllczMyQnl0ZXM=}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+      FRONTEND_URL: http://localhost:3000
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       mysql:
         condition: service_healthy
 
-  # ── 3. Frontend React ──────────────────────────────────────
   frontend:
     build:
-      context: ../book_fe-master
+      context: ../book_FE
       dockerfile: Dockerfile
     container_name: web_ban_sach_fe
     restart: always

@@ -40,68 +40,57 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Cấu hình phân quyền cho endpoint
-        http.authorizeHttpRequests(
-                config -> config
+        http.authorizeHttpRequests(config -> config
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Public endpoints
-                        .requestMatchers(HttpMethod.GET, Endpoints.PUBLIC_GET_ENDPOINS).permitAll()
-                        .requestMatchers(HttpMethod.POST, Endpoints.PUBLIC_POST_ENDPOINS).permitAll()
-                        .requestMatchers(HttpMethod.PUT, Endpoints.PUBLIC_PUT_ENDPOINS).permitAll()
-                        .requestMatchers(HttpMethod.DELETE, Endpoints.PUBLIC_DELETE_ENDPOINS).permitAll()
+                .requestMatchers(HttpMethod.GET, Endpoints.PUBLIC_GET_ENDPOINS).permitAll()
+                .requestMatchers(HttpMethod.POST, Endpoints.PUBLIC_POST_ENDPOINS).permitAll()
+                .requestMatchers(HttpMethod.PUT, Endpoints.PUBLIC_PUT_ENDPOINS).permitAll()
+                .requestMatchers(HttpMethod.DELETE, Endpoints.PUBLIC_DELETE_ENDPOINS).permitAll()
 
-                        // Admin endpoints (specific before broad)
-                        .requestMatchers(HttpMethod.GET, Endpoints.ADMIN_GET_ENDPOINS).hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, Endpoints.ADMIN_POST_ENDPOINS).hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, Endpoints.ADMIN_PUT_ENDPOINS).hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, Endpoints.ADMIN_DELETE_ENDPOINS).hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/sach/insert").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/admin/sach/update/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/admin/sach/findImage/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/admin/quyen/findAll").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/don-hang/cap-nhat-trang-thai-giao-hang/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/user/phan-quyen").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/sach/active/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/sach/unactive/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/admin/danh-gia/findAll**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.GET, Endpoints.ADMIN_GET_ENDPOINS).hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, Endpoints.ADMIN_POST_ENDPOINS).hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.PUT, Endpoints.ADMIN_PUT_ENDPOINS).hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, Endpoints.ADMIN_DELETE_ENDPOINS).hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/sach/insert").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/admin/sach/update/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/admin/sach/findImage/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/admin/quyen/findAll").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/don-hang/cap-nhat-trang-thai-giao-hang/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/user/phan-quyen").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/sach/active/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/sach/unactive/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/admin/danh-gia/findAll**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").hasAuthority("ADMIN")
+                .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
-                        // Authenticated endpoints (user)
-                        .requestMatchers(HttpMethod.GET, Endpoints.AUTH_GET_ENDPOINTS).authenticated()
-                        .requestMatchers(HttpMethod.POST, Endpoints.AUTH_POST_ENDPOINTS).authenticated()
-                        .requestMatchers(HttpMethod.PUT, Endpoints.AUTH_PUT_ENDPOINTS).authenticated()
-                        .requestMatchers(HttpMethod.DELETE, Endpoints.AUTH_DELETE_ENDPOINTS).authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/don-hang/them").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/don-hang/submitOrder**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/sach**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/don-hang/them-don-hang-moi").permitAll()
+                .requestMatchers(HttpMethod.GET, Endpoints.AUTH_GET_ENDPOINTS).authenticated()
+                .requestMatchers(HttpMethod.POST, Endpoints.AUTH_POST_ENDPOINTS).authenticated()
+                .requestMatchers(HttpMethod.PUT, Endpoints.AUTH_PUT_ENDPOINTS).authenticated()
+                .requestMatchers(HttpMethod.DELETE, Endpoints.AUTH_DELETE_ENDPOINTS).authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/don-hang/them").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/don-hang/submitOrder**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/sach**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/don-hang/them-don-hang-moi").permitAll()
         );
 
-        // Cấu hình CORS
-        http.cors(cors -> {
-            cors.configurationSource(request -> {
-                CorsConfiguration corsConfig = new CorsConfiguration();
-                corsConfig.addAllowedOrigin("http://localhost:3000");  // Chỉ định rõ origin
-                corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                corsConfig.addAllowedHeader("*");
-                corsConfig.setAllowCredentials(true);  // Cho phép credentials
-                corsConfig.setMaxAge(3600L);  // Cache CORS preflight trong 1 giờ
-                return corsConfig;
-            });
-        });
+        http.cors(cors -> cors.configurationSource(request -> {
+            CorsConfiguration corsConfig = new CorsConfiguration();
+            corsConfig.addAllowedOrigin("http://localhost:3000");
+            corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+            corsConfig.addAllowedHeader("*");
+            corsConfig.setAllowCredentials(true);
+            corsConfig.setMaxAge(3600L);
+            return corsConfig;
+        }));
 
-        // Thêm JWT filter
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
-        // Cấu hình session
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        // Disable csrf (sử dụng JWT, không cần basic auth)
         http.csrf(AbstractHttpConfigurer::disable);
 
         return http.build();
@@ -111,5 +100,4 @@ public class SecurityConfiguration {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-
 }
