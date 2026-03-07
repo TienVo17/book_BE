@@ -47,7 +47,7 @@ src/main/java/com/example/book_be/
 │   ├── SachYeuThichRepository.java
 │   ├── SuDanhGiaRepository.java
 │   └── TheLoaiRepository.java
-├── entity/                         # JPA Entities (14 bảng)
+├── entity/                         # JPA Entities (17 bảng)
 │   ├── Sach.java                   # Sách (maSach, tenSach, tenTacGia, giaBan...)
 │   ├── NguoiDung.java              # Người dùng (tenDangNhap, matKhau, email...)
 │   ├── DonHang.java                # Đơn hàng (tongTien, trangThaiThanhToan...)
@@ -61,7 +61,11 @@ src/main/java/com/example/book_be/
 │   ├── NhaCungCap.java             # Nhà cung cấp
 │   ├── HinhThucThanhToan.java      # Hình thức thanh toán
 │   ├── HinhThucGiaoHang.java       # Hình thức giao hàng
-│   └── ThongBao.java               # Thông báo
+│   ├── ThongBao.java               # Thông báo (non-JPA DTO)
+│   ├── Coupon.java                 # Mã giảm giá
+│   ├── DiaChiGiaoHang.java         # Địa chỉ giao hàng
+│   ├── SachThongTinChiTiet.java    # Chi tiết sách (1:1)
+│   └── LoaiGiamGia.java            # Enum loại giảm giá
 ├── security/
 │   ├── SecurityConfiguration.java  # Filter chain, JWT, CORS, BCrypt
 │   ├── Endpoints.java              # Danh sách endpoint public/admin
@@ -137,17 +141,28 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 
 | File | Mô tả |
 |------|-------|
-| `pom.xml` | Maven dependencies (Spring Boot, JPA, Security, JWT, VNPay, Lombok) |
-| `application.properties` | DB URL, JWT secret, SMTP config (tất cả hỗ trợ env vars) |
+| `pom.xml` | Maven dependencies (Spring Boot, JPA, Flyway, Security, JWT, Cloudinary, Lombok) |
+| `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | `Dockerfile` | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend |
-| `db/init/*.sql` | Scripts khởi tạo DB & dữ liệu mẫu |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V4): schema, seed, demo data |
 | `.gitignore` | Loại trừ target, IDE files |
+
+## Database Migration (Flyway)
+
+| File | Mô tả |
+|------|-------|
+| `V1__init_schema.sql` | Baseline schema: 17 bảng, PKs, FKs, indexes |
+| `V2__seed_reference_data.sql` | Quyền, hình thức GH/TT |
+| `V3__seed_default_admin.sql` | Tài khoản admin mặc định |
+| `V4__seed_demo_data.sql` | Demo: 10 sách, 5 users, đơn hàng, đánh giá |
+
+Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...)
 
 ## File Lớn Nhất (theo LOC)
 
-1. `db/init/web_ban_sach.sql` - 732 dòng (schema + seed data)
-2. `controller/DonHangController.java` - 219 dòng
-3. `services/admin/SachServiceImpl.java` - 138 dòng
+1. `db/migration/V1__init_schema.sql` - ~230 dòng (full schema)
+2. `services/admin/SachServiceImpl.java` - 367 dòng
+3. `controller/DonHangController.java` - 219 dòng
 4. `config/VnPayConfig.java` - 122 dòng
 5. `services/VNPayService.java` - 118 dòng

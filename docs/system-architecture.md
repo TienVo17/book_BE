@@ -148,17 +148,32 @@ SecurityConfiguration
 └── AuthenticationManager
 ```
 
+## Database Migration (Flyway)
+
+```
+App Startup:
+  1. DataSource connect → MySQL
+  2. Flyway check flyway_schema_history
+  3. Flyway apply pending migrations (V1→V4)
+  4. Hibernate validate schema vs entities
+  5. Application context boot
+```
+
+- Schema quản lý bởi Flyway, **không** dùng `ddl-auto=update`
+- Hibernate chỉ `validate` — phát hiện drift mà không tự sửa DB
+- Demo data tự động seed khi DB trống
+
 ## Cấu Hình Docker
 
 ```yaml
 Services:
   mysql:      MySQL 8.0, port 3306, empty root password
-              Volume: db/init/ → docker-entrypoint-initdb.d
               Healthcheck: mysqladmin ping
+              (Flyway tạo schema, không cần initdb scripts)
 
   backend:    Spring Boot (multi-stage Maven build)
               Port: 8080, depends_on: mysql (healthy)
-              Env: DB_URL, DB_USER, DB_PASS, DDL_AUTO
+              Env: DB_URL, DB_USER, DB_PASS, DDL_AUTO=validate
 
   frontend:   React build, port 3000
               depends_on: backend

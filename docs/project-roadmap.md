@@ -48,6 +48,15 @@
 - [x] Endpoint migrate ảnh legacy base64 theo batch
 - [x] FE admin thêm/sửa sách đổi sang luồng upload file
 
+### Giai Đoạn 7: Flyway Database Migration
+- [x] Thay `ddl-auto=update` bằng Flyway migration
+- [x] Tạo baseline schema (V1) từ 17 entity tables
+- [x] Seed reference data (V2) và admin mặc định (V3)
+- [x] Demo data (V4): 10 sách, 5 users, đơn hàng, đánh giá
+- [x] Xóa `db/init/` scripts cũ
+- [x] Cập nhật Docker Compose (bỏ initdb volume, đổi ddl-auto)
+- [x] Cập nhật README và docs
+
 ## Mục Tiêu Tiếp Theo
 
 ### Bảo Mật
