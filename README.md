@@ -32,28 +32,26 @@ Stack khởi tạo:
 
 ## Chạy Thủ Công
 
-1. Tạo database:
+1. Tạo database rỗng:
 
 ```sql
 CREATE DATABASE web_ban_sach CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-2. Import dữ liệu mẫu:
+2. Cấu hình biến môi trường hoặc `application.properties` (xem bảng bên dưới)
 
-```bash
-mysql -u root web_ban_sach < db/init/web_ban_sach.sql
-mysql -u root web_ban_sach < db/init/zz-setup-admin-and-defaults.sql
-```
-
-3. Cấu hình biến môi trường hoặc `application.properties`
-
-4. Chạy ứng dụng:
+3. Chạy ứng dụng:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
+Flyway sẽ tự động tạo schema, seed dữ liệu tham chiếu (quyền, hình thức giao hàng/thanh toán), và tài khoản admin mặc định.
+
 Backend mặc định tại `http://localhost:8080`.
+
+> **Lưu ý:** Thư mục `db/init/` chỉ để tham chiếu lịch sử, **không cần import thủ công** nữa.
+> Schema được quản lý bởi Flyway tại `src/main/resources/db/migration/`.
 
 ## Biến Môi Trường
 

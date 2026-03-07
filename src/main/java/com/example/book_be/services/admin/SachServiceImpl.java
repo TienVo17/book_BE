@@ -303,8 +303,9 @@ public class SachServiceImpl implements SachService {
         }
 
         String isbn = trimToNull(bo.getIsbn());
+        bo.setIsbn(isbn);
         if (isbn != null && !isbn.matches("[0-9Xx-]{10,17}")) {
-            throw new IllegalArgumentException("ISBN không hợp lệ");
+            throw new IllegalArgumentException("ISBN không hợp lệ (chỉ chấp nhận 10-17 ký tự gồm số, X, x, dấu gạch)");
         }
 
         String slug = trimToNull(bo.getSlug());
