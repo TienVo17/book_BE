@@ -1,10 +1,26 @@
 package com.example.book_be.entity;
 
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -15,20 +31,34 @@ public class Sach {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ma_sach")
     private int maSach;
+
     @Column(name = "ten_sach", length = 256)
     private String tenSach;
+
     @Column(name = "ten_tac_gia", length = 512)
     private String tenTacGia;
+
     @Column(name = "mo_ta", columnDefinition = "text")
     private String moTa;
+
+    @Column(name = "mo_ta_ngan", columnDefinition = "text")
+    private String moTaNgan;
+
+    @Column(name = "mo_ta_chi_tiet", columnDefinition = "LONGTEXT")
+    private String moTaChiTiet;
+
     @Column(name = "gia_niem_yet")
     private double giaNiemYet;
+
     @Column(name = "gia_ban")
     private double giaBan;
+
     @Column(name = "so_luong")
     private int soLuong;
+
     @Column(name = "trung_binh_xep_hang")
     private double trungBinhXepHang;
+
     @Column(name = "isbn", length = 256)
     private String ISBN;
 
@@ -37,10 +67,15 @@ public class Sach {
 
     @Column(name = "is_active", columnDefinition = "integer default 1")
     private Integer isActive = 1;
-    //    @Column(name = "ma_sach")
-//    private int soldQuantity;
-//    @Column(name = "ma_sach")// Đã bán bao nhiêu
-//    private int discountPercent;// Giảm giá bao nhiêu %
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @OneToOne(mappedBy = "sach", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private SachThongTinChiTiet thongTinChiTiet;
 
     @JsonIgnore
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH})
@@ -78,5 +113,26 @@ public class Sach {
     @Transient
     private List<String> listImageStr;
 
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        syncDescriptionFields();
+    }
 
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+        syncDescriptionFields();
+    }
+
+    private void syncDescriptionFields() {
+        if ((moTaChiTiet == null || moTaChiTiet.isBlank()) && moTa != null && !moTa.isBlank()) {
+            moTaChiTiet = moTa;
+        }
+        if ((moTa == null || moTa.isBlank()) && moTaChiTiet != null && !moTaChiTiet.isBlank()) {
+            moTa = moTaChiTiet;
+        }
+    }
 }

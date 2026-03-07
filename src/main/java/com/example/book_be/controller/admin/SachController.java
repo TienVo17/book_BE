@@ -1,5 +1,6 @@
 package com.example.book_be.controller.admin;
 
+import com.example.book_be.bo.SachAdminUpsertBo;
 import com.example.book_be.bo.SachBo;
 import com.example.book_be.dao.HinhAnhRepository;
 import com.example.book_be.dao.SachRepository;
@@ -58,9 +59,9 @@ public class SachController {
     }
 
     @PostMapping("insert")
-    public ResponseEntity<?> dangKyNguoiDung(@RequestBody Sach sach) {
+    public ResponseEntity<?> themSach(@RequestBody SachAdminUpsertBo bo) {
         try {
-            return new ResponseEntity<>(sachService.save(sach), HttpStatus.OK);
+            return new ResponseEntity<>(sachService.save(bo), HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
@@ -79,7 +80,7 @@ public class SachController {
     }
 
     @PutMapping("update/{id}")
-    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Sach bo) throws Exception {
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody SachAdminUpsertBo bo) throws Exception {
         try {
             bo.setMaSach(Math.toIntExact(id));
             Sach sach = sachService.update(bo);
@@ -114,13 +115,13 @@ public class SachController {
     public ResponseEntity<?> uploadHinhAnh(@PathVariable Long id, @RequestParam("files") MultipartFile[] files) {
         if (cloudinaryService == null || !cloudinaryService.isConfigured()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", "Cloudinary chua duoc cau hinh. Set CLOUDINARY_URL env var."));
+                    .body(Map.of("error", "Cloudinary chưa được cấu hình. Set CLOUDINARY_URL env var."));
         }
 
         Sach sach = sachRepository.findById(id).orElse(null);
         if (sach == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Khong tim thay sach voi id: " + id));
+                    .body(Map.of("error", "Không tìm thấy sách với id: " + id));
         }
 
         try {
@@ -131,7 +132,7 @@ public class SachController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Upload that bai: " + e.getMessage()));
+                    .body(Map.of("error", "Upload thất bại: " + e.getMessage()));
         }
     }
 
@@ -143,7 +144,7 @@ public class SachController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Migration that bai: " + e.getMessage()));
+                    .body(Map.of("error", "Migration thất bại: " + e.getMessage()));
         }
     }
 }

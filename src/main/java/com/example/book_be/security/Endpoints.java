@@ -13,6 +13,8 @@ public class Endpoints {
             "/gio-hang/**",
             "/api/admin/user**",
             "/api/admin/sach**",
+            "/api/sach",
+            "/api/sach/**",
             "/api/sach/search",
             "/api/don-hang/them-don-hang-moi",
             // Phase 03: Product & Catalog
