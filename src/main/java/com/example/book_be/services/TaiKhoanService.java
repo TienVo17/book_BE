@@ -116,9 +116,10 @@ public class TaiKhoanService {
 
     // ---- Quên mật khẩu: tạo token và gửi email ----
     public ResponseEntity<?> quenMatKhau(String email) {
+        String thongBaoThanhCong = "Nếu email tồn tại, hệ thống đã gửi hướng dẫn đặt lại mật khẩu.";
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Email không tồn tại trong hệ thống"));
+            return ResponseEntity.ok(thongBaoThanhCong);
         }
         String token = UUID.randomUUID().toString();
         // Hết hạn sau 10 phút
@@ -131,14 +132,14 @@ public class TaiKhoanService {
         } catch (Exception e) {
             // Log lỗi nhưng không fail
         }
-        return ResponseEntity.ok("Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.");
+        return ResponseEntity.ok(thongBaoThanhCong);
     }
 
     // ---- Đặt lại mật khẩu bằng token ----
     public ResponseEntity<?> datLaiMatKhau(String email, String token, String matKhauMoi) {
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Email không tồn tại trong hệ thống"));
+            return ResponseEntity.badRequest().body(new ThongBao("Token không hợp lệ"));
         }
         if (nguoiDung.getResetPasswordToken() == null || !nguoiDung.getResetPasswordToken().equals(token)) {
             return ResponseEntity.badRequest().body(new ThongBao("Token không hợp lệ"));
@@ -159,8 +160,7 @@ public class TaiKhoanService {
         String subject = "Đặt lại mật khẩu tại WebBanSach";
         String url = "http://localhost:3000/dat-lai-mat-khau/" + email + "/" + token;
         String text = "Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản <" + email + ">."
-                + "<html><body><br/>Token của bạn: <b>" + token + "</b>"
-                + "<br/>Hoặc click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
+                + "<html><body><br/>Vui lòng click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
                 + "<br/><a href=" + url + ">" + url + "</a></body></html>";
         emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
     }
