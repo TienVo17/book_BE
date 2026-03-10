@@ -19,6 +19,7 @@ public class Endpoints {
             "/api/don-hang/them-don-hang-moi",
             // Phase 03: Product & Catalog
             "/api/the-loai",
+            "/api/the-loai/**",
             "/api/sach/ban-chay",
             "/api/sach/moi-nhat",
             "/api/sach/*/lien-quan",
@@ -77,23 +78,29 @@ public class Endpoints {
             "/api/admin/thong-ke",
             "/api/admin/coupon",
             "/api/admin/coupon/**",
+            "/api/admin/the-loai",
+            "/api/admin/the-loai/**",
     };
     public static final String[] ADMIN_POST_ENDPOINS = {
             // Phase 04: Cloudinary upload
             "/api/admin/sach/*/hinh-anh",
             // Phase 05: Coupon admin
             "/api/admin/coupon",
+            "/api/admin/the-loai",
+            "/api/admin/the-loai/**",
     };
     public static final String[] ADMIN_PUT_ENDPOINS = {
             "/sach",
             "/sach/**",
             // Phase 05: Coupon admin
             "/api/admin/coupon/**",
+            "/api/admin/the-loai/**",
     };
     public static final String[] ADMIN_DELETE_ENDPOINS = {
             "/sach",
             "/sach/**",
             // Phase 05: Coupon admin
             "/api/admin/coupon/**",
+            "/api/admin/the-loai/**",
     };
 }

@@ -21,6 +21,7 @@ public class SachAdminUpsertBo {
     private Integer isActive;
     private NhaCungCap nhaCungCap;
     private List<TheLoai> listTheLoai;
+    private List<Integer> maTheLoaiList;
     private List<String> listImageStr;
     private SachThongTinChiTietBo chiTiet;
 }

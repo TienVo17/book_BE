@@ -101,6 +101,7 @@ Client                     Backend                          DB
 |--------|------|-------|
 | GET | `/sach/**`, `/hinh-anh/**` | Xem sách, hình ảnh |
 | GET | `/api/sach**`, `/api/sach/search` | Tìm kiếm sách |
+| GET | `/api/the-loai`, `/api/the-loai/{slug}` | Danh sách thể loại public và chi tiết theo slug |
 | POST | `/tai-khoan/dang-ky` | Đăng ký |
 | POST | `/tai-khoan/dang-nhap` | Đăng nhập |
 | GET | `/tai-khoan/kich-hoat` | Kích hoạt tài khoản |
@@ -128,6 +129,10 @@ Client                     Backend                          DB
 | POST | `/api/admin/sach/unactive/**` | Vô hiệu hóa sách |
 | GET | `/api/admin/quyen/findAll` | Danh sách quyền |
 | POST | `/api/admin/user/phan-quyen` | Phân quyền |
+| GET | `/api/admin/the-loai` | Danh sách thể loại cho admin |
+| POST | `/api/admin/the-loai` | Tạo thể loại mới, tự sinh slug |
+| PUT | `/api/admin/the-loai/{maTheLoai}` | Cập nhật tên thể loại và slug |
+| DELETE | `/api/admin/the-loai/{maTheLoai}` | Xóa thể loại khi chưa gắn sách |
 | POST | `/api/don-hang/cap-nhat-trang-thai-giao-hang/**` | Cập nhật giao hàng |
 | GET | `/api/admin/danh-gia/findAll**` | Xem đánh giá (admin) |
 | POST | `/api/admin/danh-gia/active/**` | Duyệt đánh giá |
@@ -154,13 +159,14 @@ SecurityConfiguration
 App Startup:
   1. DataSource connect → MySQL
   2. Flyway check flyway_schema_history
-  3. Flyway apply pending migrations (V1→V4)
+  3. Flyway apply pending migrations (V1→V5)
   4. Hibernate validate schema vs entities
   5. Application context boot
 ```
 
 - Schema quản lý bởi Flyway, **không** dùng `ddl-auto=update`
 - Hibernate chỉ `validate` — phát hiện drift mà không tự sửa DB
+- `V5__add_slug_to_the_loai.sql` thêm cột `slug`, backfill dữ liệu cũ, và tạo unique constraint cho bảng `the_loai`
 - Demo data tự động seed khi DB trống
 
 ## Cấu Hình Docker

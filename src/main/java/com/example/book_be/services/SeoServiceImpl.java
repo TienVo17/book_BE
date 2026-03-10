@@ -117,11 +117,19 @@ public class SeoServiceImpl implements SeoService {
             sb.append("  </url>\n");
         }
 
-        // All categories
-        List<TheLoai> categories = theLoaiRepository.findAll();
-        for (TheLoai cat : categories) {
+        // Public categories with active books only
+        List<Object[]> categories = theLoaiRepository.findAllWithBookCount();
+        for (Object[] cat : categories) {
+            Integer maTheLoai = ((Number) cat[0]).intValue();
+            if (theLoaiRepository.countActiveSachByMaTheLoai(maTheLoai) <= 0) {
+                continue;
+            }
+            String slug = (String) cat[2];
+            if (slug == null || slug.isBlank()) {
+                continue;
+            }
             sb.append("  <url>\n");
-            sb.append("    <loc>").append(frontendUrl).append("/the-loai/").append(cat.getMaTheLoai()).append("</loc>\n");
+            sb.append("    <loc>").append(frontendUrl).append("/the-loai/").append(slug).append("</loc>\n");
             sb.append("    <changefreq>weekly</changefreq>\n");
             sb.append("    <priority>0.6</priority>\n");
             sb.append("  </url>\n");

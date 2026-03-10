@@ -27,12 +27,14 @@ src/main/java/com/example/book_be/
 │   ├── DonHangController.java      # Đơn hàng, thanh toán VNPay, email
 │   ├── GioHangController.java      # Thao tác giỏ hàng
 │   ├── DanhGiaController.java      # Đánh giá sách
+│   ├── TheLoaiController.java      # API thể loại public theo slug
 │   └── admin/
 │       ├── SachController.java     # Admin quản lý sách
 │       ├── UserController.java     # Admin quản lý user
 │       ├── BinhLuanController.java # Admin kiểm duyệt bình luận
 │       ├── DonHangAdminController.java # Admin quản lý đơn hàng
-│       └── QuyenController.java    # Admin quản lý quyền
+│       ├── QuyenController.java    # Admin quản lý quyền
+│       └── AdminTheLoaiController.java # Admin CRUD thể loại
 ├── dao/                            # Spring Data JPA Repositories
 │   ├── SachRepository.java
 │   ├── NguoiDungRepository.java
@@ -71,6 +73,8 @@ src/main/java/com/example/book_be/
 │   ├── Endpoints.java              # Danh sách endpoint public/admin
 │   ├── LoginRequest.java           # DTO đăng nhập
 │   └── JwtResponse.java            # DTO response JWT
+├── dto/
+│   └── theloai/                    # DTO request/response cho API thể loại
 └── services/
     ├── JWT/
     │   ├── JwtService.java         # Tạo/xác thực JWT token
@@ -79,6 +83,8 @@ src/main/java/com/example/book_be/
     ├── UserService.java            # UserDetailsService (Spring Security)
     ├── UserServiceImpl.java
     ├── VNPayService.java           # Tạo đơn VNPay, xác thực kết quả
+    ├── TheLoaiService.java         # Interface catalog thể loại
+    ├── TheLoaiServiceImpl.java     # Impl: slug, validate trùng, admin CRUD
     ├── admin/
     │   ├── SachService.java        # Interface quản lý sách
     │   ├── SachServiceImpl.java    # Impl: CRUD, search, phân trang
@@ -145,7 +151,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | `Dockerfile` | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend |
-| `src/main/resources/db/migration/` | Flyway migrations (V1-V4): schema, seed, demo data |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V5): schema, seed, demo data, slug backfill cho thể loại |
 | `.gitignore` | Loại trừ target, IDE files |
 
 ## Database Migration (Flyway)
@@ -156,6 +162,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `V2__seed_reference_data.sql` | Quyền, hình thức GH/TT |
 | `V3__seed_default_admin.sql` | Tài khoản admin mặc định |
 | `V4__seed_demo_data.sql` | Demo: 10 sách, 5 users, đơn hàng, đánh giá |
+| `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
 
 Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...)
 

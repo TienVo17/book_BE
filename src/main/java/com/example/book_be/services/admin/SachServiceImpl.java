@@ -5,6 +5,7 @@ import com.example.book_be.bo.SachBo;
 import com.example.book_be.bo.SachThongTinChiTietBo;
 import com.example.book_be.dao.HinhAnhRepository;
 import com.example.book_be.dao.SachRepository;
+import com.example.book_be.dao.TheLoaiRepository;
 import com.example.book_be.entity.HinhAnh;
 import com.example.book_be.entity.Sach;
 import com.example.book_be.entity.SachThongTinChiTiet;
@@ -39,6 +40,9 @@ public class SachServiceImpl implements SachService {
     @Autowired
     private BookImageStorageService bookImageStorageService;
 
+    @Autowired
+    private TheLoaiRepository theLoaiRepository;
+
     @Override
     public Page<Sach> findBookByName(String tenSach, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
@@ -64,6 +68,7 @@ public class SachServiceImpl implements SachService {
                 predicates.add(builder.equal(
                         root.join("listTheLoai").get("maTheLoai"), model.getMaTheLoai()
                 ));
+                query.distinct(true);
             }
             query.orderBy(builder.desc(root.get("maSach")));
             return builder.and(predicates.toArray(new Predicate[0]));
@@ -209,6 +214,9 @@ public class SachServiceImpl implements SachService {
         bo.setIsActive(sach.getIsActive());
         bo.setNhaCungCap(sach.getNhaCungCap());
         bo.setListTheLoai(sach.getListTheLoai());
+        bo.setMaTheLoaiList(sach.getListTheLoai() == null ? null : sach.getListTheLoai().stream()
+                .map(TheLoai::getMaTheLoai)
+                .toList());
         bo.setListImageStr(sach.getListImageStr());
 
         if (sach.getThongTinChiTiet() != null) {
@@ -236,7 +244,7 @@ public class SachServiceImpl implements SachService {
         target.setSoLuong(source.getSoLuongTon() == null ? 0 : source.getSoLuongTon());
         target.setIsActive(source.getIsActive() == null ? 1 : source.getIsActive());
         target.setNhaCungCap(source.getNhaCungCap());
-        target.setListTheLoai(source.getListTheLoai());
+        target.setListTheLoai(resolveTheLoaiList(source));
         target.setSlug(trimToNull(source.getSlug()));
 
         String sanitizedRichText = BookDescriptionSanitizer.sanitizeRichText(source.getMoTaChiTiet());
@@ -315,6 +323,17 @@ public class SachServiceImpl implements SachService {
                 throw new IllegalArgumentException("Slug đã tồn tại");
             }
         }
+    }
+
+    private List<TheLoai> resolveTheLoaiList(SachAdminUpsertBo source) {
+        if (source.getMaTheLoaiList() != null) {
+            List<TheLoai> theLoaiList = theLoaiRepository.findAllById(source.getMaTheLoaiList());
+            if (theLoaiList.size() != source.getMaTheLoaiList().size()) {
+                throw new IllegalArgumentException("Một hoặc nhiều thể loại không tồn tại");
+            }
+            return theLoaiList;
+        }
+        return source.getListTheLoai();
     }
 
     private void persistBookImages(Sach sach, List<String> imageSources) {

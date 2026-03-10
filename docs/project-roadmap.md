@@ -23,6 +23,8 @@
 - [x] Tìm kiếm, lọc theo thể loại, phân trang
 - [x] API sách bán chạy, mới nhất, liên quan
 - [x] SEO slug cho sách
+- [x] SEO slug và routing cho thể loại
+- [x] Admin CRUD thể loại với validate trùng tên/slug
 - [x] Quản lý hình ảnh sách
 - [x] Kích hoạt / vô hiệu hóa sách
 
