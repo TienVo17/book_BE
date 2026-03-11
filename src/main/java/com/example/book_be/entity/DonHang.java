@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 @Data
 @Entity
@@ -64,4 +65,20 @@ public class DonHang {
 
     @Column(name = "trang_thai_giao_hang")
     private Integer trangThaiGiaoHang;
+
+    @Transient
+    public String getPhuongThucThanhToan() {
+        if (hinhThucThanhToan == null || hinhThucThanhToan.getMaCode() == null) {
+            return null;
+        }
+        return hinhThucThanhToan.getMaCode().toUpperCase(Locale.ROOT);
+    }
+
+    @Transient
+    public String getTenPhuongThucThanhToan() {
+        if (hinhThucThanhToan == null) {
+            return null;
+        }
+        return hinhThucThanhToan.getTenHinhThucGiaoHang();
+    }
 }

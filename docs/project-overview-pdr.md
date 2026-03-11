@@ -39,7 +39,11 @@ Hệ thống backend cho website thương mại điện tử bán sách trực t
 
 ### 4. Đơn Hàng
 - Đặt hàng (có/không cần đăng nhập)
-- Thanh toán trực tuyến VNPay
+- Checkout user đăng nhập bắt buộc chọn `maDiaChiGiaoHang` và `phuongThucThanhToan`
+- Quản lý địa chỉ giao hàng qua API `/api/dia-chi` (FE route: `/dia-chi`)
+- COD là phương thức thanh toán chính thức (first-class), không tạo link VNPay cho đơn COD
+- Thanh toán trực tuyến VNPay: tạo payment URL chỉ theo `maDonHang`, backend tự lấy `tongTien` từ DB
+- Danh sách đơn hàng trả về DTO có thông tin phương thức thanh toán (`phuongThucThanhToan`, `tenPhuongThucThanhToan`)
 - Email xác nhận đơn hàng
 - Theo dõi trạng thái giao hàng
 

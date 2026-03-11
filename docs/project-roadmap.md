@@ -31,10 +31,14 @@
 ### Giai Đoạn 4: Thương Mại và Đơn Hàng
 - [x] Giỏ hàng
 - [x] Đặt hàng có đăng nhập
+- [x] Checkout bắt buộc chọn địa chỉ giao hàng (`maDiaChiGiaoHang`) và phương thức thanh toán (`phuongThucThanhToan`)
+- [x] Quản lý địa chỉ giao hàng (`/api/dia-chi`) và FE route `/dia-chi`
 - [x] Đặt hàng nhanh không đăng nhập
-- [x] Thanh toán VNPay sandbox
+- [x] COD hoạt động như phương thức thanh toán first-class
+- [x] Thanh toán VNPay sandbox (tạo URL theo `maDonHang`, backend tự tính tiền từ DB)
 - [x] Email xác nhận đơn hàng
 - [x] Cập nhật trạng thái giao hàng
+- [x] DTO danh sách đơn hàng có thông tin phương thức thanh toán
 
 ### Giai Đoạn 5: Đánh Giá, Admin, Coupon
 - [x] Đánh giá sách

@@ -14,6 +14,8 @@ public class HinhThucThanhToan {
     private int maHinhThucGiaoHang;
     @Column(name = "ten_hinh_thuc_thanh_toan")
     private String tenHinhThucGiaoHang;
+    @Column(name = "ma_code", length = 50)
+    private String maCode;
     @Column(name = "mo_ta")
     private String moTa;
     @Column(name = "chi_phi_thanh_toan")

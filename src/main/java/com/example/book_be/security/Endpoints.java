@@ -17,14 +17,12 @@ public class Endpoints {
             "/api/sach/**",
             "/api/sach/search",
             "/api/don-hang/them-don-hang-moi",
-            // Phase 03: Product & Catalog
             "/api/the-loai",
             "/api/the-loai/**",
             "/api/sach/ban-chay",
             "/api/sach/moi-nhat",
             "/api/sach/*/lien-quan",
             "/api/sach/slug/**",
-            // Phase 06: SEO
             "/sitemap.xml",
             "/api/seo/**",
     };
@@ -35,7 +33,6 @@ public class Endpoints {
             "/gio-hang/them",
             "/api/admin/sach",
             "/api/don-hang/them-don-hang-moi",
-            // Phase 02: Password reset (public)
             "/tai-khoan/quen-mat-khau",
             "/tai-khoan/dat-lai-mat-khau",
     };
@@ -46,7 +43,6 @@ public class Endpoints {
             "/gio-hang/**",
     };
 
-    // AUTHENTICATED (user da dang nhap)
     public static final String[] AUTH_GET_ENDPOINTS = {
             "/api/nguoi-dung/ho-so",
             "/api/don-hang/**",
@@ -54,27 +50,33 @@ public class Endpoints {
             "/api/yeu-thich/**",
             "/api/dia-chi",
             "/api/dia-chi/**",
+            "/api/gio-hang",
+            "/api/gio-hang/**"
     };
     public static final String[] AUTH_POST_ENDPOINTS = {
             "/api/yeu-thich/**",
             "/api/dia-chi",
             "/api/coupon/kiem-tra",
+            "/api/gio-hang",
+            "/api/gio-hang/**",
+            "/api/don-hang/them"
     };
     public static final String[] AUTH_PUT_ENDPOINTS = {
             "/api/nguoi-dung/cap-nhat-ho-so",
             "/tai-khoan/doi-mat-khau",
             "/api/dia-chi/**",
+            "/api/gio-hang/**"
     };
     public static final String[] AUTH_DELETE_ENDPOINTS = {
             "/api/yeu-thich/**",
             "/api/dia-chi/**",
+            "/api/gio-hang",
+            "/api/gio-hang/**"
     };
 
-    // ADMIN
     public static final String[] ADMIN_GET_ENDPOINS = {
             "/nguoi-dung",
             "/nguoi-dung/**",
-            // Phase 07: Admin Stats
             "/api/admin/thong-ke",
             "/api/admin/coupon",
             "/api/admin/coupon/**",
@@ -82,9 +84,7 @@ public class Endpoints {
             "/api/admin/the-loai/**",
     };
     public static final String[] ADMIN_POST_ENDPOINS = {
-            // Phase 04: Cloudinary upload
             "/api/admin/sach/*/hinh-anh",
-            // Phase 05: Coupon admin
             "/api/admin/coupon",
             "/api/admin/the-loai",
             "/api/admin/the-loai/**",
@@ -92,14 +92,12 @@ public class Endpoints {
     public static final String[] ADMIN_PUT_ENDPOINS = {
             "/sach",
             "/sach/**",
-            // Phase 05: Coupon admin
             "/api/admin/coupon/**",
             "/api/admin/the-loai/**",
     };
     public static final String[] ADMIN_DELETE_ENDPOINS = {
             "/sach",
             "/sach/**",
-            // Phase 05: Coupon admin
             "/api/admin/coupon/**",
             "/api/admin/the-loai/**",
     };

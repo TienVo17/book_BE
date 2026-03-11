@@ -28,6 +28,7 @@ src/main/java/com/example/book_be/
 │   ├── GioHangController.java      # Thao tác giỏ hàng
 │   ├── DanhGiaController.java      # Đánh giá sách
 │   ├── TheLoaiController.java      # API thể loại public theo slug
+│   ├── DiaChiController.java       # API địa chỉ giao hàng (`/api/dia-chi`)
 │   └── admin/
 │       ├── SachController.java     # Admin quản lý sách
 │       ├── UserController.java     # Admin quản lý user
@@ -74,6 +75,7 @@ src/main/java/com/example/book_be/
 │   ├── LoginRequest.java           # DTO đăng nhập
 │   └── JwtResponse.java            # DTO response JWT
 ├── dto/
+│   ├── cart/                       # DTO giỏ hàng/checkout/order list (bao gồm payment method)
 │   └── theloai/                    # DTO request/response cho API thể loại
 └── services/
     ├── JWT/
@@ -151,7 +153,8 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | `Dockerfile` | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend |
-| `src/main/resources/db/migration/` | Flyway migrations (V1-V5): schema, seed, demo data, slug backfill cho thể loại |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V6): schema, seed, demo data, slug backfill thể loại, payment method codes (`ma_code`) |
+| `repomix-output.xml` | Compaction snapshot dùng để tổng hợp codebase/docs sync |
 | `.gitignore` | Loại trừ target, IDE files |
 
 ## Database Migration (Flyway)
@@ -163,6 +166,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `V3__seed_default_admin.sql` | Tài khoản admin mặc định |
 | `V4__seed_demo_data.sql` | Demo: 10 sách, 5 users, đơn hàng, đánh giá |
 | `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
+| `V6__add_payment_method_codes.sql` | Thêm cột `ma_code` cho `hinh_thuc_thanh_toan`, backfill COD/VNPAY |
 
 Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...)
 

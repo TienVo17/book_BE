@@ -56,8 +56,12 @@ Client                    Backend                      DB
 Client              Backend              VNPay Sandbox
   │                    │                       │
   ├─GET /submitOrder──►│                       │
-  │ ?amount&orderInfo  │──createOrder()        │
-  │                    │  Tạo params VNPay     │
+  │ ?maDonHang         │──Load DonHang từ DB   │
+  │                    │  (check owner, status)│
+  │                    │  Nếu COD: reject      │
+  │                    │──createOrder()        │
+  │                    │  amount lấy từ tongTien DB
+  │                    │  orderInfo = maDonHang
   │                    │  HMAC-SHA512 sign     │
   │◄──VNPay URL────────┤                       │
   │                    │                       │
@@ -68,6 +72,7 @@ Client              Backend              VNPay Sandbox
   ├─GET /vnpay-payment►│                       │
   │ ?vnp_ResponseCode  │──orderReturn()        │
   │ &vnp_Amount...     │  Verify checksum      │
+  │                    │  Verify amount == tongTien*100
   │                    │──Cập nhật đơn hàng───►│ DB
   │                    │──Gửi email xác nhận──►│ Gmail
   │◄──"ordersuccess"───┤                       │
@@ -80,11 +85,16 @@ Client                     Backend                          DB
   │                           │                              │
   │  (Đã đăng nhập)          │                              │
   ├──POST /api/don-hang/them─►│                              │
-  │  Body: List<Sach>         │──SecurityContext.getAuth()   │
-  │                           │──orderService.saveOrUpdate()─►│
-  │                           │  Tạo DonHang                 │
-  │                           │  Tạo ChiTietDonHang          │
-  │◄──DonHang response────────┤                              │
+  │  Body: {                  │──SecurityContext.getAuth()   │
+  │    items: [{maSach,soLuong}],                            │
+  │    maDiaChiGiaoHang,                                     │
+  │    phuongThucThanhToan(COD|VNPAY)                        │
+  │  }                        │──Validate request            │
+  │                           │  bắt buộc địa chỉ + payment  │
+  │                           │──Check address ownership────►│
+  │                           │──resolve payment by ma_code─►│
+  │                           │──Tạo DonHang + ChiTiet──────►│
+  │◄──CheckoutOrderResponse───┤  trả về phuongThucThanhToan  │
   │                           │                              │
   │  (Không đăng nhập)        │                              │
   ├──POST /them-don-hang-moi──►│                              │
@@ -109,14 +119,15 @@ Client                     Backend                          DB
 | GET | `/api/danh-gia/findAll**` | Xem đánh giá |
 | GET | `/api/don-hang/vnpay-payment` | Callback VNPay |
 | POST | `/api/don-hang/them-don-hang-moi` | Đặt hàng (guest) |
+| GET | `/api/dia-chi` | Danh sách địa chỉ giao hàng của user |
 
 ### Endpoint Yêu Cầu Đăng Nhập (Authenticated)
 
 | Method | Path | Mô tả |
 |--------|------|-------|
 | POST | `/api/don-hang/them` | Đặt hàng |
-| GET | `/api/don-hang/findAll**` | Xem đơn hàng |
-| GET | `/api/don-hang/submitOrder**` | Tạo link VNPay |
+| GET | `/api/don-hang/findAll**` | Xem đơn hàng (response DTO gồm `phuongThucThanhToan`, `tenPhuongThucThanhToan`) |
+| GET | `/api/don-hang/submitOrder**` | Tạo link VNPay theo `maDonHang` + `tongTien` backend; từ chối đơn COD |
 | POST | `/api/danh-gia/them-danh-gia-v1` | Thêm đánh giá |
 
 ### Endpoint Admin
@@ -159,7 +170,7 @@ SecurityConfiguration
 App Startup:
   1. DataSource connect → MySQL
   2. Flyway check flyway_schema_history
-  3. Flyway apply pending migrations (V1→V5)
+  3. Flyway apply pending migrations (V1→V6)
   4. Hibernate validate schema vs entities
   5. Application context boot
 ```
@@ -167,6 +178,7 @@ App Startup:
 - Schema quản lý bởi Flyway, **không** dùng `ddl-auto=update`
 - Hibernate chỉ `validate` — phát hiện drift mà không tự sửa DB
 - `V5__add_slug_to_the_loai.sql` thêm cột `slug`, backfill dữ liệu cũ, và tạo unique constraint cho bảng `the_loai`
+- `V6__add_payment_method_codes.sql` thêm `ma_code` cho `hinh_thuc_thanh_toan` và backfill mã ổn định (`COD`, `VNPAY`)
 - Demo data tự động seed khi DB trống
 
 ## Cấu Hình Docker
