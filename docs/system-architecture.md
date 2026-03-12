@@ -88,13 +88,17 @@ Client                     Backend                          DB
   │  Body: {                  │──SecurityContext.getAuth()   │
   │    items: [{maSach,soLuong}],                            │
   │    maDiaChiGiaoHang,                                     │
-  │    phuongThucThanhToan(COD|VNPAY)                        │
+  │    phuongThucThanhToan(COD|VNPAY),                       │
+  │    maCoupon?                                              │
   │  }                        │──Validate request            │
   │                           │  bắt buộc địa chỉ + payment  │
   │                           │──Check address ownership────►│
   │                           │──resolve payment by ma_code─►│
+  │                           │──validate coupon (nếu có)───►│
+  │                           │──Tính giảm giá tại backend    │
   │                           │──Tạo DonHang + ChiTiet──────►│
-  │◄──CheckoutOrderResponse───┤  trả về phuongThucThanhToan  │
+  │◄──CheckoutOrderResponse───┤  gồm tongTienSanPham,         │
+  │                           │  soTienGiam, maCoupon         │
   │                           │                              │
   │  (Không đăng nhập)        │                              │
   ├──POST /them-don-hang-moi──►│                              │
@@ -125,9 +129,10 @@ Client                     Backend                          DB
 
 | Method | Path | Mô tả |
 |--------|------|-------|
-| POST | `/api/don-hang/them` | Đặt hàng |
+| POST | `/api/don-hang/them` | Đặt hàng; nhận `maCoupon` (optional), backend tự tính giảm giá và tổng tiền |
 | GET | `/api/don-hang/findAll**` | Xem đơn hàng (response DTO gồm `phuongThucThanhToan`, `tenPhuongThucThanhToan`) |
 | GET | `/api/don-hang/submitOrder**` | Tạo link VNPay theo `maDonHang` + `tongTien` backend; từ chối đơn COD |
+| POST | `/api/coupon/kiem-tra` | Kiểm tra coupon cho user đã đăng nhập |
 | POST | `/api/danh-gia/them-danh-gia-v1` | Thêm đánh giá |
 
 ### Endpoint Admin
@@ -194,8 +199,15 @@ Services:
               Env: DB_URL, DB_USER, DB_PASS, DDL_AUTO=validate
 
   frontend:   React build, port 3000
+              build context: ../book_FE (repo frontend canonical)
               depends_on: backend
 ```
+
+## Xác Minh Build/Runtime Docker
+
+- Backend Docker image build thành công từ cấu hình image trong repo backend `E:/BT/book_BE`.
+- Frontend Docker image build thành công từ context `../book_FE` (tức `E:/BT/book_FE`).
+- `docker compose up` cho stack 3 service (mysql, backend, frontend) chạy thành công theo `docker-compose.yml` hiện tại.
 
 ## Biến Môi Trường
 

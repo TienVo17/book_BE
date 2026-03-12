@@ -18,7 +18,11 @@ public class CouponController {
     public ResponseEntity<?> kiemTra(@RequestBody Map<String, Object> body) {
         try {
             String ma = (String) body.get("ma");
-            double tongTien = Double.parseDouble(String.valueOf(body.get("tongTien")));
+            Object tongTienRaw = body.get("tongTien");
+            if (tongTienRaw == null) {
+                tongTienRaw = body.get("tongGioHang");
+            }
+            double tongTien = Double.parseDouble(String.valueOf(tongTienRaw));
             Map<String, Object> result = couponService.kiemTra(ma, tongTien);
             return ResponseEntity.ok(result);
         } catch (Exception e) {

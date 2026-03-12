@@ -24,18 +24,20 @@ src/main/java/com/example/book_be/
 ├── controller/
 │   ├── TaiKhoanController.java     # Đăng ký, đăng nhập, kích hoạt tài khoản
 │   ├── SachUserController.java     # API sách cho user (CRUD, search, images)
-│   ├── DonHangController.java      # Đơn hàng, thanh toán VNPay, email
+│   ├── DonHangController.java      # Đơn hàng, checkout, thanh toán VNPay, email
 │   ├── GioHangController.java      # Thao tác giỏ hàng
 │   ├── DanhGiaController.java      # Đánh giá sách
 │   ├── TheLoaiController.java      # API thể loại public theo slug
 │   ├── DiaChiController.java       # API địa chỉ giao hàng (`/api/dia-chi`)
+│   ├── CouponController.java       # API kiểm tra coupon cho user đăng nhập (`/api/coupon/kiem-tra`)
 │   └── admin/
 │       ├── SachController.java     # Admin quản lý sách
 │       ├── UserController.java     # Admin quản lý user
 │       ├── BinhLuanController.java # Admin kiểm duyệt bình luận
 │       ├── DonHangAdminController.java # Admin quản lý đơn hàng
 │       ├── QuyenController.java    # Admin quản lý quyền
-│       └── AdminTheLoaiController.java # Admin CRUD thể loại
+│       ├── AdminTheLoaiController.java # Admin CRUD thể loại
+│       └── CouponAdminController.java # Admin CRUD coupon
 ├── dao/                            # Spring Data JPA Repositories
 │   ├── SachRepository.java
 │   ├── NguoiDungRepository.java
@@ -49,7 +51,8 @@ src/main/java/com/example/book_be/
 │   ├── QuyenRepository.java
 │   ├── SachYeuThichRepository.java
 │   ├── SuDanhGiaRepository.java
-│   └── TheLoaiRepository.java
+│   ├── TheLoaiRepository.java
+│   └── CouponRepository.java       # Atomic update lượt dùng coupon khi checkout
 ├── entity/                         # JPA Entities (17 bảng)
 │   ├── Sach.java                   # Sách (maSach, tenSach, tenTacGia, giaBan...)
 │   ├── NguoiDung.java              # Người dùng (tenDangNhap, matKhau, email...)
@@ -75,7 +78,7 @@ src/main/java/com/example/book_be/
 │   ├── LoginRequest.java           # DTO đăng nhập
 │   └── JwtResponse.java            # DTO response JWT
 ├── dto/
-│   ├── cart/                       # DTO giỏ hàng/checkout/order list (bao gồm payment method)
+│   ├── cart/                       # DTO giỏ hàng/checkout/order list (bao gồm payment + coupon summary)
 │   └── theloai/                    # DTO request/response cho API thể loại
 └── services/
     ├── JWT/
@@ -151,8 +154,8 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 |------|-------|
 | `pom.xml` | Maven dependencies (Spring Boot, JPA, Flyway, Security, JWT, Cloudinary, Lombok) |
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
-| `Dockerfile` | Multi-stage build: Maven → JRE 17 |
-| `docker-compose.yml` | 3 services: MySQL, Backend, Frontend |
+| Docker image config (root) | Multi-stage build: Maven → JRE 17 |
+| `docker-compose.yml` | 3 services: MySQL, Backend, Frontend (frontend build context: `../book_FE`) |
 | `src/main/resources/db/migration/` | Flyway migrations (V1-V6): schema, seed, demo data, slug backfill thể loại, payment method codes (`ma_code`) |
 | `repomix-output.xml` | Compaction snapshot dùng để tổng hợp codebase/docs sync |
 | `.gitignore` | Loại trừ target, IDE files |
@@ -168,7 +171,15 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
 | `V6__add_payment_method_codes.sql` | Thêm cột `ma_code` cho `hinh_thuc_thanh_toan`, backfill COD/VNPAY |
 
-Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...)
+Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...).
+
+## Đồng Bộ Checkout + Coupon (Backend/Frontend)
+
+- `CheckoutOrderRequest` hỗ trợ thêm `maCoupon`.
+- `OrderServiceImpl` tính `soTienGiam` và `tongTien` phía backend (không tin tổng tiền từ frontend).
+- `CheckoutOrderResponse` trả thêm các trường tóm tắt đơn: `tongTienSanPham`, `soTienGiam`, `maCoupon`, `phuongThucThanhToan`, cùng thông tin nhận hàng.
+- Coupon vẫn giữ chính sách **chỉ cho user đã đăng nhập** qua endpoint `/api/coupon/kiem-tra` (được cấu hình nhóm authenticated trong `security/Endpoints.java`).
+- Tránh race condition khi redeem coupon bằng update có điều kiện nguyên tử trong `CouponRepository.tangLuotSuDungNeuConHieuLuc(...)`.
 
 ## File Lớn Nhất (theo LOC)
 

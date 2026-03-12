@@ -13,4 +13,5 @@ public class CheckoutOrderRequest {
     private List<CartItemRequest> items;
     private Integer maDiaChiGiaoHang;
     private String phuongThucThanhToan;
+    private String maCoupon;
 }

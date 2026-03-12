@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 public class CheckoutOrderResponse {
     private Integer maDonHang;
     private Double tongTien;
+    private Double tongTienSanPham;
+    private Double soTienGiam;
+    private String maCoupon;
     private String phuongThucThanhToan;
     private Integer trangThaiThanhToan;
     private String hoTen;

@@ -21,35 +21,59 @@ public class CouponServiceImpl implements CouponService {
     public Map<String, Object> kiemTra(String ma, double tongTien) {
         Map<String, Object> result = new HashMap<>();
 
-        Coupon coupon = couponRepository.findByMa(ma.toUpperCase()).orElse(null);
+        if (ma == null || ma.isBlank()) {
+            result.put("hopLe", false);
+            result.put("thongBao", "Vui lòng nhập mã giảm giá");
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
+            return result;
+        }
+
+        Coupon coupon = couponRepository.findByMa(ma.trim().toUpperCase()).orElse(null);
 
         if (coupon == null) {
             result.put("hopLe", false);
             result.put("thongBao", "Mã giảm giá không tồn tại");
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
             return result;
         }
 
         if (!Boolean.TRUE.equals(coupon.getIsActive())) {
             result.put("hopLe", false);
             result.put("thongBao", "Mã giảm giá không còn hiệu lực");
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
             return result;
         }
 
         if (coupon.getHanSuDung() != null && coupon.getHanSuDung().before(new Date())) {
             result.put("hopLe", false);
             result.put("thongBao", "Mã giảm giá đã hết hạn");
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
             return result;
         }
 
         if (coupon.getSoLuongToiDa() > 0 && coupon.getDaSuDung() >= coupon.getSoLuongToiDa()) {
             result.put("hopLe", false);
             result.put("thongBao", "Mã giảm giá đã hết lượt sử dụng");
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
             return result;
         }
 
         if (tongTien < coupon.getGiaTriToiThieu()) {
             result.put("hopLe", false);
             result.put("thongBao", "Đơn hàng chưa đạt giá trị tối thiểu " + coupon.getGiaTriToiThieu());
+            result.put("soTienGiam", 0d);
+            result.put("giaTriGiam", 0d);
+            result.put("tongTienSauGiam", tongTien);
             return result;
         }
 
@@ -67,9 +91,11 @@ public class CouponServiceImpl implements CouponService {
 
         result.put("hopLe", true);
         result.put("thongBao", "Áp dụng mã giảm giá thành công");
+        result.put("soTienGiam", giaTriGiam);
         result.put("giaTriGiam", giaTriGiam);
         result.put("tongTienSauGiam", tongTien - giaTriGiam);
         result.put("coupon", coupon);
+        result.put("maCoupon", coupon.getMa());
 
         return result;
     }

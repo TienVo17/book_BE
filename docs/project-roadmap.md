@@ -39,6 +39,7 @@
 - [x] Email xác nhận đơn hàng
 - [x] Cập nhật trạng thái giao hàng
 - [x] DTO danh sách đơn hàng có thông tin phương thức thanh toán
+- [x] Đồng bộ contract checkout BE/FE: request nhận `maCoupon`, response trả `tongTienSanPham`, `soTienGiam`, `maCoupon`
 
 ### Giai Đoạn 5: Đánh Giá, Admin, Coupon
 - [x] Đánh giá sách
@@ -46,6 +47,8 @@
 - [x] Admin quản lý người dùng và phân quyền
 - [x] Admin thống kê tổng quan
 - [x] CRUD coupon
+- [x] Coupon validation giữ policy authenticated-only (`/api/coupon/kiem-tra`)
+- [x] Mitigate race condition redeem coupon bằng atomic conditional update ở repository
 
 ### Giai Đoạn 6: Cloudinary Migration
 - [x] Ngừng lưu base64 mới vào DB
@@ -62,6 +65,7 @@
 - [x] Xóa `db/init/` scripts cũ
 - [x] Cập nhật Docker Compose (bỏ initdb volume, đổi ddl-auto)
 - [x] Cập nhật README và docs
+- [x] Xác minh Docker build/runtime: backend + frontend build pass, `docker compose up` pass (frontend từ `../book_FE`)
 
 ## Mục Tiêu Tiếp Theo
 

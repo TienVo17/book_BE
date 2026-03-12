@@ -1,6 +1,7 @@
 package com.example.book_be.services.cart;
 
 import com.example.book_be.dao.ChiTietDonHangRepository;
+import com.example.book_be.dao.CouponRepository;
 import com.example.book_be.dao.DiaChiGiaoHangRepository;
 import com.example.book_be.dao.DonHangRepository;
 import com.example.book_be.dao.GioHangRepository;
@@ -11,6 +12,7 @@ import com.example.book_be.dto.cart.CartItemRequest;
 import com.example.book_be.dto.cart.CheckoutOrderRequest;
 import com.example.book_be.dto.cart.CheckoutOrderResponse;
 import com.example.book_be.entity.ChiTietDonHang;
+import com.example.book_be.entity.Coupon;
 import com.example.book_be.entity.DiaChiGiaoHang;
 import com.example.book_be.entity.DonHang;
 import com.example.book_be.entity.HinhThucThanhToan;
@@ -56,6 +58,9 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private HinhThucThanhToanRepository hinhThucThanhToanRepository;
 
+    @Autowired
+    private CouponRepository couponRepository;
+
     @Override
     @Transactional
     public CheckoutOrderResponse saveOrUpdate(CheckoutOrderRequest request) {
@@ -96,8 +101,12 @@ public class OrderServiceImpl implements OrderService {
             tongTienSanPham += entry.getValue() * db.getGiaBan();
         }
 
+        Coupon coupon = resolveCoupon(request.getMaCoupon());
+        double soTienGiam = tinhSoTienGiam(coupon, tongTienSanPham);
+        double tongTien = tongTienSanPham - soTienGiam + donHang.getChiPhiGiaoHang() + donHang.getChiPhiThanhToan();
+
         donHang.setTongTienSanPham(tongTienSanPham);
-        donHang.setTongTien(tongTienSanPham + donHang.getChiPhiGiaoHang() + donHang.getChiPhiThanhToan());
+        donHang.setTongTien(tongTien);
         donHangRepository.save(donHang);
 
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
@@ -113,9 +122,19 @@ public class OrderServiceImpl implements OrderService {
             gioHangRepository.deleteByMaNguoiDungAndMaSach(nguoiDung.getMaNguoiDung(), db.getMaSach());
         }
 
+        if (coupon != null) {
+            int soBanGhiCapNhat = couponRepository.tangLuotSuDungNeuConHieuLuc(coupon.getMaCoupon());
+            if (soBanGhiCapNhat == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết lượt sử dụng.");
+            }
+        }
+
         return new CheckoutOrderResponse(
                 donHang.getMaDonHang(),
                 donHang.getTongTien(),
+                donHang.getTongTienSanPham(),
+                soTienGiam,
+                coupon != null ? coupon.getMa() : null,
                 normalizePaymentMethodCode(hinhThucThanhToan),
                 donHang.getTrangThaiThanhToan(),
                 donHang.getHoTen(),
@@ -157,6 +176,43 @@ public class OrderServiceImpl implements OrderService {
             soLuongTheoSach.merge(item.getMaSach(), item.getSoLuong(), Integer::sum);
         }
         return soLuongTheoSach;
+    }
+
+    private Coupon resolveCoupon(String maCoupon) {
+        if (maCoupon == null || maCoupon.isBlank()) {
+            return null;
+        }
+
+        Coupon coupon = couponRepository.findByMa(maCoupon.trim().toUpperCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá không tồn tại."));
+
+        if (!Boolean.TRUE.equals(coupon.getIsActive())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá không còn hiệu lực.");
+        }
+        if (coupon.getHanSuDung() != null && coupon.getHanSuDung().before(new Date())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết hạn.");
+        }
+        if (coupon.getSoLuongToiDa() > 0 && coupon.getDaSuDung() >= coupon.getSoLuongToiDa()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã giảm giá đã hết lượt sử dụng.");
+        }
+
+        return coupon;
+    }
+
+    private double tinhSoTienGiam(Coupon coupon, double tongTienSanPham) {
+        if (coupon == null) {
+            return 0;
+        }
+        if (tongTienSanPham < coupon.getGiaTriToiThieu()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng chưa đạt giá trị tối thiểu " + coupon.getGiaTriToiThieu());
+        }
+
+        double soTienGiam = coupon.getGiaTriGiam();
+        if (coupon.getLoai() != null && coupon.getLoai().name().equals("PERCENT")) {
+            soTienGiam = tongTienSanPham * coupon.getGiaTriGiam() / 100.0;
+        }
+        return Math.min(soTienGiam, tongTienSanPham);
     }
 
     private HinhThucThanhToan resolvePaymentMethod(String paymentMethodCode) {
