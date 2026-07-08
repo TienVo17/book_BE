@@ -1,6 +1,7 @@
 package com.example.book_be.sach.web;
 
 import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachResponse;
 import com.example.book_be.sach.repository.HinhAnhRepository;
 import com.example.book_be.sach.domain.HinhAnh;
 import com.example.book_be.sach.domain.Sach;
@@ -25,7 +26,7 @@ public class SachUserController {
     private HinhAnhRepository hinhAnhRepository;
 
     @GetMapping
-    public ResponseEntity<Page<Sach>> findAll(
+    public ResponseEntity<Page<SachResponse>> findAll(
             @RequestParam("page") Integer page,
             @RequestParam(value = "tensach", required = false) String tenSach,
             @RequestParam(value = "maTheLoai", required = false, defaultValue = "0") Integer maTheLoai) {
@@ -36,41 +37,41 @@ public class SachUserController {
         model.setTenSach(tenSach);
         model.setMaTheLoai(maTheLoai);
         Page<Sach> result = sachService.findAll(model);
-        return new ResponseEntity<>(result, HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.fromPage(result), HttpStatus.OK);
     }
 
     @PostMapping("insert")
     public ResponseEntity<?> dangKyNguoiDung(@RequestBody Sach sach) {
-        return new ResponseEntity<>(sachService.save(sach), HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sachService.save(sach)), HttpStatus.OK);
     }
 
     @PostMapping("active/{id}")
     public ResponseEntity<?> active(@PathVariable Long id) {
-        return new ResponseEntity<>(sachService.active(id), HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sachService.active(id)), HttpStatus.OK);
     }
 
     @PostMapping("unactive/{id}")
     public ResponseEntity<?> unactive(@PathVariable Long id) {
-        return new ResponseEntity<>(sachService.unactive(id), HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sachService.unactive(id)), HttpStatus.OK);
     }
 
     @PutMapping("update/{id}")
-    public ResponseEntity<Sach> update(@PathVariable Long id, @RequestBody Sach bo) throws Exception {
+    public ResponseEntity<SachResponse> update(@PathVariable Long id, @RequestBody Sach bo) throws Exception {
         Sach sach = sachService.update(bo);
-        return new ResponseEntity<>(sach, HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sach), HttpStatus.OK);
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Sach> delete(@PathVariable Long id) {
+    public ResponseEntity<SachResponse> delete(@PathVariable Long id) {
         Sach sach = sachService.delete(id);
-        return new ResponseEntity<>(sach, HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sach), HttpStatus.OK);
     }
 
     // Restrict to numeric IDs only to avoid conflict with /ban-chay, /moi-nhat, /slug etc.
     @GetMapping("/{id:\\d+}")
-    public ResponseEntity<Sach> findById(@PathVariable Long id) {
+    public ResponseEntity<SachResponse> findById(@PathVariable Long id) {
         Sach sach = sachService.findById(id);
-        return new ResponseEntity<>(sach, HttpStatus.OK);
+        return new ResponseEntity<>(SachResponse.from(sach), HttpStatus.OK);
     }
 
     @GetMapping("findImage/{maSach}")
@@ -81,41 +82,41 @@ public class SachUserController {
     }
 
     @GetMapping("/search")
-    public Page<Sach> searchBooks(@RequestParam("tensach") String tenSach,
-                                  @RequestParam("page") int page,
-                                  @RequestParam("size") int size) {
-        return sachService.findBookByName(tenSach, page, size);
+    public Page<SachResponse> searchBooks(@RequestParam("tensach") String tenSach,
+                                          @RequestParam("page") int page,
+                                          @RequestParam("size") int size) {
+        return SachResponse.fromPage(sachService.findBookByName(tenSach, page, size));
     }
 
     // Best-selling books
     @GetMapping("/ban-chay")
-    public ResponseEntity<List<Sach>> findBanChay(
+    public ResponseEntity<List<SachResponse>> findBanChay(
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
-        return ResponseEntity.ok(sachService.findBanChay(limit));
+        return ResponseEntity.ok(SachResponse.fromList(sachService.findBanChay(limit)));
     }
 
     // Newest books
     @GetMapping("/moi-nhat")
-    public ResponseEntity<List<Sach>> findMoiNhat(
+    public ResponseEntity<List<SachResponse>> findMoiNhat(
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
-        return ResponseEntity.ok(sachService.findMoiNhat(limit));
+        return ResponseEntity.ok(SachResponse.fromList(sachService.findMoiNhat(limit)));
     }
 
     // Related books by book ID
     @GetMapping("/{id:\\d+}/lien-quan")
-    public ResponseEntity<List<Sach>> findLienQuan(
+    public ResponseEntity<List<SachResponse>> findLienQuan(
             @PathVariable int id,
             @RequestParam(value = "limit", defaultValue = "6") int limit) {
-        return ResponseEntity.ok(sachService.findLienQuan(id, limit));
+        return ResponseEntity.ok(SachResponse.fromList(sachService.findLienQuan(id, limit)));
     }
 
     // Lookup book by slug
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<Sach> findBySlug(@PathVariable String slug) {
+    public ResponseEntity<SachResponse> findBySlug(@PathVariable String slug) {
         Sach sach = sachService.findBySlug(slug);
         if (sach == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(sach);
+        return ResponseEntity.ok(SachResponse.from(sach));
     }
 }
