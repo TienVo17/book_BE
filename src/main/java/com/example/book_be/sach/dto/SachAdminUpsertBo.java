@@ -1,7 +1,7 @@
-package com.example.book_be.bo;
+package com.example.book_be.sach.dto;
 
-import com.example.book_be.entity.NhaCungCap;
-import com.example.book_be.entity.TheLoai;
+import com.example.book_be.sach.domain.NhaCungCap;
+import com.example.book_be.sach.domain.TheLoai;
 import lombok.Data;
 
 import java.util.List;

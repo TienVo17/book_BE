@@ -1,4 +1,4 @@
-package com.example.book_be.entity;
+package com.example.book_be.sach.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;

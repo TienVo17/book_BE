@@ -1,7 +1,7 @@
 package com.example.book_be.shared.config;
 
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.TheLoai;
+import com.example.book_be.sach.domain.TheLoai;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.Type;
 import org.springframework.beans.factory.annotation.Autowired;

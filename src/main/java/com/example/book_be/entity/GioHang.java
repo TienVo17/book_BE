@@ -1,4 +1,5 @@
 package com.example.book_be.entity;
+import com.example.book_be.sach.domain.Sach;
 
 import jakarta.persistence.*;
 import lombok.Data;

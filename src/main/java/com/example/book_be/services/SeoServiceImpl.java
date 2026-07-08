@@ -1,11 +1,11 @@
 package com.example.book_be.services;
 
-import com.example.book_be.dao.HinhAnhRepository;
-import com.example.book_be.dao.SachRepository;
-import com.example.book_be.dao.TheLoaiRepository;
-import com.example.book_be.entity.HinhAnh;
-import com.example.book_be.entity.Sach;
-import com.example.book_be.entity.TheLoai;
+import com.example.book_be.sach.repository.HinhAnhRepository;
+import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.sach.repository.TheLoaiRepository;
+import com.example.book_be.sach.domain.HinhAnh;
+import com.example.book_be.sach.domain.Sach;
+import com.example.book_be.sach.domain.TheLoai;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

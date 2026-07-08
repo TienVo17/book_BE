@@ -1,4 +1,4 @@
-package com.example.book_be.bo;
+package com.example.book_be.sach.dto;
 
 import lombok.Data;
 

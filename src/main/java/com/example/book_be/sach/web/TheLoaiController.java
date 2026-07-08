@@ -1,7 +1,7 @@
-package com.example.book_be.controller;
+package com.example.book_be.sach.web;
 
-import com.example.book_be.dto.theloai.TheLoaiResponse;
-import com.example.book_be.services.TheLoaiService;
+import com.example.book_be.sach.dto.TheLoaiResponse;
+import com.example.book_be.sach.service.TheLoaiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;

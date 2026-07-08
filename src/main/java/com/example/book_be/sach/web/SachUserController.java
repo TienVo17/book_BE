@@ -1,10 +1,10 @@
-package com.example.book_be.controller;
+package com.example.book_be.sach.web;
 
-import com.example.book_be.bo.SachBo;
-import com.example.book_be.dao.HinhAnhRepository;
-import com.example.book_be.entity.HinhAnh;
-import com.example.book_be.entity.Sach;
-import com.example.book_be.services.admin.SachService;
+import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.repository.HinhAnhRepository;
+import com.example.book_be.sach.domain.HinhAnh;
+import com.example.book_be.sach.domain.Sach;
+import com.example.book_be.sach.service.SachService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;

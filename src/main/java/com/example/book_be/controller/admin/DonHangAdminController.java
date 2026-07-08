@@ -6,7 +6,7 @@ import com.example.book_be.dao.NguoiDungRepository;
 import com.example.book_be.entity.ChiTietDonHang;
 import com.example.book_be.entity.DonHang;
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.services.VNPayService;
 import com.example.book_be.services.cart.OrderService;
 import com.example.book_be.services.email.EmailService;

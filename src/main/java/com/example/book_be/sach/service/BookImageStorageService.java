@@ -1,10 +1,10 @@
-package com.example.book_be.services.admin;
+package com.example.book_be.sach.service;
 
-import com.example.book_be.dao.HinhAnhRepository;
-import com.example.book_be.entity.HinhAnh;
-import com.example.book_be.entity.Sach;
-import com.example.book_be.services.CloudinaryService;
-import com.example.book_be.services.CloudinaryUploadResult;
+import com.example.book_be.sach.repository.HinhAnhRepository;
+import com.example.book_be.sach.domain.HinhAnh;
+import com.example.book_be.sach.domain.Sach;
+import com.example.book_be.sach.service.CloudinaryService;
+import com.example.book_be.sach.service.CloudinaryUploadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;

@@ -1,4 +1,4 @@
-package com.example.book_be.dto.theloai;
+package com.example.book_be.sach.dto;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

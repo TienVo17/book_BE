@@ -1,8 +1,8 @@
-package com.example.book_be.services.admin;
+package com.example.book_be.sach.service;
 
-import com.example.book_be.bo.SachAdminUpsertBo;
-import com.example.book_be.bo.SachBo;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.dto.SachAdminUpsertBo;
+import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.domain.Sach;
 import org.springframework.data.domain.Page;
 
 import java.util.List;

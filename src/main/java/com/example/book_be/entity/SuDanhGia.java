@@ -1,4 +1,5 @@
 package com.example.book_be.entity;
+import com.example.book_be.sach.domain.Sach;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;

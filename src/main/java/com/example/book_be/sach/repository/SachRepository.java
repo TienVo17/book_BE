@@ -1,6 +1,6 @@
-package com.example.book_be.dao;
+package com.example.book_be.sach.repository;
 
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.domain.Sach;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

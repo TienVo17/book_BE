@@ -3,7 +3,7 @@ package com.example.book_be.services.admin;
 import com.example.book_be.bo.PhanQuyenBo;
 import com.example.book_be.bo.UserBo;
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.domain.Sach;
 import org.springframework.data.domain.Page;
 
 public interface AdminUserService {

@@ -1,10 +1,10 @@
 package com.example.book_be.services.review;
 
 import com.example.book_be.dao.NguoiDungRepository;
-import com.example.book_be.dao.SachRepository;
+import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.dao.SuDanhGiaRepository;
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.entity.SuDanhGia;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

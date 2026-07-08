@@ -1,6 +1,6 @@
-package com.example.book_be.dao;
+package com.example.book_be.sach.repository;
 
-import com.example.book_be.entity.TheLoai;
+import com.example.book_be.sach.domain.TheLoai;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

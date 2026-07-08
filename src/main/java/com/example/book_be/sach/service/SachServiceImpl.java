@@ -1,15 +1,15 @@
-package com.example.book_be.services.admin;
+package com.example.book_be.sach.service;
 
-import com.example.book_be.bo.SachAdminUpsertBo;
-import com.example.book_be.bo.SachBo;
-import com.example.book_be.bo.SachThongTinChiTietBo;
-import com.example.book_be.dao.HinhAnhRepository;
-import com.example.book_be.dao.SachRepository;
-import com.example.book_be.dao.TheLoaiRepository;
-import com.example.book_be.entity.HinhAnh;
-import com.example.book_be.entity.Sach;
-import com.example.book_be.entity.SachThongTinChiTiet;
-import com.example.book_be.entity.TheLoai;
+import com.example.book_be.sach.dto.SachAdminUpsertBo;
+import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachThongTinChiTietBo;
+import com.example.book_be.sach.repository.HinhAnhRepository;
+import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.sach.repository.TheLoaiRepository;
+import com.example.book_be.sach.domain.HinhAnh;
+import com.example.book_be.sach.domain.Sach;
+import com.example.book_be.sach.domain.SachThongTinChiTiet;
+import com.example.book_be.sach.domain.TheLoai;
 import com.example.book_be.shared.util.BookDescriptionSanitizer;
 import com.example.book_be.shared.util.SlugUtil;
 import jakarta.persistence.criteria.Predicate;

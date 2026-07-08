@@ -1,12 +1,12 @@
 package com.example.book_be.controller.admin;
 
-import com.example.book_be.bo.SachBo;
+import com.example.book_be.sach.dto.SachBo;
 import com.example.book_be.dao.NguoiDungRepository;
 import com.example.book_be.dao.QuyenRepository;
-import com.example.book_be.dao.SachRepository;
+import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.dao.SuDanhGiaRepository;
 import com.example.book_be.entity.Quyen;
-import com.example.book_be.entity.Sach;
+import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.entity.SuDanhGia;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,8 +1,8 @@
-package com.example.book_be.services;
+package com.example.book_be.sach.service;
 
-import com.example.book_be.dto.theloai.TheLoaiAdminResponse;
-import com.example.book_be.dto.theloai.TheLoaiAdminUpsertRequest;
-import com.example.book_be.dto.theloai.TheLoaiResponse;
+import com.example.book_be.sach.dto.TheLoaiAdminResponse;
+import com.example.book_be.sach.dto.TheLoaiAdminUpsertRequest;
+import com.example.book_be.sach.dto.TheLoaiResponse;
 
 import java.util.List;
 
