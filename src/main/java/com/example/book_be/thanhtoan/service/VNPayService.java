@@ -105,6 +105,12 @@ public class VNPayService {
             fields.remove("vnp_SecureHash");
         }
         String signValue = VnPayConfig.hashAllFields(fields);
+        // Fail-closed: khi thieu hash secret, hmac tra "" — khong duoc de "".equals("") cho callback rong qua.
+        if (VnPayConfig.vnp_HashSecret == null || VnPayConfig.vnp_HashSecret.isBlank()
+                || signValue == null || signValue.isEmpty()
+                || vnp_SecureHash == null || vnp_SecureHash.isEmpty()) {
+            return -1;
+        }
         if (signValue.equals(vnp_SecureHash)) {
             if ("00".equals(request.getParameter("vnp_TransactionStatus"))) {
                 return 1;
