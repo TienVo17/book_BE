@@ -1,7 +1,7 @@
 package com.example.book_be;
 
-import com.example.book_be.dao.NguoiDungRepository;
-import com.example.book_be.entity.NguoiDung;
+import com.example.book_be.nguoidung.repository.NguoiDungRepository;
+import com.example.book_be.nguoidung.domain.NguoiDung;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

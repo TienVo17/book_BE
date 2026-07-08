@@ -1,9 +1,9 @@
 package com.example.book_be.controller;
 
 import com.example.book_be.bo.DanhGiaBo;
-import com.example.book_be.dao.NguoiDungRepository;
+import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.dao.SuDanhGiaRepository;
-import com.example.book_be.entity.NguoiDung;
+import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.entity.SuDanhGia;
 import com.example.book_be.services.review.DanhGiaService;
 import jakarta.persistence.criteria.Predicate;

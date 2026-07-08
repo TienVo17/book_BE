@@ -1,7 +1,7 @@
 package com.example.book_be.services.cart;
 
 import com.example.book_be.dao.GioHangRepository;
-import com.example.book_be.dao.NguoiDungRepository;
+import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.dto.cart.CartItemRequest;
 import com.example.book_be.dto.cart.CartItemResponse;
@@ -11,7 +11,7 @@ import com.example.book_be.dto.cart.CartMergeResponse;
 import com.example.book_be.dto.cart.CartSummaryResponse;
 import com.example.book_be.entity.GioHang;
 import com.example.book_be.sach.domain.HinhAnh;
-import com.example.book_be.entity.NguoiDung;
+import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;

@@ -2,14 +2,14 @@ package com.example.book_be.controller.admin;
 
 import com.example.book_be.dao.ChiTietDonHangRepository;
 import com.example.book_be.dao.DonHangRepository;
-import com.example.book_be.dao.NguoiDungRepository;
+import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.entity.ChiTietDonHang;
 import com.example.book_be.entity.DonHang;
-import com.example.book_be.entity.NguoiDung;
+import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.services.VNPayService;
 import com.example.book_be.services.cart.OrderService;
-import com.example.book_be.services.email.EmailService;
+import com.example.book_be.shared.email.EmailService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
