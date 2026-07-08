@@ -60,8 +60,8 @@ Backend mặc định tại `http://localhost:8080`.
 | `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL |
 | `DB_USERNAME` | `root` | DB username |
 | `DB_PASSWORD` | rỗng | DB password |
-| `JWT_SECRET` | Base64 key | JWT signing key |
-| `JWT_EXPIRATION_MS` | `28800000` | Thời gian hết hạn JWT, mặc định 8 giờ |
+| `JWT_SECRET` | Base64 key | JWT signing key, auto-generated if unset |
+| `JWT_EXPIRATION_MS` | `28800000` | JWT expiration in milliseconds (default: 8 hours) |
 | `MAIL_USERNAME` | rỗng | SMTP username |
 | `MAIL_PASSWORD` | rỗng | SMTP password |
 | `VNPAY_TMN_CODE` | rỗng | VNPay merchant code |

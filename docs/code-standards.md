@@ -115,3 +115,19 @@ book_BE-main/
 ├── docker-compose.yml                  # Docker compose
 └── web_ban_sach.sql                    # Full DB dump
 ```
+
+## Những Vấn Đề Đã Biết (Known Issues)
+
+### Bảo Mật (Security)
+- Authorization endpoints sử dụng string array matching (`Endpoints.PUBLIC_GET_ENDPOINS`) với first-match-wins logic, dẫn tới bypass bảo vệ intended cho `/api/admin/*` paths.
+- `SachUserController` (package non-admin) chứa mutation endpoints (create/update/delete) mà không có admin-level security matchers.
+- Hai cấu hình CORS: `SecurityConfiguration` giới hạn origin thành `http://localhost:3000`, nhưng `RestConfig` (Spring Data REST) cho phép tất cả origins trên `/**`.
+
+### Bảo Trì (Maintenance)
+- Một số method service trả về `null` như stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
+- `TaiKhoanService` chứa hai method kích hoạt tương tự (`kichHoatTaiKHoan`/`kichHoatTaiKhoan`) và một `main()` method dùng cho testing bcrypt thủ công.
+- `DonHangAdminController.findAll` lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn.
+
+### Validation
+- `BookDescriptionSanitizer` sử dụng regex-based sanitization thay vì thư viện HTML parser chuyên dụng.
+- Hardcoded fallback defaults cho `jwt.secret` và VNPay credentials khi env vars không được set.

@@ -23,7 +23,7 @@ Hệ thống backend cho website thương mại điện tử bán sách trực t
 
 ### 1. Xác Thực & Phân Quyền
 - Đăng ký tài khoản + kích hoạt qua email
-- Đăng nhập với JWT (hết hạn 30 phút)
+- Đăng nhập với JWT (hết hạn mặc định 8 giờ, có thể cấu hình qua `JWT_EXPIRATION_MS`)
 - Rate limiting: khóa tạm 5 phút sau 5 lần đăng nhập sai
 - 3 vai trò: ADMIN, STAFF, USER
 
@@ -73,3 +73,13 @@ Hệ thống backend cho website thương mại điện tử bán sách trực t
 - Frontend React (repo riêng `book_fe-master`)
 - Docker compose cho 3 service: MySQL, Backend, Frontend
 - Đang sử dụng VNPay sandbox (chưa production)
+
+## Giới Hạn Đã Biết
+
+1. **Authorization Matcher Inconsistency**: `Endpoints.PUBLIC_GET_ENDPOINS` whitelists `/api/admin/user**` và `/api/admin/sach**` as public GET, which bypasses intended ADMIN-only protection due to first-match-wins ordering in `SecurityConfiguration`.
+2. **Unprotected Admin Endpoints**: `SachUserController` (non-admin package) exposes book create/update/delete/activate endpoints without admin-tier security matchers.
+3. **CORS Configuration Mismatch**: `SecurityConfiguration` restricts origins to `http://localhost:3000`, but `RestConfig` (Spring Data REST) allows all origins on `/**`.
+4. **Stub Methods**: Several methods return `null` as stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
+5. **Admin Order Filter**: `DonHangAdminController.findAll` appears to filter by requesting admin's own orders rather than returning all orders.
+6. **Duplicate Account Activation**: `TaiKhoanService` has two similar activation methods (`kichHoatTaiKHoan`/`kichHoatTaiKhoan`).
+7. **Security Config Defaults**: Hardcoded fallback defaults exist for `jwt.secret` and VNPay credentials when env vars are unset.

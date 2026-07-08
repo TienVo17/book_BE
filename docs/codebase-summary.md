@@ -27,9 +27,13 @@ src/main/java/com/example/book_be/
 │   ├── DonHangController.java      # Đơn hàng, checkout, thanh toán VNPay, email
 │   ├── GioHangController.java      # Thao tác giỏ hàng
 │   ├── DanhGiaController.java      # Đánh giá sách
+│   ├── NguoiDungController.java    # Profile người dùng (`/api/nguoi-dung`)
 │   ├── TheLoaiController.java      # API thể loại public theo slug
 │   ├── DiaChiController.java       # API địa chỉ giao hàng (`/api/dia-chi`)
 │   ├── CouponController.java       # API kiểm tra coupon cho user đăng nhập (`/api/coupon/kiem-tra`)
+│   ├── SeoController.java          # API SEO meta tags (`/api/seo`)
+│   ├── SitemapController.java      # Sitemap XML (`/sitemap.xml`)
+│   ├── YeuThichController.java     # API sách yêu thích (`/api/yeu-thich`)
 │   └── admin/
 │       ├── SachController.java     # Admin quản lý sách
 │       ├── UserController.java     # Admin quản lý user
@@ -37,7 +41,8 @@ src/main/java/com/example/book_be/
 │       ├── DonHangAdminController.java # Admin quản lý đơn hàng
 │       ├── QuyenController.java    # Admin quản lý quyền
 │       ├── AdminTheLoaiController.java # Admin CRUD thể loại
-│       └── CouponAdminController.java # Admin CRUD coupon
+│       ├── CouponAdminController.java # Admin CRUD coupon
+│       └── ThongKeController.java  # Admin dashboard stats (`/api/admin/thong-ke`)
 ├── dao/                            # Spring Data JPA Repositories
 │   ├── SachRepository.java
 │   ├── NguoiDungRepository.java
@@ -188,3 +193,11 @@ Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi sc
 3. `controller/DonHangController.java` - 219 dòng
 4. `config/VnPayConfig.java` - 122 dòng
 5. `services/VNPayService.java` - 118 dòng
+
+## Những Vấn Đề Đã Biết
+
+1. **Public Admin Endpoints**: `/api/admin/user**` và `/api/admin/sach**` được liệt kê trong `PUBLIC_GET_ENDPOINS`, cho phép truy cập public GET không cần xác thực (ưu tiên first-match-wins trong `SecurityConfiguration`).
+2. **Unimplemented Methods**: Các service stubs (`AdminUserServiceImpl`, `SachServiceImpl.delete`) trả về `null`.
+3. **HTML Sanitization**: `BookDescriptionSanitizer` sử dụng regex thay vì thư viện chuyên dụng.
+4. **Duplicate Activation Methods**: `TaiKhoanService` có hai method kích hoạt tài khoản tương tự.
+5. **Leftover Main Method**: `TaiKhoanService` vẫn chứa `main()` method dùng cho testing bcrypt thủ công.
