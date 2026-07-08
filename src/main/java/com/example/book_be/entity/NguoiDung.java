@@ -1,6 +1,7 @@
 package com.example.book_be.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -21,6 +22,7 @@ public class NguoiDung {
     private String ten;
     @Column(name = "ten_dang_nhap")
     private String tenDangNhap;
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(name = "mat_khau", length = 512)
     private String matKhau;
     @Column(name = "gioi_tinh")
@@ -35,12 +37,15 @@ public class NguoiDung {
     private String diaChiGiaoHang;
     @Column(name = "da_kich_hoat", nullable = false)
     private Boolean daKichHoat = true;
+    @JsonIgnore
     @Column(name = "ma_kich_hoat")
     private String maKichHoat;
 
+    @JsonIgnore
     @Column(name = "reset_password_token")
     private String resetPasswordToken;
 
+    @JsonIgnore
     @Column(name = "reset_password_token_expiry")
     @Temporal(TemporalType.TIMESTAMP)
     private Date resetPasswordTokenExpiry;
