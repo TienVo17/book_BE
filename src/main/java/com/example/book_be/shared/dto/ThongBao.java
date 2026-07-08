@@ -1,4 +1,4 @@
-package com.example.book_be.entity;
+package com.example.book_be.shared.dto;
 
 public class ThongBao {
     private String noiDung;

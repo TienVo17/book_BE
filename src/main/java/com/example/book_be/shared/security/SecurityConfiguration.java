@@ -1,4 +1,4 @@
-package com.example.book_be.security;
+package com.example.book_be.shared.security;
 
 import com.example.book_be.services.JWT.Jwtfilter;
 import com.example.book_be.services.UserService;

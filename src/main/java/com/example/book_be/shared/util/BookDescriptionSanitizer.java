@@ -1,4 +1,4 @@
-package com.example.book_be.util;
+package com.example.book_be.shared.util;
 
 public final class BookDescriptionSanitizer {
     private BookDescriptionSanitizer() {

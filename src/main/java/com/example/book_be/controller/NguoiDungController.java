@@ -1,7 +1,7 @@
 package com.example.book_be.controller;
 
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.ThongBao;
+import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.services.NguoiDungService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

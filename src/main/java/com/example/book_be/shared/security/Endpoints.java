@@ -1,4 +1,4 @@
-package com.example.book_be.security;
+package com.example.book_be.shared.security;
 
 public class Endpoints {
     public static final String front_end_host = "http://localhost:3000";

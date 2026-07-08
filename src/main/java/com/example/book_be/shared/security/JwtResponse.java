@@ -1,4 +1,4 @@
-package com.example.book_be.security;
+package com.example.book_be.shared.security;
 
 public class JwtResponse {
     private final String jwt;

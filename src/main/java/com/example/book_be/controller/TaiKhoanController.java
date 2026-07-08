@@ -1,8 +1,8 @@
 package com.example.book_be.controller;
 
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.security.JwtResponse;
-import com.example.book_be.security.LoginRequest;
+import com.example.book_be.shared.security.JwtResponse;
+import com.example.book_be.shared.security.LoginRequest;
 import com.example.book_be.services.JWT.JwtService;
 import com.example.book_be.services.TaiKhoanService;
 import com.example.book_be.services.UserService;

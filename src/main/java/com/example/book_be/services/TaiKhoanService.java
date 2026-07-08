@@ -2,7 +2,7 @@ package com.example.book_be.services;
 
 import com.example.book_be.dao.NguoiDungRepository;
 import com.example.book_be.entity.NguoiDung;
-import com.example.book_be.entity.ThongBao;
+import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.services.email.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

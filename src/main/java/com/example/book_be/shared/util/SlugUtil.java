@@ -1,4 +1,4 @@
-package com.example.book_be.util;
+package com.example.book_be.shared.util;
 
 import java.text.Normalizer;
 

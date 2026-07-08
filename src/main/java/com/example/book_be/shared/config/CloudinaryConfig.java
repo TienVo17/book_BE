@@ -1,4 +1,4 @@
-package com.example.book_be.config;
+package com.example.book_be.shared.config;
 
 import com.cloudinary.Cloudinary;
 import org.springframework.beans.factory.annotation.Value;
