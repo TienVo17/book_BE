@@ -33,3 +33,12 @@ build/
 .vscode/
 
 plans/
+
+### Secrets & data dumps (never commit) ###
+.env
+.env.local
+.env.*.local
+repomix-output.xml
+# Raw DB dumps with real data — schema/seed lives in Flyway migrations instead
+/web_ban_sach.sql
+/db/init/web_ban_sach.sql
