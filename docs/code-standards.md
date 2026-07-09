@@ -33,19 +33,24 @@
 
 ## Kiến Trúc
 
-### Mô Hình Phân Lớp
+Dự án dùng **package-by-feature hybrid**: mỗi nghiệp vụ (`sach`, `nguoidung`, `giohang`, `donhang`,
+`thanhtoan`, `danhgia`, `giamgia`, `seo`, `thongke`, `yeuthich`) là một package sở hữu đủ các tầng con
+`web/ service/ repository/ domain/ dto/` của riêng nó; cross-cutting nằm ở `shared/`. Không còn package
+tầng dùng chung (`controller/ services/ dao/ entity/ bo/`). Chi tiết: `docs/architecture-review.md`.
+
+### Mô Hình Phân Lớp (bên trong mỗi feature)
 
 ```
-Controller (REST API)
+web/ (REST Controller)
     │
     ▼
-Service (Business Logic)
+service/ (Business Logic — interface + Impl)
     │
     ▼
-DAO / Repository (Data Access - Spring Data JPA)
+repository/ (Data Access — Spring Data JPA)
     │
     ▼
-Entity (JPA Entities - MySQL)
+domain/ (JPA Entities - MySQL)
 ```
 
 ### Quy Tắc Từng Lớp
@@ -100,33 +105,42 @@ Entity (JPA Entities - MySQL)
 ## Cấu Trúc Thư Mục Dự Án
 
 ```
-book_BE-main/
+book_BE/
 ├── src/
 │   ├── main/
-│   │   ├── java/com/example/book_be/   # Mã nguồn Java
+│   │   ├── java/com/example/book_be/   # Mã nguồn Java (package-by-feature)
+│   │   │   ├── sach/  nguoidung/  yeuthich/  giohang/  donhang/
+│   │   │   ├── thanhtoan/  danhgia/  giamgia/  seo/  thongke/
+│   │   │   └── shared/                 # config, security, util, dto, email
 │   │   └── resources/
-│   │       └── application.properties  # Cấu hình
-│   └── test/                           # Unit tests
-├── db/init/                            # SQL khởi tạo DB
+│   │       ├── application.properties  # Cấu hình
+│   │       └── db/migration/           # Flyway migrations (V1–V6)
+│   └── test/                           # Characterization tests
+├── scripts/                            # smoke.sh, smoke-setup.sh (lưới an toàn HTTP)
 ├── docs/                               # Tài liệu dự án
 ├── plans/                              # Kế hoạch phát triển
 ├── pom.xml                             # Maven config
 ├── Dockerfile                          # Docker build
-├── docker-compose.yml                  # Docker compose
-└── web_ban_sach.sql                    # Full DB dump
+└── docker-compose.yml                  # Docker compose (mysql, backend, frontend)
 ```
 
 ## Những Vấn Đề Đã Biết (Known Issues)
 
 ### Bảo Mật (Security)
-- Authorization endpoints sử dụng string array matching (`Endpoints.PUBLIC_GET_ENDPOINS`) với first-match-wins logic, dẫn tới bypass bảo vệ intended cho `/api/admin/*` paths.
-- `SachUserController` (package non-admin) chứa mutation endpoints (create/update/delete) mà không có admin-level security matchers.
-- Hai cấu hình CORS: `SecurityConfiguration` giới hạn origin thành `http://localhost:3000`, nhưng `RestConfig` (Spring Data REST) cho phép tất cả origins trên `/**`.
+- Authorization dùng string-array matching (`Endpoints`) first-match-wins. **Lưu ý bất biến:** phân quyền
+  phụ thuộc REST path — không đổi `@RequestMapping` path khi refactor package.
+- Hai cấu hình CORS: `SecurityConfiguration` giới hạn origin `http://localhost:3000`, nhưng `RestConfig`
+  (Spring Data REST) cho phép mọi origin trên `/**` — cân nhắc siết lại.
 
 ### Bảo Trì (Maintenance)
 - Một số method service trả về `null` như stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
-- `TaiKhoanService` chứa hai method kích hoạt tương tự (`kichHoatTaiKHoan`/`kichHoatTaiKhoan`) và một `main()` method dùng cho testing bcrypt thủ công.
 - `DonHangAdminController.findAll` lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn.
+
+### Đã Khắc Phục
+- Public admin GET endpoints (`/api/admin/user**`, `/api/admin/sach**`) và mutation không phân quyền ở
+  `SachUserController`: siết lại ở nhánh `security-hardening` (PR #1).
+- Lộ hash mật khẩu qua JPA entity: `NguoiDung` ẩn field nhạy cảm, API công khai trả DTO.
+- `TaiKhoanService`: xóa method kích hoạt trùng (`kichHoatTaiKHoan`) và `main()` thử bcrypt; `VnPayConfig`: xóa `md5`/`Sha256` không dùng.
 
 ### Validation
 - `BookDescriptionSanitizer` sử dụng regex-based sanitization thay vì thư viện HTML parser chuyên dụng.
