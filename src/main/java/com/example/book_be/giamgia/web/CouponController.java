@@ -27,7 +27,8 @@ public class CouponController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
+            // Khong tra e.getMessage() ra client — tranh lo text exception/thong tin noi bo.
+            return ResponseEntity.badRequest().body("Yêu cầu không hợp lệ");
         }
     }
 }
