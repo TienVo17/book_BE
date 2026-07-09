@@ -119,7 +119,7 @@
         <dependency>
             <groupId>com.cloudinary</groupId>
             <artifactId>cloudinary-http44</artifactId>
-            <version>1.36.0</version>
+            <version>1.39.0</version>
         </dependency>
     </dependencies>
 
