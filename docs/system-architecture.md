@@ -225,15 +225,18 @@ Services:
 ## Những Vấn Đề Đã Biết (Known Limitations)
 
 ### Security & Authorization
-1. **Admin Endpoint Public Access**: `/api/admin/user**` và `/api/admin/sach**` được whitelisted trong `Endpoints.PUBLIC_GET_ENDPOINS`, cho phép public GET access do first-match-wins ordering trong `SecurityConfiguration`. Điều này override protection được setting trong admin controller matchers.
-2. **Unprotected Mutations**: `SachUserController` (in main package, not admin) exposes book create/update/delete/activate endpoints mà không có admin-tier security matchers.
-3. **CORS Configuration Conflict**: `SecurityConfiguration` giới hạn CORS origins thành `http://localhost:3000`, nhưng `RestConfig` (Spring Data REST) cho phép all origins trên `/**`, tạo ra conflict.
+1. **CORS Configuration Conflict**: `SecurityConfiguration` giới hạn CORS origins thành `http://localhost:3000`, nhưng `RestConfig` (Spring Data REST) cho phép all origins trên `/**`, tạo ra conflict.
 
 ### Incomplete Implementation
-4. **Stub Service Methods**: Các method trong `AdminUserServiceImpl` (`save`, `update`, `delete`, `findById`) và `SachServiceImpl.delete()` trả về `null` như stubs.
-5. **Admin Order Filtering**: `DonHangAdminController.findAll` có vẻ lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn (có thể là unintended behavior).
-6. **Duplicate Account Methods**: `TaiKhoanService` chứa hai near-duplicate activation methods (`kichHoatTaiKHoan` / `kichHoatTaiKhoan`) và một leftover `main()` method dùng cho manual bcrypt testing.
+2. **Stub Service Methods**: Các method trong `AdminUserServiceImpl` (`save`, `update`, `delete`, `findById`) và `SachServiceImpl.delete()` trả về `null` như stubs.
+3. **Admin Order Filtering**: `DonHangAdminController.findAll` có vẻ lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn (có thể là unintended behavior).
 
 ### Code Quality
-7. **HTML Sanitization**: `BookDescriptionSanitizer` sử dụng regex-based sanitization thay vì library-based HTML parser.
-8. **Hardcoded Defaults**: Fallback defaults cho `jwt.secret` và VNPay credentials khi env vars không được set (security risk in production).
+4. **HTML Sanitization**: `BookDescriptionSanitizer` (`shared/util/`) sử dụng regex-based sanitization thay vì library-based HTML parser.
+
+### Đã Khắc Phục
+- **Admin endpoint public GET** (`/api/admin/user**`, `/api/admin/sach**`) và **unprotected mutations** ở `SachUserController`: siết lại ở nhánh `security-hardening` (PR #1).
+- **Hardcoded defaults** cho `jwt.secret` và VNPay credentials: thay bằng biến môi trường bắt buộc (không còn fallback hardcode).
+- **Lộ hash mật khẩu** qua JPA entity: `NguoiDung` ẩn field nhạy cảm; API công khai trả DTO.
+- **VNPay callback fail-open** (`"" == ""` khi thiếu secret): thêm guard fail-closed trong `VNPayService.orderReturn`.
+- **Duplicate account methods + leftover `main()`** trong `TaiKhoanService`, và `md5`/`Sha256` không dùng trong `VnPayConfig`: đã xóa khi dọn dẹp package-by-feature.

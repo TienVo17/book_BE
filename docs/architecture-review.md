@@ -1,12 +1,14 @@
 # Đánh Giá & Định Hướng Kiến Trúc: Package-by-Feature
 
-> Tài liệu này là deliverable của Phase 1 (kế hoạch `plans/20260708-package-by-feature`). Nó chốt hiện trạng,
-> lý do refactor, cấu trúc đích, và **bảng ánh xạ package cũ→mới** làm kim chỉ nam cho Phase 3–6.
-> Cập nhật lần cuối: 2026-07-08.
+> **Trạng thái: HOÀN THÀNH ✅** — refactor package-by-layer → package-by-feature đã xong toàn bộ.
+> Cây `com.example.book_be` giờ chỉ còn các package nghiệp vụ (`sach`, `nguoidung`, `yeuthich`, `giohang`,
+> `donhang`, `thanhtoan`, `danhgia`, `giamgia`, `seo`, `thongke`) + `shared/`; các package tầng cũ
+> (`controller/ services/ dao/ entity/ bo/ dto/ config/ security/ util/`) đã bị xóa.
+> Tài liệu này giữ lại **bảng ánh xạ cũ→mới** làm bản ghi lịch sử. Cập nhật lần cuối: 2026-07-09.
 
-## 1. Hiện trạng — Package-by-layer
+## 1. Điểm xuất phát — Package-by-layer (lịch sử)
 
-Mã nguồn hiện chia theo **tầng kỹ thuật**:
+Trước refactor, mã nguồn chia theo **tầng kỹ thuật**:
 
 ```
 com.example.book_be/

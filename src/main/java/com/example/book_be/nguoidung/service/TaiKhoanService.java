@@ -63,26 +63,6 @@ public class TaiKhoanService {
         emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
     }
 
-    public ResponseEntity<?> kichHoatTaiKHoan(String email, String maKichHoat) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
-
-        if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại!"));
-        }
-
-        if (nguoiDung.getDaKichHoat()) {
-            return ResponseEntity.badRequest().body(new ThongBao("Tài khoản đã được kích hoạt!"));
-        }
-
-        if (maKichHoat.equals(nguoiDung.getMaKichHoat())) {
-            nguoiDung.setDaKichHoat(true);
-            nguoiDungRepository.save(nguoiDung);
-            return ResponseEntity.ok("Kích hoạt tài khoản thành công!");
-        } else {
-            return ResponseEntity.badRequest().body(new ThongBao("Mã kích hoạt không chính xác!"));
-        }
-    }
-
     public ResponseEntity<?> kichHoatTaiKhoan(String email, String maKichHoat) {
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
@@ -163,20 +143,6 @@ public class TaiKhoanService {
                 + "<html><body><br/>Vui lòng click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
                 + "<br/><a href=" + url + ">" + url + "</a></body></html>";
         emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
-    }
-
-    public static void main(String[] args) {
-// Tạo đối tượng BCryptPasswordEncoder
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-        // Mật khẩu bạn muốn mã hóa
-        String rawPassword = "12345678@";
-
-        // Mã hóa mật khẩu
-        String encodedPassword = passwordEncoder.encode(rawPassword);
-
-        // In kết quả
-        System.out.println("Encoded Password: " + encodedPassword);
     }
 
 }

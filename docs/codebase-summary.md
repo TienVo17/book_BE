@@ -2,116 +2,50 @@
 
 ## Thống Kê
 
-- **Tổng LOC**: ~3815 dòng (Java + SQL + config)
-- **Số file Java**: 68
+- **Số file Java**: 118
 - **Java version**: 17
 - **Package gốc**: `com.example.book_be`
+- **Kiến trúc**: **package-by-feature hybrid** — mỗi nghiệp vụ là một package sở hữu đủ các tầng con
+  `web/ service/ repository/ domain/ dto/` của riêng nó. (Xem `docs/architecture-review.md`.)
 
 ## Cấu Trúc Package
 
+Mỗi feature package chứa các tầng con: `web/` (controller), `service/`, `repository/`, `domain/` (entity), `dto/`.
+
 ```
 src/main/java/com/example/book_be/
-├── BookBeApplication.java          # Entry point
-├── bo/                             # Business Objects (DTO)
-│   ├── BaseBo.java                 # Base DTO với page/pageSize
-│   ├── SachBo.java                 # DTO cho tìm kiếm sách
-│   ├── UserBo.java                 # DTO cho admin quản lý user
-│   ├── DanhGiaBo.java              # DTO cho đánh giá
-│   └── PhanQuyenBo.java            # DTO cho phân quyền
-├── config/
-│   ├── RestConfig.java             # Spring Data REST config, CORS, expose entity IDs
-│   └── VnPayConfig.java            # VNPay crypto utils (MD5, SHA256, HMAC-SHA512)
-├── controller/
-│   ├── TaiKhoanController.java     # Đăng ký, đăng nhập, kích hoạt tài khoản
-│   ├── SachUserController.java     # API sách cho user (CRUD, search, images)
-│   ├── DonHangController.java      # Đơn hàng, checkout, thanh toán VNPay, email
-│   ├── GioHangController.java      # Thao tác giỏ hàng
-│   ├── DanhGiaController.java      # Đánh giá sách
-│   ├── NguoiDungController.java    # Profile người dùng (`/api/nguoi-dung`)
-│   ├── TheLoaiController.java      # API thể loại public theo slug
-│   ├── DiaChiController.java       # API địa chỉ giao hàng (`/api/dia-chi`)
-│   ├── CouponController.java       # API kiểm tra coupon cho user đăng nhập (`/api/coupon/kiem-tra`)
-│   ├── SeoController.java          # API SEO meta tags (`/api/seo`)
-│   ├── SitemapController.java      # Sitemap XML (`/sitemap.xml`)
-│   ├── YeuThichController.java     # API sách yêu thích (`/api/yeu-thich`)
-│   └── admin/
-│       ├── SachController.java     # Admin quản lý sách
-│       ├── UserController.java     # Admin quản lý user
-│       ├── BinhLuanController.java # Admin kiểm duyệt bình luận
-│       ├── DonHangAdminController.java # Admin quản lý đơn hàng
-│       ├── QuyenController.java    # Admin quản lý quyền
-│       ├── AdminTheLoaiController.java # Admin CRUD thể loại
-│       ├── CouponAdminController.java # Admin CRUD coupon
-│       └── ThongKeController.java  # Admin dashboard stats (`/api/admin/thong-ke`)
-├── dao/                            # Spring Data JPA Repositories
-│   ├── SachRepository.java
-│   ├── NguoiDungRepository.java
-│   ├── DonHangRepository.java
-│   ├── ChiTietDonHangRepository.java
-│   ├── GioHangRepository.java
-│   ├── HinhAnhRepository.java
-│   ├── HinhThucGiaoHangRepository.java
-│   ├── HinhThucThanhToanRepository.java
-│   ├── NhaCungCapRepository.java
-│   ├── QuyenRepository.java
-│   ├── SachYeuThichRepository.java
-│   ├── SuDanhGiaRepository.java
-│   ├── TheLoaiRepository.java
-│   └── CouponRepository.java       # Atomic update lượt dùng coupon khi checkout
-├── entity/                         # JPA Entities (17 bảng)
-│   ├── Sach.java                   # Sách (maSach, tenSach, tenTacGia, giaBan...)
-│   ├── NguoiDung.java              # Người dùng (tenDangNhap, matKhau, email...)
-│   ├── DonHang.java                # Đơn hàng (tongTien, trangThaiThanhToan...)
-│   ├── ChiTietDonHang.java         # Chi tiết đơn hàng
-│   ├── GioHang.java                # Giỏ hàng
-│   ├── HinhAnh.java                # Hình ảnh sách
-│   ├── TheLoai.java                # Thể loại sách
-│   ├── Quyen.java                  # Quyền (ADMIN, STAFF, USER)
-│   ├── SuDanhGia.java              # Đánh giá sách
-│   ├── SachYeuThich.java           # Sách yêu thích
-│   ├── NhaCungCap.java             # Nhà cung cấp
-│   ├── HinhThucThanhToan.java      # Hình thức thanh toán
-│   ├── HinhThucGiaoHang.java       # Hình thức giao hàng
-│   ├── ThongBao.java               # Thông báo (non-JPA DTO)
-│   ├── Coupon.java                 # Mã giảm giá
-│   ├── DiaChiGiaoHang.java         # Địa chỉ giao hàng
-│   ├── SachThongTinChiTiet.java    # Chi tiết sách (1:1)
-│   └── LoaiGiamGia.java            # Enum loại giảm giá
-├── security/
-│   ├── SecurityConfiguration.java  # Filter chain, JWT, CORS, BCrypt
-│   ├── Endpoints.java              # Danh sách endpoint public/admin
-│   ├── LoginRequest.java           # DTO đăng nhập
-│   └── JwtResponse.java            # DTO response JWT
-├── dto/
-│   ├── cart/                       # DTO giỏ hàng/checkout/order list (bao gồm payment + coupon summary)
-│   └── theloai/                    # DTO request/response cho API thể loại
-└── services/
-    ├── JWT/
-    │   ├── JwtService.java         # Tạo/xác thực JWT token
-    │   └── Jwtfilter.java          # Filter xác thực request
-    ├── TaiKhoanService.java        # Đăng ký, kích hoạt tài khoản
-    ├── UserService.java            # UserDetailsService (Spring Security)
-    ├── UserServiceImpl.java
-    ├── VNPayService.java           # Tạo đơn VNPay, xác thực kết quả
-    ├── TheLoaiService.java         # Interface catalog thể loại
-    ├── TheLoaiServiceImpl.java     # Impl: slug, validate trùng, admin CRUD
-    ├── admin/
-    │   ├── SachService.java        # Interface quản lý sách
-    │   ├── SachServiceImpl.java    # Impl: CRUD, search, phân trang
-    │   ├── AdminUserService.java   # Interface quản lý user (admin)
-    │   └── AdminUserServiceImpl.java
-    ├── cart/
-    │   ├── CartService.java        # Interface giỏ hàng
-    │   ├── CartServiceImpl.java
-    │   ├── OrderService.java       # Interface đơn hàng
-    │   └── OrderServiceImpl.java
-    ├── email/
-    │   ├── EmailService.java       # Interface gửi email
-    │   └── EmailServiceImpl.java
-    └── review/
-        ├── DanhGiaService.java     # Interface đánh giá
-        └── DanhGiaServiceImpl.java
+├── BookBeApplication.java              # Entry point
+├── sach/                               # Catalog: sách, thể loại, hình ảnh, nhà cung cấp
+│   ├── web/          SachUserController, TheLoaiController, SachController(admin), AdminTheLoaiController
+│   ├── service/      SachService(+Impl), TheLoaiService(+Impl), CloudinaryService, BookImageStorageService
+│   ├── repository/   SachRepository, TheLoaiRepository, HinhAnhRepository, NhaCungCapRepository
+│   ├── domain/       Sach, TheLoai, HinhAnh, NhaCungCap, SachThongTinChiTiet
+│   └── dto/          SachResponse, SachBo, SachAdminUpsertBo, SachThongTinChiTietBo, TheLoai{Response,AdminResponse,AdminUpsertRequest}
+├── nguoidung/                          # Người dùng + xác thực
+│   ├── web/          TaiKhoanController, NguoiDungController, DiaChiController, UserController(admin), QuyenController
+│   ├── service/      TaiKhoanService, NguoiDungService(+Impl), UserService(+Impl), DiaChiService(+Impl), AdminUserService(+Impl)
+│   ├── repository/   NguoiDungRepository, QuyenRepository, DiaChiGiaoHangRepository
+│   ├── domain/       NguoiDung, Quyen, DiaChiGiaoHang
+│   ├── dto/          UserBo, PhanQuyenBo
+│   └── baomat/       JwtService, Jwtfilter          # JWT (đổi từ package `services/JWT` chữ HOA)
+├── yeuthich/         web/ · repository/ · domain/(SachYeuThich)
+├── giohang/          web/ · service/(CartService+Impl) · repository/ · domain/(GioHang) · dto/(Cart*)
+├── donhang/          web/(DonHangController, DonHangAdminController) · service/(OrderService+Impl) · repository/ · domain/(DonHang, ChiTietDonHang, HinhThucGiaoHang) · dto/(CheckoutOrder{Request,Response}, OrderListItemResponse, VNPayUrlResponse)
+├── thanhtoan/        config/(VnPayConfig) · service/(VNPayService) · repository/ · domain/(HinhThucThanhToan)
+├── danhgia/          web/(DanhGiaController, BinhLuanController) · service/(DanhGiaService+Impl) · repository/(SuDanhGiaRepository) · domain/(SuDanhGia) · dto/(DanhGiaBo)
+├── giamgia/          web/(CouponController, CouponAdminController) · service/(CouponService+Impl) · repository/(CouponRepository) · domain/(Coupon, LoaiGiamGia)
+├── seo/              web/(SeoController, SitemapController) · service/(SeoService+Impl)
+├── thongke/          web/(admin/ThongKeController) · service/(ThongKeService+Impl)
+└── shared/                             # Cross-cutting
+    ├── config/       RestConfig, CloudinaryConfig
+    ├── security/     SecurityConfiguration, Endpoints, LoginRequest, JwtResponse
+    ├── util/         SlugUtil, BookDescriptionSanitizer
+    ├── dto/          ThongBao, BaseBo
+    └── email/        EmailService(+Impl)
 ```
+
+> Lưu ý: `VnPayConfig` thuộc `thanhtoan/config/` (nghiệp vụ thanh toán), KHÔNG phải `shared/config/`.
+> `CouponRepository.tangLuotSuDungNeuConHieuLuc(...)` cập nhật nguyên tử lượt dùng coupon khi checkout.
 
 ## Quan Hệ Thực Thể (Entity Relationships)
 
@@ -189,15 +123,19 @@ Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi sc
 ## File Lớn Nhất (theo LOC)
 
 1. `db/migration/V1__init_schema.sql` - ~230 dòng (full schema)
-2. `services/admin/SachServiceImpl.java` - 367 dòng
-3. `controller/DonHangController.java` - 219 dòng
-4. `config/VnPayConfig.java` - 122 dòng
-5. `services/VNPayService.java` - 118 dòng
+2. `sach/service/SachServiceImpl.java` - ~367 dòng
+3. `donhang/web/DonHangController.java` - ~219 dòng
+4. `thanhtoan/config/VnPayConfig.java`
+5. `thanhtoan/service/VNPayService.java`
 
 ## Những Vấn Đề Đã Biết
 
-1. **Public Admin Endpoints**: `/api/admin/user**` và `/api/admin/sach**` được liệt kê trong `PUBLIC_GET_ENDPOINS`, cho phép truy cập public GET không cần xác thực (ưu tiên first-match-wins trong `SecurityConfiguration`).
-2. **Unimplemented Methods**: Các service stubs (`AdminUserServiceImpl`, `SachServiceImpl.delete`) trả về `null`.
-3. **HTML Sanitization**: `BookDescriptionSanitizer` sử dụng regex thay vì thư viện chuyên dụng.
-4. **Duplicate Activation Methods**: `TaiKhoanService` có hai method kích hoạt tài khoản tương tự.
-5. **Leftover Main Method**: `TaiKhoanService` vẫn chứa `main()` method dùng cho testing bcrypt thủ công.
+1. **Unimplemented Methods**: Một vài service stub (`AdminUserServiceImpl`, `SachServiceImpl.delete`) trả về `null`.
+2. **HTML Sanitization**: `BookDescriptionSanitizer` (`shared/util/`) dùng regex thay vì thư viện chuyên dụng.
+
+### Đã khắc phục
+
+- **Public admin endpoints** (`/api/admin/user**`, `/api/admin/sach**` từng nằm trong `PUBLIC_GET`): siết lại ở nhánh `security-hardening` (PR #1).
+- **Lộ hash mật khẩu qua JPA entity**: `NguoiDung.matKhau` gắn `@JsonProperty(WRITE_ONLY)`, các field nhạy cảm `@JsonIgnore`; API công khai trả DTO.
+- **VNPay callback fail-open** (`"" == ""` khi thiếu secret): thêm guard fail-closed trong `VNPayService.orderReturn`.
+- **Duplicate activation method + leftover `main()`** trong `TaiKhoanService`, và `md5`/`Sha256` không dùng trong `VnPayConfig`: đã xóa khi dọn dẹp package-by-feature.
