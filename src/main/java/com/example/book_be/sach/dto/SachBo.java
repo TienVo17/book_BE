@@ -1,5 +1,5 @@
 package com.example.book_be.sach.dto;
-import com.example.book_be.bo.BaseBo;
+import com.example.book_be.shared.dto.BaseBo;
 
 import lombok.Data;
 

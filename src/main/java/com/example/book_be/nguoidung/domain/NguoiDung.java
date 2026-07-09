@@ -1,5 +1,5 @@
 package com.example.book_be.nguoidung.domain;
-import com.example.book_be.entity.SuDanhGia;
+import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.donhang.domain.DonHang;
 import com.example.book_be.giohang.domain.GioHang;
 import com.example.book_be.yeuthich.domain.SachYeuThich;

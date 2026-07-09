@@ -1,7 +1,7 @@
 package com.example.book_be.donhang.service;
 
 import com.example.book_be.donhang.repository.ChiTietDonHangRepository;
-import com.example.book_be.dao.CouponRepository;
+import com.example.book_be.giamgia.repository.CouponRepository;
 import com.example.book_be.nguoidung.repository.DiaChiGiaoHangRepository;
 import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.giohang.repository.GioHangRepository;
@@ -12,7 +12,7 @@ import com.example.book_be.giohang.dto.CartItemRequest;
 import com.example.book_be.donhang.dto.CheckoutOrderRequest;
 import com.example.book_be.donhang.dto.CheckoutOrderResponse;
 import com.example.book_be.donhang.domain.ChiTietDonHang;
-import com.example.book_be.entity.Coupon;
+import com.example.book_be.giamgia.domain.Coupon;
 import com.example.book_be.nguoidung.domain.DiaChiGiaoHang;
 import com.example.book_be.donhang.domain.DonHang;
 import com.example.book_be.thanhtoan.domain.HinhThucThanhToan;
