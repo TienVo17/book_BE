@@ -54,5 +54,22 @@ else
   bad "bo qua check admin/user (khong co JWT)"
 fi
 
+# 5. Cac feature nho (danhgia, giamgia, seo, thongke) — route song + phan quyen dung
+req GET "/sitemap.xml"
+[ "$CODE" = "200" ] && ok "GET /sitemap.xml = 200 (seo)" || bad "sitemap = $CODE"
+req GET "/api/danh-gia/findAll?maSach=1"
+[ "$CODE" = "200" ] && ok "GET /api/danh-gia/findAll = 200" || bad "danh-gia findAll = $CODE"
+echo "$BODY" | grep -qE '"matKhau"|\$2a\$' && bad "RO RI: danh-gia lo matKhau/hash" || ok "danh-gia khong lo matKhau/hash"
+req GET "/api/admin/thong-ke"
+{ [ "$CODE" = "401" ] || [ "$CODE" = "403" ]; } && ok "admin/thong-ke an danh bi chan ($CODE)" || bad "admin/thong-ke an danh KHONG bi chan ($CODE)"
+if [ -n "$JWT" ]; then
+  req GET "/api/admin/thong-ke" "" "$JWT"
+  [ "$CODE" = "200" ] && ok "admin/thong-ke voi token = 200" || bad "admin/thong-ke voi token = $CODE"
+  req POST "/api/coupon/kiem-tra" '{"ma":"SMOKE_KHONG_TON_TAI","tongTien":100000}' "$JWT"
+  { [ "$CODE" = "200" ] && echo "$BODY" | grep -q '"hopLe"'; } && ok "coupon/kiem-tra tra ve hopLe" || bad "coupon/kiem-tra ($CODE)"
+else
+  bad "bo qua check thong-ke/coupon (khong co JWT)"
+fi
+
 echo "== Ket qua: PASS=$PASS FAIL=$FAIL =="
 [ "$FAIL" -eq 0 ]
