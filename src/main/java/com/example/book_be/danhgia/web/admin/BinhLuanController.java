@@ -4,6 +4,7 @@ import com.example.book_be.sach.dto.SachBo;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.danhgia.dto.DanhGiaResponse;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.nguoidung.domain.Quyen;
 import com.example.book_be.sach.domain.Sach;
@@ -33,7 +34,7 @@ public class BinhLuanController {
     private SachRepository sachRepository;
 
     @GetMapping("findAll")
-    public Page<SuDanhGia> findAll(@RequestParam("page") Integer page) {
+    public Page<DanhGiaResponse> findAll(@RequestParam("page") Integer page) {
         Pageable pageable = PageRequest.of(page,10);
         Page<SuDanhGia> suDanhGiaPage = suDanhGiaRepository.findAll((root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -42,7 +43,7 @@ public class BinhLuanController {
             return builder.and(predicates.toArray(new Predicate[0]));
         }, pageable);
 
-        return suDanhGiaPage;
+        return DanhGiaResponse.fromPage(suDanhGiaPage);
     }
 
 

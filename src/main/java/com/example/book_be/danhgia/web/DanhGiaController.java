@@ -1,6 +1,7 @@
 package com.example.book_be.danhgia.web;
 
 import com.example.book_be.danhgia.dto.DanhGiaBo;
+import com.example.book_be.danhgia.dto.DanhGiaResponse;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
@@ -31,18 +32,18 @@ public class DanhGiaController {
     private SuDanhGiaRepository suDanhGiaRepository;
 
     @GetMapping("findAll")
-    public List<SuDanhGia> findAll(@RequestParam("maSach") Integer maSach) {
+    public List<DanhGiaResponse> findAll(@RequestParam("maSach") Integer maSach) {
         List<SuDanhGia> suDanhGiaPage = suDanhGiaRepository.findAll((root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(builder.equal(root.get("sach").get("maSach"),maSach));
             predicates.add(builder.equal(root.get("isActive"),1));
             return builder.and(predicates.toArray(new Predicate[0]));
         });
-        return suDanhGiaPage;
+        return DanhGiaResponse.fromList(suDanhGiaPage);
     }
 
     @PostMapping("/them-danh-gia-v1")
-    public SuDanhGia addReview(@RequestBody DanhGiaBo danhGia) {
+    public DanhGiaResponse addReview(@RequestBody DanhGiaBo danhGia) {
         NguoiDung nguoiDung = null;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication.getName() != null) {
@@ -55,23 +56,21 @@ public class DanhGiaController {
                 (long) finalNguoiDung.getMaNguoiDung(),
                 (long) danhGia.getMaSach()
         );
-        suDanhGia.setSach(null);
-        suDanhGia.setNguoiDung(null);
-        return suDanhGia;
+        return DanhGiaResponse.from(suDanhGia);
     }
 
     @PostMapping("/sua-danh-gia/{maDanhGia}")
-    public SuDanhGia updateReview(@PathVariable Long maDanhGia, @RequestBody SuDanhGia danhGia) {
-        return danhGiaService.updateReview(
+    public DanhGiaResponse updateReview(@PathVariable Long maDanhGia, @RequestBody SuDanhGia danhGia) {
+        return DanhGiaResponse.from(danhGiaService.updateReview(
                 maDanhGia, danhGia
-        );
+        ));
     }
 
     @PostMapping("/xoa-danh-gia/{maDanhGia}")
-    public SuDanhGia deleteReview(@PathVariable Long maDanhGia) {
-        return danhGiaService.deleteReview(
+    public DanhGiaResponse deleteReview(@PathVariable Long maDanhGia) {
+        return DanhGiaResponse.from(danhGiaService.deleteReview(
                 maDanhGia
-        );
+        ));
     }
 
 }
