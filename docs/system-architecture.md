@@ -107,6 +107,25 @@ Client                     Backend                          DB
   │◄──DonHang response────────┤                              │
 ```
 
+> **Tồn kho nguyên tử:** checkout trừ kho bằng UPDATE có điều kiện `SachRepository.truKhoNeuDu` (0 bản ghi = hết hàng → 400, rollback cả đơn). Lặp trừ theo `maSach` tăng dần (TreeMap) để chống deadlock. Không còn oversell/TOCTOU.
+
+## Luồng Trạng Thái & Hủy Đơn Hàng
+
+Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ,1=đang giao,2=đã giao,3=đã hủy) giữ nguyên kiểu; mọi thay đổi đi qua `DonHangTrangThaiService`, mỗi chuyển hợp lệ ghi 1 dòng `lich_su_trang_thai_don_hang`.
+
+- **VNPay callback** → `chuyenTrangThaiGiaoHang(DANG_GIAO)` + `chuyenTrangThaiThanhToan(DA_THANH_TOAN)` — idempotent, an toàn khi callback chạy lại.
+- **Admin `cap-nhat-trang-thai-giao-hang`** → `chuyenTrangThaiTiepTheo` (tiến 1 bước: 0→1→2; ở 2/3 → 409). Đơn COD cần 2 lần bấm để tới "đã giao". Ràng buộc theo phương thức thanh toán:
+  - **VNPAY (trả trước):** đơn `chưa thanh toán` → **chặn giao (409)**.
+  - **COD (trả khi nhận):** khi lên `DA_GIAO (2)` → tự động set `trang_thai_thanh_toan=1` (đã thu tiền mặt) để doanh thu tính đúng. (null-method của `them-don-hang-moi` coi như COD.)
+- **Hủy đơn** `POST /api/don-hang/huy/{maDonHang}` (owner hoặc admin):
+  1. Kiểm quyền (owner/admin) + trạng thái (user chỉ hủy khi `CHO_XU_LY`; admin `CHO_XU_LY`/`DANG_GIAO`); user không hủy được đơn đã thanh toán online (400).
+  2. `chuyenTrangThaiGiaoHang(DA_HUY)` **trước** — `@Version` optimistic lock chặn double-cancel (request thứ 2 → 409, không hoàn kho/coupon 2 lần).
+  3. Hoàn kho (`hoanKho`) + hoàn lượt coupon (`giamLuotSuDung`) trong cùng transaction.
+  4. Email xác nhận gửi qua `afterCommit` (ngoài transaction — SMTP lỗi không rollback hủy đơn).
+- Doanh thu (`sumDoanhThu`/`sumDoanhThuHomNay`) tính đơn `trang_thai_thanh_toan=1` và **loại trừ** đơn `trang_thai_giao_hang=3` (đã hủy). Vì COD được set `thanh_toan=1` khi giao xong, doanh số COD đã giao được tính đúng.
+- **Giả định (YAGNI):** "COD giao=2 ⟹ đã thu tiền". Nếu sau này thêm trạng thái "giao thất bại", phải xem lại chỗ auto-set thanh toán trong `chuyenTrangThaiTiepTheo`.
+- `findAll`/`findById`: admin thấy mọi đơn; user chỉ thấy đơn của chính mình.
+
 ## Phân Quyền API
 
 ### Endpoint Công Khai (Public)
@@ -130,7 +149,9 @@ Client                     Backend                          DB
 | Method | Path | Mô tả |
 |--------|------|-------|
 | POST | `/api/don-hang/them` | Đặt hàng; nhận `maCoupon` (optional), backend tự tính giảm giá và tổng tiền |
-| GET | `/api/don-hang/findAll**` | Xem đơn hàng (response DTO gồm `phuongThucThanhToan`, `tenPhuongThucThanhToan`) |
+| GET | `/api/don-hang/findAll**` | Xem đơn hàng (admin thấy mọi đơn; user chỉ đơn của mình) |
+| GET | `/api/don-hang/{id}` | Chi tiết đơn (admin mọi đơn; user chỉ đơn của mình → 403) |
+| POST | `/api/don-hang/huy/{maDonHang}` | Hủy đơn (owner hoặc admin); hoàn kho + coupon, chống double-cancel |
 | GET | `/api/don-hang/submitOrder**` | Tạo link VNPay theo `maDonHang` + `tongTien` backend; từ chối đơn COD |
 | POST | `/api/coupon/kiem-tra` | Kiểm tra coupon cho user đã đăng nhập |
 | POST | `/api/danh-gia/them-danh-gia-v1` | Thêm đánh giá |
@@ -149,7 +170,7 @@ Client                     Backend                          DB
 | POST | `/api/admin/the-loai` | Tạo thể loại mới, tự sinh slug |
 | PUT | `/api/admin/the-loai/{maTheLoai}` | Cập nhật tên thể loại và slug |
 | DELETE | `/api/admin/the-loai/{maTheLoai}` | Xóa thể loại khi chưa gắn sách |
-| POST | `/api/don-hang/cap-nhat-trang-thai-giao-hang/**` | Cập nhật giao hàng |
+| POST | `/api/don-hang/cap-nhat-trang-thai-giao-hang/**` | Tiến 1 bước trạng thái giao hàng (0→1→2); ở 2/3 → 409 |
 | GET | `/api/admin/danh-gia/findAll**` | Xem đánh giá (admin) |
 | POST | `/api/admin/danh-gia/active/**` | Duyệt đánh giá |
 | POST | `/api/admin/danh-gia/unactive/**` | Ẩn đánh giá |
@@ -175,7 +196,7 @@ SecurityConfiguration
 App Startup:
   1. DataSource connect → MySQL
   2. Flyway check flyway_schema_history
-  3. Flyway apply pending migrations (V1→V6)
+  3. Flyway apply pending migrations (V1→V7)
   4. Hibernate validate schema vs entities
   5. Application context boot
 ```
@@ -184,6 +205,7 @@ App Startup:
 - Hibernate chỉ `validate` — phát hiện drift mà không tự sửa DB
 - `V5__add_slug_to_the_loai.sql` thêm cột `slug`, backfill dữ liệu cũ, và tạo unique constraint cho bảng `the_loai`
 - `V6__add_payment_method_codes.sql` thêm `ma_code` cho `hinh_thuc_thanh_toan` và backfill mã ổn định (`COD`, `VNPAY`)
+- `V7__lich_su_trang_thai_va_ma_coupon.sql` thêm bảng `lich_su_trang_thai_don_hang`, cột `don_hang.ma_coupon` (FK `ON DELETE SET NULL`) và `don_hang.version` (`@Version` optimistic lock)
 - Demo data tự động seed khi DB trống
 
 ## Cấu Hình Docker

@@ -30,7 +30,7 @@ src/main/java/com/example/book_be/
 │   └── baomat/       JwtService, Jwtfilter          # JWT (đổi từ package `services/JWT` chữ HOA)
 ├── yeuthich/         web/ · repository/ · domain/(SachYeuThich)
 ├── giohang/          web/ · service/(CartService+Impl) · repository/ · domain/(GioHang) · dto/(Cart*)
-├── donhang/          web/(DonHangController, DonHangAdminController) · service/(OrderService+Impl) · repository/ · domain/(DonHang, ChiTietDonHang, HinhThucGiaoHang) · dto/(CheckoutOrder{Request,Response}, OrderListItemResponse, VNPayUrlResponse)
+├── donhang/          web/(DonHangController, DonHangAdminController) · service/(OrderService+Impl, DonHangTrangThaiService, DonHangHuyService) · repository/(DonHangRepository, ChiTietDonHangRepository, LichSuTrangThaiDonHangRepository) · domain/(DonHang, ChiTietDonHang, HinhThucGiaoHang, LichSuTrangThaiDonHang, MayTrangThaiDonHang, TrangThaiGiaoHang, TrangThaiThanhToan) · dto/(CheckoutOrder{Request,Response}, OrderListItemResponse, VNPayUrlResponse)
 ├── thanhtoan/        config/(VnPayConfig) · service/(VNPayService) · repository/ · domain/(HinhThucThanhToan)
 ├── danhgia/          web/(DanhGiaController, BinhLuanController) · service/(DanhGiaService+Impl) · repository/(SuDanhGiaRepository) · domain/(SuDanhGia) · dto/(DanhGiaBo)
 ├── giamgia/          web/(CouponController, CouponAdminController) · service/(CouponService+Impl) · repository/(CouponRepository) · domain/(Coupon, LoaiGiamGia)
@@ -95,7 +95,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | Docker image config (root) | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend (frontend build context: `../book_FE`) |
-| `src/main/resources/db/migration/` | Flyway migrations (V1-V6): schema, seed, demo data, slug backfill thể loại, payment method codes (`ma_code`) |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V7): schema, seed, demo data, slug thể loại, payment codes, lịch sử trạng thái + `ma_coupon`/`version` đơn hàng |
 | `repomix-output.xml` | Compaction snapshot dùng để tổng hợp codebase/docs sync |
 | `.gitignore` | Loại trừ target, IDE files |
 
@@ -109,8 +109,9 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `V4__seed_demo_data.sql` | Demo: 10 sách, 5 users, đơn hàng, đánh giá |
 | `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
 | `V6__add_payment_method_codes.sql` | Thêm cột `ma_code` cho `hinh_thuc_thanh_toan`, backfill COD/VNPAY |
+| `V7__lich_su_trang_thai_va_ma_coupon.sql` | Bảng `lich_su_trang_thai_don_hang`; `don_hang.ma_coupon` (FK `ON DELETE SET NULL`); `don_hang.version` (`@Version`) |
 
-Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6...).
+Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6, V7...).
 
 ## Đồng Bộ Checkout + Coupon (Backend/Frontend)
 
@@ -119,6 +120,37 @@ Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi sc
 - `CheckoutOrderResponse` trả thêm các trường tóm tắt đơn: `tongTienSanPham`, `soTienGiam`, `maCoupon`, `phuongThucThanhToan`, cùng thông tin nhận hàng.
 - Coupon vẫn giữ chính sách **chỉ cho user đã đăng nhập** qua endpoint `/api/coupon/kiem-tra` (được cấu hình nhóm authenticated trong `security/Endpoints.java`).
 - Tránh race condition khi redeem coupon bằng update có điều kiện nguyên tử trong `CouponRepository.tangLuotSuDungNeuConHieuLuc(...)`.
+
+## Trạng Thái Đơn Hàng (ánh xạ số ↔ nghĩa)
+
+Hai cột `Integer` trên `don_hang` giữ nguyên kiểu số; ánh xạ nghĩa được xác minh từ toàn bộ `book_FE` và backend:
+
+| Cột | Giá trị | Nghĩa | Nơi đọc/ghi |
+|---|---|---|---|
+| `trang_thai_thanh_toan` | 0 | Chưa thanh toán | checkout khởi tạo 0 (`OrderServiceImpl`); FE badge `=== 0` → "Chưa thanh toán" |
+| | 1 | Đã thanh toán | VNPay callback set 1 (`DonHangController` `/vnpay-payment`); FE badge còn lại → "Đã thanh toán" |
+| `trang_thai_giao_hang` | 0 | Chờ xử lý | checkout khởi tạo 0 (COD **và** VNPay) |
+| | 1 | Đang giao / đã xác nhận | VNPay callback set 1; COD lên 1 qua endpoint admin `cap-nhat-trang-thai-giao-hang` |
+| | 2 | Đã giao | endpoint admin advance lần 2; FE badge `=== 2` → "Đã nhận hàng"/"delivered" |
+| | 3 | Đã hủy (mới) | user/admin hủy đơn; FE hiện render như "Đang xử lý" cho tới khi thêm badge (follow-up FE) |
+
+Seed demo (`V4`): giá trị `trang_thai_giao_hang ∈ {0,1,2}`, `trang_thai_thanh_toan ∈ {0,1}` — không có giá trị lạ, `3` không đụng bất kỳ so sánh nào trong FE.
+
+**Hai cơ chế chuyển trạng thái giao hàng** (mọi thay đổi đi qua `DonHangTrangThaiService`):
+- **Chuyển có đích** (`chuyenTrangThaiGiaoHang(don, target, ...)`): idempotent no-op khi `target == hiện tại`; hợp lệ `0→1`, `0→3`, `1→3`. Dùng cho VNPay callback (target=1, an toàn khi gọi lại) và hủy đơn (target=3).
+- **Tiến 1 bước** (`chuyenTrangThaiTiepTheo(don, ...)`): `0→1`, `1→2`; ở `2`/`3` → 409. Là đường DUY NHẤT đưa đơn COD tới "đã giao"; chỉ dùng bởi endpoint admin `cap-nhat-trang-thai-giao-hang`.
+
+Thanh toán: `chuyenTrangThaiThanhToan(don, target)` — một chiều `0→1`, idempotent khi gọi lại.
+
+## Spring Data REST — kết quả xác minh runtime
+
+`RestConfig` để trống toàn bộ block-method (comment), và hầu hết `@RepositoryRestResource` không đặt `exported=false`. Xác minh runtime (curl không token và với token admin) cho thấy **không có lỗ hổng lộ CRUD thô**:
+
+- Path trần không khớp rule bảo mật (`/don-hang`, `/coupon`, `/chi-tiet-don-hang`) → **403 cho mọi caller** (Spring Security default-deny các request không khớp matcher). Không lộ dữ liệu.
+- `/nguoi-dung` (trần) khớp `ADMIN_GET_ENDPOINS` → chỉ admin đọc được (403 cho anonymous/USER); response **không** serialize `matKhau`/hash (nhờ `@JsonProperty(WRITE_ONLY)`/`@JsonIgnore` trên `NguoiDung`).
+- `/sach` (trần): GET công khai (danh mục sách — không nhạy cảm); POST/PUT/PATCH/DELETE → 403 nếu không phải admin.
+
+Kết luận: `exported=false` chỉ cần trên `GioHangRepository` (đã có); các repo còn lại đã được `SecurityConfiguration` phủ đủ. Không sửa code ở bước này.
 
 ## File Lớn Nhất (theo LOC)
 

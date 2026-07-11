@@ -77,6 +77,13 @@ domain/ (JPA Entities - MySQL)
 - Quan hệ: `@ManyToOne`, `@OneToMany`, `@ManyToMany`
 - `@JsonIgnore` cho lazy-loaded collections tránh circular reference
 
+### Quy Tắc Nghiệp Vụ Đơn Hàng (Cụm A)
+
+- **Trạng thái đơn hàng CHỈ được thay đổi qua `DonHangTrangThaiService`** (`chuyenTrangThaiGiaoHang`/`chuyenTrangThaiTiepTheo`/`chuyenTrangThaiThanhToan`) — không `setTrangThai*` trực tiếp trong controller/service khác (ngoại lệ: checkout khởi tạo 0/0). Mọi chuyển hợp lệ tự ghi `lich_su_trang_thai_don_hang`.
+- **Trừ/hoàn tồn kho CHỈ qua query nguyên tử** `SachRepository.truKhoNeuDu` / `hoanKho` (UPDATE có điều kiện, caller `@Transactional`) — không đọc-rồi-ghi `soLuong`. Lặp theo `maSach` tăng dần (TreeMap/sorted) để chống deadlock.
+- **Tác dụng phụ ngoài transaction** (email...) đăng ký qua `TransactionSynchronization.afterCommit`, không nằm trong `@Transactional` — tránh self-invocation làm mất transaction và không để SMTP lỗi rollback nghiệp vụ đã commit.
+- Entity cần chống lost-update (vd `DonHang`) dùng `@Version` + `@JsonIgnore`; bắt `ObjectOptimisticLockingFailureException` → 409.
+
 ## Phong Cách Code
 
 ### Annotations
