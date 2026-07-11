@@ -9,9 +9,14 @@ import com.example.book_be.donhang.dto.OrderListItemResponse;
 import com.example.book_be.donhang.dto.VNPayUrlResponse;
 import com.example.book_be.donhang.domain.ChiTietDonHang;
 import com.example.book_be.donhang.domain.DonHang;
+import com.example.book_be.donhang.domain.TrangThaiGiaoHang;
+import com.example.book_be.donhang.domain.TrangThaiThanhToan;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.thanhtoan.service.VNPayService;
+import com.example.book_be.donhang.service.DonHangHuyService;
+import com.example.book_be.donhang.service.DonHangTrangThaiService;
 import com.example.book_be.donhang.service.OrderService;
+import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.shared.email.EmailService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +52,12 @@ public class DonHangController {
     private OrderService orderService;
 
     @Autowired
+    private DonHangTrangThaiService donHangTrangThaiService;
+
+    @Autowired
+    private DonHangHuyService donHangHuyService;
+
+    @Autowired
     private VNPayService vnPayService;
 
     @Autowired
@@ -70,11 +81,11 @@ public class DonHangController {
             nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
         }
         NguoiDung finalNguoiDung = nguoiDung;
+        boolean isAdmin = isAdmin();
         Page<DonHang> donHangPage = donHangRepository.findAll((root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            boolean hasUserScope = authentication.getAuthorities().stream()
-                    .anyMatch(authority -> "ADMIN".equals(authority.getAuthority()) || "USER".equals(authority.getAuthority()));
-            if (hasUserScope && finalNguoiDung != null) {
+            // Admin thay moi don; user thuong chi thay don cua chinh minh.
+            if (!isAdmin && finalNguoiDung != null) {
                 predicates.add(builder.equal(root.get("nguoiDung").get("maNguoiDung"), finalNguoiDung.getMaNguoiDung()));
             }
 
@@ -90,8 +101,9 @@ public class DonHangController {
         if (donHang == null) {
             return ResponseEntity.notFound().build();
         }
-        if (donHang.getNguoiDung() == null
-                || donHang.getNguoiDung().getMaNguoiDung() != currentUser.getMaNguoiDung()) {
+        if (!isAdmin()
+                && (donHang.getNguoiDung() == null
+                    || donHang.getNguoiDung().getMaNguoiDung() != currentUser.getMaNguoiDung())) {
             return ResponseEntity.status(403).body("Không có quyền truy cập đơn hàng này");
         }
         return ResponseEntity.ok(donHang);
@@ -170,9 +182,9 @@ public class DonHangController {
                 root.get("donHang").get("maDonHang"), donHang.getMaDonHang()
         ));
         if (paymentStatus == 1) {
-            donHang.setTrangThaiThanhToan(1);
-            donHang.setTrangThaiGiaoHang(1);
-            donHangRepository.save(donHang);
+            // Idempotent qua may trang thai: an toan khi VNPay callback chay lai.
+            donHangTrangThaiService.chuyenTrangThaiGiaoHang(donHang, TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
+            donHangTrangThaiService.chuyenTrangThaiThanhToan(donHang, TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
             try {
                 String noiDung = this.generateOrderEmailBody(String.valueOf(donHang.getMaDonHang()),
                         donHang.getNguoiDung().getHoDem() + " " + donHang.getNguoiDung().getTen(),
@@ -196,9 +208,14 @@ public class DonHangController {
         if (donHang == null) {
             return ResponseEntity.badRequest().body("Đơn hàng không tồn tại");
         }
-        donHang.setTrangThaiGiaoHang(2);
-        donHangRepository.save(donHang);
-        return ResponseEntity.ok(donHang);
+        // Tien 1 buoc qua may trang thai (0->1->2). Quyen ADMIN da duoc chan o SecurityConfiguration.
+        String nguoiThucHien = SecurityContextHolder.getContext().getAuthentication().getName();
+        try {
+            DonHang capNhat = donHangTrangThaiService.chuyenTrangThaiTiepTheo(donHang, nguoiThucHien);
+            return ResponseEntity.ok(capNhat);
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
     }
 
     public String generateOrderEmailBody(String orderId, String customerName, String orderDate, String diaChi, String tongTien, List<ChiTietDonHang> chiTietDonHangs) {
@@ -262,6 +279,23 @@ public class DonHangController {
         }
 
         return ResponseEntity.ok(donHangRepository.save(donHang));
+    }
+
+    @PostMapping("/huy/{maDonHang}")
+    public ResponseEntity<?> huyDon(@PathVariable Long maDonHang) {
+        try {
+            NguoiDung currentUser = getCurrentUser();
+            donHangHuyService.huyDon(maDonHang, currentUser, isAdmin());
+            return ResponseEntity.ok(new ThongBao("Hủy đơn hàng thành công"));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
+
+    private boolean isAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ADMIN".equals(authority.getAuthority()));
     }
 
     private NguoiDung getCurrentUser() {

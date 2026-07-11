@@ -68,6 +68,17 @@ public class DonHang {
     @Column(name = "trang_thai_giao_hang")
     private Integer trangThaiGiaoHang;
 
+    /** Coupon da dung cho don (neu co) - phuc vu hoan luot coupon khi huy. Khong expose ra JSON. */
+    @JsonIgnore
+    @Column(name = "ma_coupon")
+    private Integer maCoupon;
+
+    /** Optimistic lock chong double-cancel / race voi VNPay callback. Khong expose ra JSON. */
+    @Version
+    @JsonIgnore
+    @Column(name = "version")
+    private Long version;
+
     @Transient
     public String getPhuongThucThanhToan() {
         if (hinhThucThanhToan == null || hinhThucThanhToan.getMaCode() == null) {

@@ -56,7 +56,8 @@ public class Endpoints {
             "/api/coupon/kiem-tra",
             "/api/gio-hang",
             "/api/gio-hang/**",
-            "/api/don-hang/them"
+            "/api/don-hang/them",
+            "/api/don-hang/huy/**"
     };
     public static final String[] AUTH_PUT_ENDPOINTS = {
             "/api/nguoi-dung/cap-nhat-ho-so",

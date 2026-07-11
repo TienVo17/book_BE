@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
@@ -42,4 +43,17 @@ public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificat
     // Related books by shared categories
     @Query("SELECT s FROM Sach s JOIN s.listTheLoai t WHERE t.maTheLoai IN :maTheLoais AND s.maSach != :maSach AND s.isActive = 1")
     List<Sach> findLienQuan(@Param("maTheLoais") List<Integer> maTheLoais, @Param("maSach") int maSach, Pageable pageable);
+
+    /**
+     * Tru kho nguyen tu: chi tru khi con du hang. Tra ve so ban ghi cap nhat (1 = thanh cong, 0 = het hang).
+     * Chong oversell/TOCTOU ma khong can lock thu cong. Caller phai @Transactional.
+     */
+    @Modifying
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong - :soLuong WHERE s.maSach = :maSach AND s.soLuong >= :soLuong")
+    int truKhoNeuDu(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
+
+    /** Hoan kho khi huy don. Caller phai @Transactional. */
+    @Modifying
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong + :soLuong WHERE s.maSach = :maSach")
+    int hoanKho(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
 }

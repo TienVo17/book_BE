@@ -27,9 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -89,12 +89,14 @@ public class OrderServiceImpl implements OrderService {
         donHang.setChiPhiThanhToan(hinhThucThanhToan.getChiPhiGiaoHang());
         donHang.setChiPhiGiaoHang(0);
 
+        // TreeMap: lap theo maSach tang dan de moi transaction khoa row Sach cung thu tu -> tranh deadlock.
         Map<Integer, Integer> soLuongTheoSach = gomSoLuongTheoSach(request.getItems());
         double tongTienSanPham = 0;
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
             Sach db = sachRepository.findById(Long.valueOf(entry.getKey()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sách không tồn tại."));
-            if (db.getSoLuong() < entry.getValue()) {
+            // Tru kho nguyen tu: 0 ban ghi = het hang -> throw -> rollback ca transaction (cac sach da tru truoc do hoan tu dong).
+            if (sachRepository.truKhoNeuDu(db.getMaSach(), entry.getValue()) == 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Sách " + db.getTenSach() + " không đủ tồn kho.");
             }
@@ -107,6 +109,9 @@ public class OrderServiceImpl implements OrderService {
 
         donHang.setTongTienSanPham(tongTienSanPham);
         donHang.setTongTien(tongTien);
+        if (coupon != null) {
+            donHang.setMaCoupon(coupon.getMaCoupon());
+        }
         donHangRepository.save(donHang);
 
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
@@ -168,7 +173,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Map<Integer, Integer> gomSoLuongTheoSach(List<CartItemRequest> items) {
-        Map<Integer, Integer> soLuongTheoSach = new HashMap<>();
+        // TreeMap giu thu tu maSach tang dan -> khoa row Sach nhat quan giua cac transaction (chong deadlock).
+        Map<Integer, Integer> soLuongTheoSach = new TreeMap<>();
         for (CartItemRequest item : items) {
             if (item.getMaSach() == null || item.getSoLuong() == null || item.getSoLuong() <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin sản phẩm đặt hàng không hợp lệ.");
