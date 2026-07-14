@@ -54,6 +54,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.DELETE, Endpoints.ADMIN_DELETE_ENDPOINS).hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/sach/insert").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/admin/sach/update/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/admin/sach/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/admin/sach/findImage/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/admin/quyen/findAll").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/don-hang/cap-nhat-trang-thai-giao-hang/**").hasAuthority("ADMIN")
@@ -82,7 +83,7 @@ public class SecurityConfiguration {
         http.cors(cors -> cors.configurationSource(request -> {
             CorsConfiguration corsConfig = new CorsConfiguration();
             corsConfig.addAllowedOrigin("http://localhost:3000");
-            corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+            corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
             corsConfig.addAllowedHeader("*");
             corsConfig.setAllowCredentials(true);
             corsConfig.setMaxAge(3600L);

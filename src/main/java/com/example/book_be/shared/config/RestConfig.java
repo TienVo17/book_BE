@@ -2,6 +2,7 @@ package com.example.book_be.shared.config;
 
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.TheLoai;
+import com.example.book_be.sach.domain.Sach;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.Type;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,16 +53,13 @@ public class RestConfig implements RepositoryRestConfigurer {
 //                .allowedOrigins(url)  // Thay bằng URL frontend của bạn
 //                .allowedMethods("GET", "POST", "PUT", "DELETE");
 
-        // Chặn các phương thức HTTP cho các entity cụ thể
-//        HttpMethod[] disableMethods = {
-//                HttpMethod.POST,
-//                HttpMethod.PUT,
-//                HttpMethod.PATCH,
-//                HttpMethod.DELETE,
-//        };
-//
-//        blockHttpMethods(TheLoai.class, config, disableMethods);  // Ví dụ chặn cho entity 'TheLoai'
-//        blockHttpMethods(NguoiDung.class, config, new HttpMethod[]{HttpMethod.DELETE});  // Ví dụ chặn DELETE cho 'NguoiDung'
+        HttpMethod[] disableSachMutationMethods = {
+                HttpMethod.POST,
+                HttpMethod.PUT,
+                HttpMethod.PATCH,
+                HttpMethod.DELETE
+        };
+        blockHttpMethods(Sach.class, config, disableSachMutationMethods);
     }
 
     // Phương thức hỗ trợ chặn các phương thức HTTP cho các entity cụ thể
@@ -69,6 +67,7 @@ public class RestConfig implements RepositoryRestConfigurer {
         config.getExposureConfiguration()
                 .forDomainType(c)
                 .withItemExposure((metadata, httpMethods) -> httpMethods.disable(methods))
-                .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(methods));
+                .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(methods))
+                .withAssociationExposure((metadata, httpMethods) -> httpMethods.disable(methods));
     }
 }
