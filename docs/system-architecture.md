@@ -107,7 +107,49 @@ Client                     Backend                          DB
   │◄──DonHang response────────┤                              │
 ```
 
-> **Tồn kho nguyên tử:** checkout trừ kho bằng UPDATE có điều kiện `SachRepository.truKhoNeuDu` (0 bản ghi = hết hàng → 400, rollback cả đơn). Lặp trừ theo `maSach` tăng dần (TreeMap) để chống deadlock. Không còn oversell/TOCTOU.
+> **Tồn kho nguyên tử:** checkout trừ kho bằng UPDATE có điều kiện `SachRepository.truKhoNeuDu` (0 bản ghi = hết hàng → 400, rollback cả đơn). Lặp trừ theo `maSach` tăng dần (TreeMap) để chống deadlock. Query chỉ nhận số lượng dương và không làm tồn âm.
+
+## Luồng Tồn Kho và Điều Chỉnh Admin
+
+`Sach.soLuong` luôn phải nằm trong miền `0..Integer.MAX_VALUE`. Bốn nguồn ghi kho hợp lệ là tạo sách (tồn ban đầu), checkout (trừ), hủy đơn (hoàn), và delta quản trị. Mọi thay đổi runtime dùng `UPDATE` có điều kiện trong transaction, không đọc-rồi-ghi giá trị tồn.
+
+```text
+Create admin                         Metadata PUT
+POST /api/admin/sach/insert          PUT /api/admin/sach/update/{id}
+soLuongTon >= 0 ───────► Sach        soLuongTon legacy ─► ignored
+                                                 │
+Checkout                              @DynamicUpdate chỉ flush metadata dirty columns
+POST /api/don-hang/them
+items (+, aggregate <= int max)
+          │
+          ▼
+truKhoNeuDu: soLuong >= requested ──────────────► soLuong - requested
+
+Cancel order                           Admin stock adjustment
+POST /api/don-hang/huy/{id}            PATCH /api/admin/sach/{id}/ton-kho
+hoanKho: soLuong <= MAX - restore      {"soLuongThayDoi": signed int != 0}
+          │                                           │
+          └────────────── bounded atomic update ◄─────┘
+                                      │
+                                      ▼
+                         {"maSach": id, "soLuongTon": authoritative}
+```
+
+- **Create:** `POST /api/admin/sach/insert` validates and writes `soLuongTon >= 0` as initial stock.
+- **Metadata:** `PUT /api/admin/sach/update/{id}` preserves metadata, images, categories, and details but ignores legacy `soLuongTon`, including stale, `null`, and negative values. `Sach` has `@DynamicUpdate` so the resulting managed-entity flush does not write an unchanged stock column.
+- **Checkout:** duplicate book lines are aggregated in a `TreeMap`; a non-positive item quantity or aggregate above `Integer.MAX_VALUE` is rejected. The conditional decrement prevents oversell and rolls back the order if any line cannot be fulfilled.
+- **Cancellation:** restore is conditional on `current <= Integer.MAX_VALUE - restore`; a bound conflict returns 409 and rolls back the cancellation transaction.
+- **Admin delta:** positive and negative requests use separate bounded conditional queries. The service reads the persisted scalar after a successful update and returns it as the authoritative response; it does not rely on a stale entity cache.
+
+## HTTP Contract Điều Chỉnh Tồn Kho
+
+| Method | Path | Authorization | Request | Success | Failure |
+|---|---|---|---|---|---|
+| `PATCH` | `/api/admin/sach/{id}/ton-kho` | ADMIN only | `{"soLuongThayDoi": integer khác 0}` | `200`, `{"maSach":integer,"soLuongTon":integer}` | `400` body missing/invalid/zero/malformed; `404` book missing; `409` below-zero or `int` range conflict; `401/403` non-admin |
+
+CORS permits `PATCH` from `http://localhost:3000`. The security matcher is path-based and requires `ADMIN` for `PATCH /api/admin/sach/**`.
+
+Spring Data REST preserves GET, including `/sach/{id}/listDanhGia`, but disables `POST`, `PUT`, `PATCH`, and `DELETE` on the `Sach` collection, item, and association surfaces. This prevents raw Data REST writes from bypassing the stock-delta contract.
 
 ## Luồng Trạng Thái & Hủy Đơn Hàng
 
@@ -161,7 +203,8 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 | Method | Path | Mô tả |
 |--------|------|-------|
 | POST | `/api/admin/sach/insert` | Thêm sách |
-| PUT | `/api/admin/sach/update/**` | Sửa sách |
+| PUT | `/api/admin/sach/update/**` | Sửa metadata sách; `soLuongTon` legacy bị bỏ qua |
+| PATCH | `/api/admin/sach/{id}/ton-kho` | Điều chỉnh tồn kho delta nguyên tử; chỉ ADMIN |
 | POST | `/api/admin/sach/active/**` | Kích hoạt sách |
 | POST | `/api/admin/sach/unactive/**` | Vô hiệu hóa sách |
 | GET | `/api/admin/quyen/findAll` | Danh sách quyền |
@@ -225,11 +268,11 @@ Services:
               depends_on: backend
 ```
 
-## Xác Minh Build/Runtime Docker
+## Lịch Sử Xác Minh Build/Runtime Docker
 
-- Backend Docker image build thành công từ cấu hình image trong repo backend `E:/BT/book_BE`.
-- Frontend Docker image build thành công từ context `../book_FE` (tức `E:/BT/book_FE`).
-- `docker compose up` cho stack 3 service (mysql, backend, frontend) chạy thành công theo `docker-compose.yml` hiện tại.
+- Bằng chứng lịch sử trước inventory delta ghi nhận backend/frontend image build và stack ba service từng khởi động thành công từ hai repo sibling `book_BE`/`book_FE`.
+- Ngày 2026-07-14, stock-delta HTTP smoke trên Compose đạt 45/45 hai lần: mandatory flow kết thúc ở 13, checkout/admin contention ở 13, cancel/admin contention ở 9, bypass routes bị chặn và cleanup exact-ID thành công sau mỗi lần.
+- Full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket, đặt `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` và process-local `-Dapi.version=1.44` đã chạy Surefire 14/14 cùng bốn lớp Failsafe 28/28 trên MySQL Testcontainers. Deterministic concurrency proof đến từ latch/future assertions của integration tests, không từ background HTTP contention.
 
 ## Biến Môi Trường
 
@@ -238,7 +281,7 @@ Services:
 | `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL |
 | `DB_USERNAME` | `root` | DB username |
 | `DB_PASSWORD` | (trống) | DB password |
-| `JWT_SECRET` | Base64 encoded key | JWT signing key |
+| `JWT_SECRET` | Bắt buộc, không có mặc định | Khóa ký JWT Base64 do môi trường runtime cấp |
 | `MAIL_USERNAME` | Gmail address | SMTP username |
 | `MAIL_PASSWORD` | App password | SMTP password |
 | `VNPAY_TMN_CODE` | `B3C4EVLT` | VNPay merchant code |

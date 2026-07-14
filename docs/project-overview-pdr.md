@@ -82,4 +82,4 @@ Hệ thống backend cho website thương mại điện tử bán sách trực t
 4. **Stub Methods**: Several methods return `null` as stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
 5. **Admin Order Filter**: `DonHangAdminController.findAll` appears to filter by requesting admin's own orders rather than returning all orders.
 6. **Duplicate Account Activation**: `TaiKhoanService` has two similar activation methods (`kichHoatTaiKHoan`/`kichHoatTaiKhoan`).
-7. **Security Config Defaults**: Hardcoded fallback defaults exist for `jwt.secret` and VNPay credentials when env vars are unset.
+7. **Runtime Secrets**: `JWT_SECRET` Base64 là bắt buộc và không có fallback/tự sinh; VNPay credentials phải được môi trường triển khai cấp khi bật thanh toán.

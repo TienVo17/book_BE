@@ -27,6 +27,8 @@
 - [x] Admin CRUD thể loại với validate trùng tên/slug
 - [x] Quản lý hình ảnh sách
 - [x] Kích hoạt / vô hiệu hóa sách
+- [x] Bảo vệ tồn kho: create ghi tồn ban đầu, metadata PUT bỏ qua tồn legacy, checkout/cancel/admin delta dùng query nguyên tử có bound `int`
+- [x] UI quản trị tách create/update payload, hiển thị tồn read-only và action delta riêng không optimistic arithmetic
 
 ### Giai Đoạn 4: Thương Mại và Đơn Hàng
 - [x] Giỏ hàng
@@ -65,14 +67,14 @@
 - [x] Xóa `db/init/` scripts cũ
 - [x] Cập nhật Docker Compose (bỏ initdb volume, đổi ddl-auto)
 - [x] Cập nhật README và docs
-- [x] Xác minh Docker build/runtime: backend + frontend build pass, `docker compose up` pass (frontend từ `../book_FE`)
+- [x] Bằng chứng lịch sử trước inventory delta: backend + frontend Docker build và `docker compose up` từng đạt (frontend từ repo sibling `../book_FE`); không dùng mục này làm runtime evidence cho Phase 4 tồn kho
 
 ## Mục Tiêu Tiếp Theo
 
 ### Bảo Mật
 - [ ] Refresh token / re-auth flow rõ ràng hơn
 - [ ] Global exception handler cho API
-- [ ] Logging bảo mật và audit admin actions
+- [ ] Logging bảo mật và audit admin actions (bao gồm ledger/actor/reason cho điều chỉnh tồn kho)
 - [ ] Rate limiting phân tán bằng Redis
 - [ ] HTTPS và reverse proxy deployment guide
 
@@ -84,7 +86,8 @@
 
 ### Tính Năng
 - [ ] Swagger / OpenAPI
-- [ ] Quản lý kho hàng chi tiết hơn
+- [ ] Stock ledger/audit có actor và reason cho điều chỉnh tồn kho
+- [ ] Phiếu nhập/xuất và multi-warehouse
 - [ ] WebSocket / thông báo real-time
 - [ ] Search nâng cao
 - [ ] Workflow xóa asset Cloudinary khi xóa sách/ảnh

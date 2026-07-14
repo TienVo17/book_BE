@@ -2,7 +2,7 @@
 
 ## Thống Kê
 
-- **Số file Java**: 118
+- **Số file Java**: không ghi số cố định; số lượng thay đổi cùng mã nguồn và test.
 - **Java version**: 17
 - **Package gốc**: `com.example.book_be`
 - **Kiến trúc**: **package-by-feature hybrid** — mỗi nghiệp vụ là một package sở hữu đủ các tầng con
@@ -17,10 +17,10 @@ src/main/java/com/example/book_be/
 ├── BookBeApplication.java              # Entry point
 ├── sach/                               # Catalog: sách, thể loại, hình ảnh, nhà cung cấp
 │   ├── web/          SachUserController, TheLoaiController, SachController(admin), AdminTheLoaiController
-│   ├── service/      SachService(+Impl), TheLoaiService(+Impl), CloudinaryService, BookImageStorageService
+│   ├── service/      SachService(+Impl), SachNotFoundException, StockAdjustmentConflictException, TheLoaiService(+Impl), CloudinaryService, BookImageStorageService
 │   ├── repository/   SachRepository, TheLoaiRepository, HinhAnhRepository, NhaCungCapRepository
 │   ├── domain/       Sach, TheLoai, HinhAnh, NhaCungCap, SachThongTinChiTiet
-│   └── dto/          SachResponse, SachBo, SachAdminUpsertBo, SachThongTinChiTietBo, TheLoai{Response,AdminResponse,AdminUpsertRequest}
+│   └── dto/          SachResponse, SachBo, SachAdminUpsertBo, SachThongTinChiTietBo, SachTonKhoDieuChinhRequest, SachTonKhoResponse, TheLoai{Response,AdminResponse,AdminUpsertRequest}
 ├── nguoidung/                          # Người dùng + xác thực
 │   ├── web/          TaiKhoanController, NguoiDungController, DiaChiController, UserController(admin), QuyenController
 │   ├── service/      TaiKhoanService, NguoiDungService(+Impl), UserService(+Impl), DiaChiService(+Impl), AdminUserService(+Impl)
@@ -113,6 +113,33 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 
 Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6, V7...).
 
+## Tồn Kho Delta
+
+`Sach` có `@DynamicUpdate`; metadata update trên entity managed chỉ flush các cột dirty. Đây là lớp bảo vệ bổ sung cho rule service: `POST /api/admin/sach/insert` ghi `soLuongTon` ban đầu khi `>= 0`, nhưng `PUT /api/admin/sach/update/{id}` bỏ qua `soLuongTon` legacy, gồm stale, `null`, và âm.
+
+| Thành phần | Vị trí | Trách nhiệm |
+|---|---|---|
+| Request DTO | `sach/dto/SachTonKhoDieuChinhRequest` | Chỉ chấp nhận `soLuongThayDoi` integral trong miền `int`; service từ chối `null`/`0`. |
+| Response DTO | `sach/dto/SachTonKhoResponse` | Trả scalar authoritative `{maSach, soLuongTon}` sau adjustment. |
+| Exceptions | `sach/service/SachNotFoundException`, `StockAdjustmentConflictException` | Ánh xạ thiếu sách thành 404 và vi phạm bound thành 409 tại `SachController`. |
+| Service | `SachServiceImpl.dieuChinhTonKho` | Tách positive/negative delta, dùng bounds atomic, rồi đọc lại scalar stock. |
+| Repository | `SachRepository` | Conditional decrement, bounded restore, bounded positive delta và scalar lookup. |
+| Web | `SachController` | `PATCH /api/admin/sach/{id}/ton-kho`; malformed JSON, invalid body, 404 và 409 trả error body. |
+
+Các writer checkout/cancel/admin đều giữ `0 <= soLuong <= Integer.MAX_VALUE`. Checkout gộp duplicate line bằng `long`, từ chối aggregate vượt `int`, rồi trừ bằng query điều kiện. Cancel chỉ hoàn nếu upper bound còn đủ; lỗi hoàn rollback transaction. Vì vậy không có lower/upper `int` overflow hay mint stock bằng số lượng không dương.
+
+Frontend ở repo sibling `../../book_FE` (tính từ file tài liệu này) phân tách `toSachAdminCreatePayload` (có `soLuongTon`) và `toSachAdminUpdatePayload` (không có field này). `CapNhatSach` hiển thị tồn read-only, gửi delta qua action riêng, thay UI từ `SachTonKhoResponse`, và khóa action cho tới khi reload khi lỗi mạng không phân loại được.
+
+## Spring Data REST cho `Sach`
+
+`RestConfig` tắt `POST`, `PUT`, `PATCH`, `DELETE` cho `Sach` tại collection, item và association. GET repository/relationship vẫn còn, đặc biệt `/sach/{id}/listDanhGia`; raw repository writes không được coi là một con đường hợp lệ để cập nhật stock.
+
+## Kiểm Thử Inventory
+
+`SachTonKhoDieuChinhRequestTest` là unit test DTO. `SachTonKhoIT` và `SachAdminTonKhoControllerIT` là Testcontainers integration classes (`*IT`) với concurrency harness dùng `CountDownLatch`, futures, timeout và failure propagation. `maven-failsafe-plugin` chạy các lớp này ở `mvn verify`; `mvn clean test-compile` chỉ compile mã test, không thực thi chúng.
+
+Ngày 2026-07-14, full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket và dùng process-local `-Dapi.version=1.44` đã chạy Surefire 14/14 (gồm strict DTO 3/3) và bốn lớp Failsafe 28/28 trên MySQL Testcontainers. `SachTonKhoIT` thực thi các race deterministic bằng latch/future timeout; `SachAdminTonKhoControllerIT` xác minh HTTP contract/auth/CORS/Data REST closure. Docker Compose stock-delta smoke đạt 45/45 hai lần, mandatory flow kết thúc ở 13, checkout/admin contention ở 13, cancel/admin contention ở 9 và cleanup exact-ID đạt sau cả hai lần.
+
 ## Đồng Bộ Checkout + Coupon (Backend/Frontend)
 
 - `CheckoutOrderRequest` hỗ trợ thêm `maCoupon`.
@@ -141,16 +168,6 @@ Seed demo (`V4`): giá trị `trang_thai_giao_hang ∈ {0,1,2}`, `trang_thai_tha
 - **Tiến 1 bước** (`chuyenTrangThaiTiepTheo(don, ...)`): `0→1`, `1→2`; ở `2`/`3` → 409. Là đường DUY NHẤT đưa đơn COD tới "đã giao"; chỉ dùng bởi endpoint admin `cap-nhat-trang-thai-giao-hang`.
 
 Thanh toán: `chuyenTrangThaiThanhToan(don, target)` — một chiều `0→1`, idempotent khi gọi lại.
-
-## Spring Data REST — kết quả xác minh runtime
-
-`RestConfig` để trống toàn bộ block-method (comment), và hầu hết `@RepositoryRestResource` không đặt `exported=false`. Xác minh runtime (curl không token và với token admin) cho thấy **không có lỗ hổng lộ CRUD thô**:
-
-- Path trần không khớp rule bảo mật (`/don-hang`, `/coupon`, `/chi-tiet-don-hang`) → **403 cho mọi caller** (Spring Security default-deny các request không khớp matcher). Không lộ dữ liệu.
-- `/nguoi-dung` (trần) khớp `ADMIN_GET_ENDPOINS` → chỉ admin đọc được (403 cho anonymous/USER); response **không** serialize `matKhau`/hash (nhờ `@JsonProperty(WRITE_ONLY)`/`@JsonIgnore` trên `NguoiDung`).
-- `/sach` (trần): GET công khai (danh mục sách — không nhạy cảm); POST/PUT/PATCH/DELETE → 403 nếu không phải admin.
-
-Kết luận: `exported=false` chỉ cần trên `GioHangRepository` (đã có); các repo còn lại đã được `SecurityConfiguration` phủ đủ. Không sửa code ở bước này.
 
 ## File Lớn Nhất (theo LOC)
 
