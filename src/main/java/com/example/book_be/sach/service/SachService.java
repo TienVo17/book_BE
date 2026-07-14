@@ -2,6 +2,7 @@ package com.example.book_be.sach.service;
 
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachTonKhoResponse;
 import com.example.book_be.sach.domain.Sach;
 import org.springframework.data.domain.Page;
 
@@ -14,6 +15,7 @@ public interface SachService {
     Sach save(SachAdminUpsertBo bo);
     Sach update(Sach bo) throws Exception;
     Sach update(SachAdminUpsertBo bo) throws Exception;
+    SachTonKhoResponse dieuChinhTonKho(Long maSach, Integer soLuongThayDoi);
     Sach delete(Long id);
     Sach findById(Long id);
     Sach active(Long id);

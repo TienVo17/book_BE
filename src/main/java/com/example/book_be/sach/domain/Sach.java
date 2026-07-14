@@ -23,12 +23,14 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import lombok.Data;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
 @Data
+@DynamicUpdate
 @Table(name = "sach")
 public class Sach {
     @Id

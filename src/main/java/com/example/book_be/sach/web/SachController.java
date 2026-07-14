@@ -2,6 +2,10 @@ package com.example.book_be.sach.web;
 
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachTonKhoDieuChinhRequest;
+import com.example.book_be.sach.dto.SachTonKhoResponse;
+import com.example.book_be.sach.service.SachNotFoundException;
+import com.example.book_be.sach.service.StockAdjustmentConflictException;
 import com.example.book_be.sach.repository.HinhAnhRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.sach.domain.HinhAnh;
@@ -17,12 +21,15 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -90,6 +97,34 @@ public class SachController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @PatchMapping("/{id}/ton-kho")
+    public ResponseEntity<SachTonKhoResponse> dieuChinhTonKho(
+            @PathVariable Long id,
+            @RequestBody SachTonKhoDieuChinhRequest request) {
+        return ResponseEntity.ok(sachService.dieuChinhTonKho(id,
+                request == null ? null : request.getSoLuongThayDoi()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> handleMalformedJson(HttpMessageNotReadableException exception) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Dữ liệu JSON không hợp lệ"));
+    }
+
+    @ExceptionHandler(SachNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleSachNotFound(SachNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", exception.getMessage()));
+    }
+
+    @ExceptionHandler(StockAdjustmentConflictException.class)
+    public ResponseEntity<Map<String, String>> handleStockConflict(StockAdjustmentConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", exception.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidArgument(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
     }
 
     @DeleteMapping("/delete/{id}")

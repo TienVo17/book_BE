@@ -40,33 +40,6 @@ public class SachUserController {
         return new ResponseEntity<>(SachResponse.fromPage(result), HttpStatus.OK);
     }
 
-    @PostMapping("insert")
-    public ResponseEntity<?> dangKyNguoiDung(@RequestBody Sach sach) {
-        return new ResponseEntity<>(SachResponse.from(sachService.save(sach)), HttpStatus.OK);
-    }
-
-    @PostMapping("active/{id}")
-    public ResponseEntity<?> active(@PathVariable Long id) {
-        return new ResponseEntity<>(SachResponse.from(sachService.active(id)), HttpStatus.OK);
-    }
-
-    @PostMapping("unactive/{id}")
-    public ResponseEntity<?> unactive(@PathVariable Long id) {
-        return new ResponseEntity<>(SachResponse.from(sachService.unactive(id)), HttpStatus.OK);
-    }
-
-    @PutMapping("update/{id}")
-    public ResponseEntity<SachResponse> update(@PathVariable Long id, @RequestBody Sach bo) throws Exception {
-        Sach sach = sachService.update(bo);
-        return new ResponseEntity<>(SachResponse.from(sach), HttpStatus.OK);
-    }
-
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<SachResponse> delete(@PathVariable Long id) {
-        Sach sach = sachService.delete(id);
-        return new ResponseEntity<>(SachResponse.from(sach), HttpStatus.OK);
-    }
-
     // Restrict to numeric IDs only to avoid conflict with /ban-chay, /moi-nhat, /slug etc.
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<SachResponse> findById(@PathVariable Long id) {

@@ -48,12 +48,29 @@ public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificat
      * Tru kho nguyen tu: chi tru khi con du hang. Tra ve so ban ghi cap nhat (1 = thanh cong, 0 = het hang).
      * Chong oversell/TOCTOU ma khong can lock thu cong. Caller phai @Transactional.
      */
-    @Modifying
-    @Query("UPDATE Sach s SET s.soLuong = s.soLuong - :soLuong WHERE s.maSach = :maSach AND s.soLuong >= :soLuong")
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong - :soLuong "
+            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong >= :soLuong")
     int truKhoNeuDu(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
 
-    /** Hoan kho khi huy don. Caller phai @Transactional. */
-    @Modifying
-    @Query("UPDATE Sach s SET s.soLuong = s.soLuong + :soLuong WHERE s.maSach = :maSach")
-    int hoanKho(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
+    /** Hoan kho khi huy don, chi khi ket qua khong vuot qua Integer.MAX_VALUE. */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong + :soLuong "
+            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong <= :maxBefore")
+    int hoanKho(@Param("maSach") int maSach, @Param("soLuong") int soLuong,
+                @Param("maxBefore") int maxBefore);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong + :soLuong "
+            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong <= :maxBefore")
+    int tangTonKhoNeuKhongVuotQua(@Param("maSach") int maSach, @Param("soLuong") int soLuong,
+                                  @Param("maxBefore") int maxBefore);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Sach s SET s.soLuong = s.soLuong - :soLuong "
+            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong >= :soLuong")
+    int giamTonKhoNeuDu(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
+
+    @Query("SELECT s.soLuong FROM Sach s WHERE s.maSach = :maSach")
+    Integer findSoLuongByMaSach(@Param("maSach") int maSach);
 }

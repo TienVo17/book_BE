@@ -3,6 +3,7 @@ package com.example.book_be.sach.service;
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.dto.SachBo;
 import com.example.book_be.sach.dto.SachThongTinChiTietBo;
+import com.example.book_be.sach.dto.SachTonKhoResponse;
 import com.example.book_be.sach.repository.HinhAnhRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.sach.repository.TheLoaiRepository;
@@ -87,9 +88,9 @@ public class SachServiceImpl implements SachService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Sach save(SachAdminUpsertBo bo) {
-        validateBookRequest(bo, null);
+        validateBookRequest(bo, null, true);
         Sach sach = new Sach();
-        applyAdminBo(sach, bo);
+        applyAdminBo(sach, bo, true);
         generateSlug(sach, null);
         Sach persisted = sachRepository.save(sach);
         persistBookImages(persisted, bo.getListImageStr());
@@ -115,13 +116,49 @@ public class SachServiceImpl implements SachService {
             throw new Exception("Sach not found");
         }
 
-        validateBookRequest(bo, existing.getMaSach());
-        applyAdminBo(existing, bo);
+        validateBookRequest(bo, existing.getMaSach(), false);
+        applyAdminBo(existing, bo, false);
         generateSlug(existing, existing.getMaSach());
         Sach savedSach = sachRepository.save(existing);
         persistBookImages(savedSach, bo.getListImageStr());
         loadImages(savedSach);
         return savedSach;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SachTonKhoResponse dieuChinhTonKho(Long maSach, Integer soLuongThayDoi) {
+        if (maSach == null || maSach <= 0) {
+            throw new IllegalArgumentException("Mã sách không hợp lệ");
+        }
+        if (soLuongThayDoi == null || soLuongThayDoi == 0) {
+            throw new IllegalArgumentException("Số lượng thay đổi phải là số nguyên khác 0");
+        }
+        if (!sachRepository.existsById(maSach)) {
+            throw new SachNotFoundException(maSach);
+        }
+
+        long delta = soLuongThayDoi.longValue();
+        int affectedRows;
+        if (delta > 0) {
+            int maxBefore = (int) (Integer.MAX_VALUE - delta);
+            affectedRows = sachRepository.tangTonKhoNeuKhongVuotQua(maSach.intValue(), soLuongThayDoi, maxBefore);
+        } else {
+            long magnitude = -delta;
+            if (magnitude > Integer.MAX_VALUE) {
+                throw new StockAdjustmentConflictException("Điều chỉnh tồn kho vượt giới hạn cho phép");
+            }
+            affectedRows = sachRepository.giamTonKhoNeuDu(maSach.intValue(), (int) magnitude);
+        }
+        if (affectedRows == 0) {
+            throw new StockAdjustmentConflictException("Điều chỉnh tồn kho vượt giới hạn cho phép");
+        }
+
+        Integer soLuongTon = sachRepository.findSoLuongByMaSach(maSach.intValue());
+        if (soLuongTon == null) {
+            throw new SachNotFoundException(maSach);
+        }
+        return new SachTonKhoResponse(maSach.intValue(), soLuongTon);
     }
 
     @Override
@@ -235,13 +272,15 @@ public class SachServiceImpl implements SachService {
         return bo;
     }
 
-    private void applyAdminBo(Sach target, SachAdminUpsertBo source) {
+    private void applyAdminBo(Sach target, SachAdminUpsertBo source, boolean includeInitialStock) {
         target.setTenSach(trimToNull(source.getTenSach()));
         target.setTenTacGia(trimToNull(source.getTenTacGia()));
         target.setISBN(trimToNull(source.getIsbn()));
         target.setGiaNiemYet(source.getGiaNiemYet() == null ? 0 : source.getGiaNiemYet());
         target.setGiaBan(source.getGiaBan() == null ? 0 : source.getGiaBan());
-        target.setSoLuong(source.getSoLuongTon() == null ? 0 : source.getSoLuongTon());
+        if (includeInitialStock) {
+            target.setSoLuong(source.getSoLuongTon());
+        }
         target.setIsActive(source.getIsActive() == null ? 1 : source.getIsActive());
         target.setNhaCungCap(source.getNhaCungCap());
         target.setListTheLoai(resolveTheLoaiList(source));
@@ -293,7 +332,7 @@ public class SachServiceImpl implements SachService {
         }
     }
 
-    private void validateBookRequest(SachAdminUpsertBo bo, Integer currentBookId) {
+    private void validateBookRequest(SachAdminUpsertBo bo, Integer currentBookId, boolean validateInitialStock) {
         if (bo.getTenSach() == null || bo.getTenSach().isBlank()) {
             throw new IllegalArgumentException("Tên sách không được để trống");
         }
@@ -306,7 +345,7 @@ public class SachServiceImpl implements SachService {
         if (bo.getGiaNiemYet() < bo.getGiaBan()) {
             throw new IllegalArgumentException("Giá niêm yết phải lớn hơn hoặc bằng giá bán");
         }
-        if (bo.getSoLuongTon() == null || bo.getSoLuongTon() < 0) {
+        if (validateInitialStock && (bo.getSoLuongTon() == null || bo.getSoLuongTon() < 0)) {
             throw new IllegalArgumentException("Số lượng tồn phải lớn hơn hoặc bằng 0");
         }
 
