@@ -3,6 +3,7 @@ package com.example.book_be.donhang.service;
 import com.example.book_be.TestcontainersConfig;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.sach.repository.SachRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,48 +11,34 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Integration test cho tru kho nguyen tu (Testcontainers - MySQL that).
- * KHONG chay local (Docker-in-Docker han che); compile-only, chay tren CI.
- * Race checkout end-to-end duoc phu boi scripts/kiem-tra-ton-kho.sh (bang chung chinh local).
- *
- * Harness 2-thread viet tu dau bang ExecutorService/CountDownLatch (repo khong co template san).
- */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+/** Integration test cho tru kho nguyen tu tren MySQL Testcontainers. */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @Import(TestcontainersConfig.class)
 class TruKhoIT {
 
-    @Autowired
-    SachRepository sachRepository;
+    private static final int MA_SACH = 1;
+    private static final long TIMEOUT_SECONDS = 20;
 
-    @Autowired
-    PlatformTransactionManager txManager;
+    @Autowired SachRepository sachRepository;
+    @Autowired PlatformTransactionManager txManager;
 
-    private static final int MA_SACH = 1; // Dac Nhan Tam (seed V4)
+    private Integer tonKhoBanDau;
 
-    /** Moi lan tru chay trong transaction rieng de mo phong 2 request doc lap. */
-    private int truTrongTransaction(int maSach, int soLuong) {
-        return new TransactionTemplate(txManager)
-                .execute(status -> sachRepository.truKhoNeuDu(maSach, soLuong));
-    }
-
-    private void datTonKho(int maSach, int giaTri) {
-        new TransactionTemplate(txManager).executeWithoutResult(status -> {
-            Sach sach = sachRepository.findById((long) maSach).orElseThrow();
-            sach.setSoLuong(giaTri);
-            sachRepository.saveAndFlush(sach);
-        });
-    }
-
-    private int tonKho(int maSach) {
-        return sachRepository.findById((long) maSach).orElseThrow().getSoLuong();
+    @AfterEach
+    void khoiPhucTonKho() {
+        if (tonKhoBanDau != null) {
+            datTonKho(MA_SACH, tonKhoBanDau);
+            tonKhoBanDau = null;
+        }
     }
 
     @Test
@@ -71,40 +58,100 @@ class TruKhoIT {
     @Test
     void hai_thread_tru_song_song_ton_1_chi_1_thanh_cong() throws Exception {
         datTonKho(MA_SACH, 1);
+        CountDownLatch daDocTonKho = new CountDownLatch(2);
 
-        int soThread = 2;
-        CountDownLatch batDau = new CountDownLatch(1);
-        CountDownLatch xong = new CountDownLatch(soThread);
-        AtomicInteger soThanhCong = new AtomicInteger(0);
-        ExecutorService pool = Executors.newFixedThreadPool(soThread);
+        List<Integer> results = chayDongThoi(
+                () -> truSauKhiDocCungTonKho(MA_SACH, 1, daDocTonKho),
+                () -> truSauKhiDocCungTonKho(MA_SACH, 1, daDocTonKho));
 
-        for (int i = 0; i < soThread; i++) {
-            pool.submit(() -> {
-                try {
-                    batDau.await();
-                    if (truTrongTransaction(MA_SACH, 1) == 1) {
-                        soThanhCong.incrementAndGet();
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    xong.countDown();
-                }
-            });
-        }
-        batDau.countDown();
-        xong.await();
-        pool.shutdown();
-
-        assertThat(soThanhCong.get()).as("dung 1 request tru thanh cong").isEqualTo(1);
-        assertThat(tonKho(MA_SACH)).as("ton kho cuoi = 0").isEqualTo(0);
+        assertThat(results).containsExactlyInAnyOrder(1, 0);
+        assertThat(tonKho(MA_SACH)).as("ton kho cuoi = 0").isZero();
     }
 
     @Test
     void hoan_kho_cong_lai_dung() {
         datTonKho(MA_SACH, 3);
         new TransactionTemplate(txManager).executeWithoutResult(
-                status -> sachRepository.hoanKho(MA_SACH, 2));
+                status -> sachRepository.hoanKho(MA_SACH, 2, Integer.MAX_VALUE - 2));
         assertThat(tonKho(MA_SACH)).isEqualTo(5);
+    }
+
+    private List<Integer> chayDongThoi(Worker dauTien, Worker thuHai) throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch batDau = new CountDownLatch(1);
+        try {
+            Future<Integer> first = pool.submit(() -> {
+                choBatDau(batDau);
+                return dauTien.chay();
+            });
+            Future<Integer> second = pool.submit(() -> {
+                choBatDau(batDau);
+                return thuHai.chay();
+            });
+            batDau.countDown();
+            return List.of(
+                    first.get(TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                    second.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+            assertThat(pool.awaitTermination(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private int truTrongTransaction(int maSach, int soLuong) {
+        Integer updated = new TransactionTemplate(txManager)
+                .execute(status -> sachRepository.truKhoNeuDu(maSach, soLuong));
+        return updated == null ? 0 : updated;
+    }
+
+    private int truSauKhiDocCungTonKho(
+            int maSach,
+            int soLuong,
+            CountDownLatch daDocTonKho) {
+        Integer updated = new TransactionTemplate(txManager).execute(status -> {
+            Sach staleSach = sachRepository.findById((long) maSach).orElseThrow();
+            assertThat(staleSach.getSoLuong()).isEqualTo(1);
+            daDocTonKho.countDown();
+            choHangRao(daDocTonKho, "Workers did not load the same stock in time");
+            return sachRepository.truKhoNeuDu(maSach, soLuong);
+        });
+        return updated == null ? 0 : updated;
+    }
+
+    private void datTonKho(int maSach, int giaTri) {
+        if (tonKhoBanDau == null) {
+            tonKhoBanDau = tonKho(maSach);
+        }
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            Sach sach = sachRepository.findById((long) maSach).orElseThrow();
+            sach.setSoLuong(giaTri);
+            sachRepository.saveAndFlush(sach);
+        });
+    }
+
+    private int tonKho(int maSach) {
+        return sachRepository.findById((long) maSach).orElseThrow().getSoLuong();
+    }
+
+    private void choBatDau(CountDownLatch batDau) throws InterruptedException {
+        if (!batDau.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            throw new IllegalStateException("Workers did not receive the start signal in time");
+        }
+    }
+
+    private void choHangRao(CountDownLatch latch, String message) {
+        try {
+            if (!latch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                throw new IllegalStateException(message);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(message, e);
+        }
+    }
+
+    @FunctionalInterface
+    private interface Worker {
+        int chay() throws Exception;
     }
 }
