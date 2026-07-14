@@ -82,7 +82,7 @@ public class DonHangHuyService {
                     .filter(ct -> ct.getSach() != null)
                     // Sap theo maSach (nhat quan voi thu tu tru kho phase 3) -> tranh deadlock.
                     .sorted(Comparator.comparingInt(ct -> ct.getSach().getMaSach()))
-                    .forEach(ct -> sachRepository.hoanKho(ct.getSach().getMaSach(), ct.getSoLuong()));
+                    .forEach(this::hoanKhoHoacRollback);
         }
 
         if (don.getMaCoupon() != null) {
@@ -91,6 +91,19 @@ public class DonHangHuyService {
 
         guiEmailSauCommit(don);
         return don;
+    }
+
+    private void hoanKhoHoacRollback(ChiTietDonHang chiTiet) {
+        int soLuong = chiTiet.getSoLuong();
+        if (soLuong <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Chi tiết đơn hàng có số lượng hoàn kho không hợp lệ.");
+        }
+        int maxBefore = (int) (Integer.MAX_VALUE - (long) soLuong);
+        int affectedRows = sachRepository.hoanKho(chiTiet.getSach().getMaSach(), soLuong, maxBefore);
+        if (affectedRows == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Không thể hoàn tồn kho vì vượt giới hạn cho phép.");
+        }
     }
 
     /**

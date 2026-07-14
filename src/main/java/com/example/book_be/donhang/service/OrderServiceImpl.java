@@ -174,13 +174,20 @@ public class OrderServiceImpl implements OrderService {
 
     private Map<Integer, Integer> gomSoLuongTheoSach(List<CartItemRequest> items) {
         // TreeMap giu thu tu maSach tang dan -> khoa row Sach nhat quan giua cac transaction (chong deadlock).
-        Map<Integer, Integer> soLuongTheoSach = new TreeMap<>();
+        Map<Integer, Long> soLuongTongTheoSach = new TreeMap<>();
         for (CartItemRequest item : items) {
             if (item.getMaSach() == null || item.getSoLuong() == null || item.getSoLuong() <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin sản phẩm đặt hàng không hợp lệ.");
             }
-            soLuongTheoSach.merge(item.getMaSach(), item.getSoLuong(), Integer::sum);
+            long total = soLuongTongTheoSach.getOrDefault(item.getMaSach(), 0L) + item.getSoLuong().longValue();
+            if (total > Integer.MAX_VALUE) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng sản phẩm đặt hàng vượt giới hạn cho phép.");
+            }
+            soLuongTongTheoSach.put(item.getMaSach(), total);
         }
+
+        Map<Integer, Integer> soLuongTheoSach = new TreeMap<>();
+        soLuongTongTheoSach.forEach((maSach, soLuong) -> soLuongTheoSach.put(maSach, soLuong.intValue()));
         return soLuongTheoSach;
     }
 
