@@ -95,7 +95,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | Docker image config (root) | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend (frontend build context: `../book_FE`) |
-| `src/main/resources/db/migration/` | Flyway migrations (V1-V7): schema, seed, demo data, slug thể loại, payment codes, lịch sử trạng thái + `ma_coupon`/`version` đơn hàng |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V8): schema, seed, demo data, slug thể loại, payment codes, lịch sử trạng thái + `ma_coupon`/`version` đơn hàng, composite PK cho bảng nối (Aiven) |
 | `repomix-output.xml` | Compaction snapshot dùng để tổng hợp codebase/docs sync |
 | `.gitignore` | Loại trừ target, IDE files |
 
@@ -110,8 +110,9 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
 | `V6__add_payment_method_codes.sql` | Thêm cột `ma_code` cho `hinh_thuc_thanh_toan`, backfill COD/VNPAY |
 | `V7__lich_su_trang_thai_va_ma_coupon.sql` | Bảng `lich_su_trang_thai_don_hang`; `don_hang.ma_coupon` (FK `ON DELETE SET NULL`); `don_hang.version` (`@Version`) |
+| `V8__add_join_table_primary_keys.sql` | Composite primary key + FK cho `nguoidung_quyen`/`sach_theloai` (idempotent, tương thích DB mới lẫn cũ); bắt buộc để chạy trên Aiven MySQL (`sql_require_primary_key=ON`) |
 
-Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6, V7...).
+Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6, V7, V8...). `beforeMigrate.sql`/`afterMigrate.sql` callback tại `db/migration/` chạy trước/sau mỗi lần Flyway migrate — không phải versioned migration, không xuất hiện trong `flyway_schema_history`.
 
 ## Tồn Kho Delta
 
