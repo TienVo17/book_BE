@@ -1,8 +1,8 @@
 package com.example.book_be.shared.security;
 
 public class Endpoints {
-    public static final String front_end_host = "http://localhost:3000";
     public static final String[] PUBLIC_GET_ENDPOINS = {
+            "/health",
             "/sach",
             "/sach/**",
             "/hinh-anh",

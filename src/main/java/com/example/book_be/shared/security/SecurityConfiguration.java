@@ -2,6 +2,7 @@ package com.example.book_be.shared.security;
 
 import com.example.book_be.nguoidung.baomat.Jwtfilter;
 import com.example.book_be.nguoidung.service.UserService;
+import com.example.book_be.shared.config.FrontendUrlProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,8 +17,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class SecurityConfiguration {
@@ -39,7 +42,21 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public CorsConfigurationSource corsConfigurationSource(FrontendUrlProvider frontendUrlProvider) {
+        CorsConfiguration corsConfig = new CorsConfiguration();
+        corsConfig.setAllowedOrigins(List.of(frontendUrlProvider.getFrontendUrl()));
+        corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        corsConfig.addAllowedHeader("*");
+        corsConfig.setAllowCredentials(true);
+        corsConfig.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", corsConfig);
+        return source;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
         http.authorizeHttpRequests(config -> config
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
@@ -80,15 +97,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/don-hang/them-don-hang-moi").permitAll()
         );
 
-        http.cors(cors -> cors.configurationSource(request -> {
-            CorsConfiguration corsConfig = new CorsConfiguration();
-            corsConfig.addAllowedOrigin("http://localhost:3000");
-            corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-            corsConfig.addAllowedHeader("*");
-            corsConfig.setAllowCredentials(true);
-            corsConfig.setMaxAge(3600L);
-            return corsConfig;
-        }));
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource));
 
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

@@ -1,12 +1,9 @@
 package com.example.book_be.shared.config;
 
-import com.example.book_be.nguoidung.domain.NguoiDung;
-import com.example.book_be.sach.domain.TheLoai;
 import com.example.book_be.sach.domain.Sach;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.Type;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.rest.core.config.RepositoryRestConfiguration;
 import org.springframework.data.rest.webmvc.config.RepositoryRestConfigurer;
 import org.springframework.http.HttpMethod;
@@ -18,40 +15,12 @@ public class RestConfig implements RepositoryRestConfigurer {
 
     @Autowired
     private EntityManager entityManager;
-    private String url = "http://localhost:3000";
 
     @Override
     public void configureRepositoryRestConfiguration(RepositoryRestConfiguration config, CorsRegistry cors) {
-        // Cấu hình cho phép trả về id của entity khi gọi endpoint get
         config.exposeIdsFor(entityManager.getMetamodel().getEntities().stream()
                 .map(Type::getJavaType)
                 .toArray(Class[]::new));
-
-        // Cấu hình CORS, cho phép các nguồn khác truy cập với các phương thức HTTP cụ thể
-//        cors.addMapping("/**")
-//                .allowedOrigins(front_end_host)
-//                .allowedMethods("GET", "POST", "PUT", "DELETE");
-
-        // Cấu hình CORS, cho phép tất cả các nguồn khác truy cập với tất cả các phương thức HTTP
-//        cors.addMapping("/**");
-
-        // Cấu hình CORS, chặn tất cả các nguồn khác truy cập
-//        cors.addMapping("/**")
-//                .allowedOrigins("http://localhost:3000")
-//                .allowedMethods("GET", "POST", "PUT", "DELETE");
-
-        // Cấu hình CORS, chặn tất cả các nguồn khác truy cập
-//        cors.addMapping("/**")
-//                .allowedOrigins(url)
-//                .allowedMethods("GET", "POST", "PUT", "DELETE");
-
-        // Cấu hình CORS, cho phép tất cả các nguồn khác truy cập với tất cả các phương thức HTTP
-        cors.addMapping("/**");
-
-        // Cấu hình CORS, cho phép các nguồn khác truy cập với các phương thức HTTP cụ thể
-//        cors.addMapping("/**")
-//                .allowedOrigins(url)  // Thay bằng URL frontend của bạn
-//                .allowedMethods("GET", "POST", "PUT", "DELETE");
 
         HttpMethod[] disableSachMutationMethods = {
                 HttpMethod.POST,
@@ -62,10 +31,9 @@ public class RestConfig implements RepositoryRestConfigurer {
         blockHttpMethods(Sach.class, config, disableSachMutationMethods);
     }
 
-    // Phương thức hỗ trợ chặn các phương thức HTTP cho các entity cụ thể
-    private void blockHttpMethods(Class<?> c, RepositoryRestConfiguration config, HttpMethod[] methods) {
+    private void blockHttpMethods(Class<?> type, RepositoryRestConfiguration config, HttpMethod[] methods) {
         config.getExposureConfiguration()
-                .forDomainType(c)
+                .forDomainType(type)
                 .withItemExposure((metadata, httpMethods) -> httpMethods.disable(methods))
                 .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(methods))
                 .withAssociationExposure((metadata, httpMethods) -> httpMethods.disable(methods));

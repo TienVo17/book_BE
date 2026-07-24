@@ -78,7 +78,7 @@ Hệ thống backend cho website thương mại điện tử bán sách trực t
 
 1. **Authorization Matcher Inconsistency**: `Endpoints.PUBLIC_GET_ENDPOINS` whitelists `/api/admin/user**` và `/api/admin/sach**` as public GET, which bypasses intended ADMIN-only protection due to first-match-wins ordering in `SecurityConfiguration`.
 2. **Unprotected Admin Endpoints**: `SachUserController` (non-admin package) exposes book create/update/delete/activate endpoints without admin-tier security matchers.
-3. **CORS Configuration Mismatch**: `SecurityConfiguration` restricts origins to `http://localhost:3000`, but `RestConfig` (Spring Data REST) allows all origins on `/**`.
+3. **CORS Configuration**: `SecurityConfiguration` is the sole CORS source and accepts only the normalized `FRONTEND_URL` origin; `RestConfig` does not register CORS mappings.
 4. **Stub Methods**: Several methods return `null` as stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
 5. **Admin Order Filter**: `DonHangAdminController.findAll` appears to filter by requesting admin's own orders rather than returning all orders.
 6. **Duplicate Account Activation**: `TaiKhoanService` has two similar activation methods (`kichHoatTaiKHoan`/`kichHoatTaiKhoan`).

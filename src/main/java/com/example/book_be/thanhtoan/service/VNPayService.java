@@ -2,123 +2,112 @@ package com.example.book_be.thanhtoan.service;
 
 import com.example.book_be.thanhtoan.config.VnPayConfig;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.time.Clock;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class VNPayService {
-    public String createOrder(int total, String orderInfor, String urlReturn){
-        String vnp_Version = "2.1.0";
-        String vnp_Command = "pay";
-        String vnp_TxnRef = VnPayConfig.getRandomNumber(8);
-        String vnp_IpAddr = "127.0.0.1";
-        String vnp_TmnCode = VnPayConfig.vnp_TmnCode;
-        String orderType = "order-type";
+    private static final ZoneId VIETNAM_TIME_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-        Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_Version", vnp_Version);
-        vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
-        vnp_Params.put("vnp_Amount", String.valueOf(total*100));
-        vnp_Params.put("vnp_CurrCode", "VND");
+    private final VnPayConfig vnPayConfig;
+    private final Clock clock;
 
-        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", orderInfor);
-        vnp_Params.put("vnp_OrderType", orderType);
-
-        String locate = "vn";
-        vnp_Params.put("vnp_Locale", locate);
-
-        urlReturn += VnPayConfig.vnp_Returnurl;
-        vnp_Params.put("vnp_ReturnUrl", urlReturn);
-        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
-
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String vnp_CreateDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-
-        cld.add(Calendar.MINUTE, 15);
-        String vnp_ExpireDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
-
-        List fieldNames = new ArrayList(vnp_Params.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        Iterator itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = (String) itr.next();
-            String fieldValue = (String) vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                //Build hash data
-                hashData.append(fieldName);
-                hashData.append('=');
-                try {
-                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-                    //Build query
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
-                    query.append('=');
-                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
-            }
-        }
-        String queryUrl = query.toString();
-        String vnp_SecureHash = VnPayConfig.hmacSHA512(VnPayConfig.vnp_HashSecret, hashData.toString());
-        queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-        String paymentUrl = VnPayConfig.vnp_PayUrl + "?" + queryUrl;
-        return paymentUrl;
+    @Autowired
+    public VNPayService(VnPayConfig vnPayConfig) {
+        this(vnPayConfig, Clock.systemUTC());
     }
 
-    public int orderReturn(HttpServletRequest request){
-        Map fields = new HashMap();
-        for (Enumeration params = request.getParameterNames(); params.hasMoreElements();) {
-            String fieldName = null;
-            String fieldValue = null;
-            try {
-                fieldName = URLEncoder.encode((String) params.nextElement(), StandardCharsets.US_ASCII.toString());
-                fieldValue = URLEncoder.encode(request.getParameter(fieldName), StandardCharsets.US_ASCII.toString());
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                fields.put(fieldName, fieldValue);
-            }
+    VNPayService(VnPayConfig vnPayConfig, Clock clock) {
+        this.vnPayConfig = vnPayConfig;
+        this.clock = clock;
+    }
+
+    public String createOrder(int total, String orderInfo) {
+        if (total <= 0) {
+            throw new IllegalArgumentException("Payment total must be positive");
+        }
+        if (orderInfo == null || orderInfo.isBlank()) {
+            throw new IllegalArgumentException("Payment order information must not be blank");
+        }
+        if (vnPayConfig.getTmnCode() == null || vnPayConfig.getTmnCode().isBlank()
+                || vnPayConfig.getHashSecret() == null || vnPayConfig.getHashSecret().isBlank()) {
+            throw new IllegalStateException("VNPay credentials are not configured");
         }
 
-        String vnp_SecureHash = request.getParameter("vnp_SecureHash");
-        if (fields.containsKey("vnp_SecureHashType")) {
-            fields.remove("vnp_SecureHashType");
-        }
-        if (fields.containsKey("vnp_SecureHash")) {
-            fields.remove("vnp_SecureHash");
-        }
-        String signValue = VnPayConfig.hashAllFields(fields);
-        // Fail-closed: khi thieu hash secret, hmac tra "" — khong duoc de "".equals("") cho callback rong qua.
-        if (VnPayConfig.vnp_HashSecret == null || VnPayConfig.vnp_HashSecret.isBlank()
-                || signValue == null || signValue.isEmpty()
-                || vnp_SecureHash == null || vnp_SecureHash.isEmpty()) {
-            return -1;
-        }
-        if (signValue.equals(vnp_SecureHash)) {
-            if ("00".equals(request.getParameter("vnp_TransactionStatus"))) {
-                return 1;
-            } else {
-                return 0;
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put("vnp_Version", "2.1.0");
+        parameters.put("vnp_Command", "pay");
+        parameters.put("vnp_TmnCode", vnPayConfig.getTmnCode());
+        parameters.put("vnp_Amount", String.valueOf(total * 100L));
+        parameters.put("vnp_CurrCode", "VND");
+        parameters.put("vnp_TxnRef", vnPayConfig.getRandomNumber(8));
+        parameters.put("vnp_OrderInfo", orderInfo);
+        parameters.put("vnp_OrderType", "order-type");
+        parameters.put("vnp_Locale", "vn");
+        parameters.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        parameters.put("vnp_IpAddr", "127.0.0.1");
+
+        ZonedDateTime creationTime = clock.instant().atZone(VIETNAM_TIME_ZONE);
+        parameters.put("vnp_CreateDate", VNPAY_DATE_FORMAT.format(creationTime));
+        parameters.put("vnp_ExpireDate", VNPAY_DATE_FORMAT.format(creationTime.plusMinutes(15)));
+
+        String query = buildEncodedQuery(parameters);
+        String secureHash = vnPayConfig.hmacSHA512(vnPayConfig.getHashSecret(), query);
+        return vnPayConfig.getPayUrl() + "?" + query + "&vnp_SecureHash=" + secureHash;
+    }
+
+    public int orderReturn(HttpServletRequest request) {
+        Map<String, String> fields = new HashMap<>();
+        request.getParameterMap().forEach((fieldName, values) -> {
+            if (values == null || values.length == 0 || values[0] == null || values[0].isEmpty()) {
+                return;
             }
-        } else {
+            fields.put(encode(fieldName), encode(values[0]));
+        });
+
+        String secureHash = request.getParameter("vnp_SecureHash");
+        fields.remove("vnp_SecureHashType");
+        fields.remove("vnp_SecureHash");
+        String signedFields = vnPayConfig.hashAllFields(fields);
+        if (vnPayConfig.getHashSecret() == null || vnPayConfig.getHashSecret().isBlank()
+                || signedFields.isEmpty()
+                || secureHash == null || secureHash.isBlank()) {
             return -1;
         }
+        if (!signedFields.equals(secureHash)) {
+            return -1;
+        }
+        return "00".equals(request.getParameter("vnp_TransactionStatus")) ? 1 : 0;
+    }
+
+    private String buildEncodedQuery(Map<String, String> parameters) {
+        List<String> fieldNames = parameters.keySet().stream().sorted().toList();
+        StringBuilder query = new StringBuilder();
+        for (String fieldName : fieldNames) {
+            String fieldValue = parameters.get(fieldName);
+            if (fieldValue == null || fieldValue.isEmpty()) {
+                continue;
+            }
+            if (!query.isEmpty()) {
+                query.append('&');
+            }
+            query.append(encode(fieldName)).append('=').append(encode(fieldValue));
+        }
+        return query.toString();
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 }

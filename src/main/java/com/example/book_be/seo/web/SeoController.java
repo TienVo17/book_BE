@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000/")
 @RequestMapping("/api/seo")
 public class SeoController {
 

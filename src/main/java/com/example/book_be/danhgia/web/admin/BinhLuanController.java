@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000/")
 @RequestMapping("api/admin/danh-gia")
 public class BinhLuanController {
     @Autowired
