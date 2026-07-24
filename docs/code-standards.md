@@ -125,7 +125,7 @@ book_BE/
 │   │   │   └── shared/                 # config, security, util, dto, email
 │   │   └── resources/
 │   │       ├── application.properties  # Cấu hình
-│   │       └── db/migration/           # Flyway migrations (V1–V7)
+│   │       └── db/migration/           # Flyway migrations (V1–V8) + beforeMigrate.sql callback
 │   └── test/                           # Unit tests và Testcontainers integration tests
 ├── scripts/                            # smoke scripts, gồm kiem-tra-ton-kho-delta.sh
 ├── docs/                               # Tài liệu dự án

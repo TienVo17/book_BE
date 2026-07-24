@@ -239,7 +239,7 @@ SecurityConfiguration
 App Startup:
   1. DataSource connect → MySQL
   2. Flyway check flyway_schema_history
-  3. Flyway apply pending migrations (V1→V7)
+  3. Flyway apply pending migrations (V1→V8)
   4. Hibernate validate schema vs entities
   5. Application context boot
 ```
@@ -249,6 +249,7 @@ App Startup:
 - `V5__add_slug_to_the_loai.sql` thêm cột `slug`, backfill dữ liệu cũ, và tạo unique constraint cho bảng `the_loai`
 - `V6__add_payment_method_codes.sql` thêm `ma_code` cho `hinh_thuc_thanh_toan` và backfill mã ổn định (`COD`, `VNPAY`)
 - `V7__lich_su_trang_thai_va_ma_coupon.sql` thêm bảng `lich_su_trang_thai_don_hang`, cột `don_hang.ma_coupon` (FK `ON DELETE SET NULL`) và `don_hang.version` (`@Version` optimistic lock)
+- `V8__add_join_table_primary_keys.sql` thêm composite primary key (và FK còn thiếu) cho `nguoidung_quyen`/`sach_theloai` — bắt buộc trên managed MySQL có `sql_require_primary_key=ON` (Aiven). Idempotent qua `information_schema` check nên an toàn cho cả DB mới và DB đã chạy V1 trước đó. `db/migration/beforeMigrate.sql` precreate hai bảng này với PK ngay từ đầu cho DB mới (không cần quyền `SESSION_VARIABLES_ADMIN`)
 - Demo data tự động seed khi DB trống
 
 ## Cấu Hình Docker
@@ -273,7 +274,7 @@ Services:
 
 - Bằng chứng lịch sử trước inventory delta ghi nhận backend/frontend image build và stack ba service từng khởi động thành công từ hai repo sibling `book_BE`/`book_FE`.
 - Ngày 2026-07-14, stock-delta HTTP smoke trên Compose đạt 45/45 hai lần: mandatory flow kết thúc ở 13, checkout/admin contention ở 13, cancel/admin contention ở 9, bypass routes bị chặn và cleanup exact-ID thành công sau mỗi lần.
-- Ngày 2026-07-24, full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket, đặt `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` và process-local `-Dapi.version=1.44` đã chạy Surefire 27/27 cùng bốn lớp Failsafe 28/28 trên MySQL Testcontainers. Deterministic concurrency proof đến từ latch/future assertions của integration tests, không từ background HTTP contention.
+- Ngày 2026-07-24, full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket, đặt `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` và process-local `-Dapi.version=1.44` đã chạy Surefire 28/28 cùng bốn lớp Failsafe 28/28 trên MySQL Testcontainers khởi động với `--sql-require-primary-key=ON` (mô phỏng ràng buộc Aiven managed MySQL). `AivenPrimaryKeyMigrationTest` xác nhận V1→V8 chạy sạch trên schema trắng và tạo đúng composite PK cho hai bảng nối. Deterministic concurrency proof đến từ latch/future assertions của integration tests, không từ background HTTP contention.
 
 ## Biến Môi Trường
 
