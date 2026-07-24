@@ -61,17 +61,30 @@ Backend mặc định tại `http://localhost:8080`.
 
 | Biến | Mặc định | Mô tả |
 |------|----------|-------|
-| `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL |
-| `DB_USERNAME` | `root` | DB username |
-| `DB_PASSWORD` | rỗng | DB password |
+| `PORT` | `8080` | HTTP port của Spring Boot |
+| `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL ưu tiên khi được đặt |
+| `DB_HOST`, `DB_PORT`, `DB_NAME` | `localhost`, `3306`, `web_ban_sach` | Thành phần JDBC fallback khi không đặt `DB_URL` |
+| `DB_USERNAME` / `DB_USER` | `root` | DB username (`DB_USERNAME` ưu tiên) |
+| `DB_PASSWORD` / `MYSQL_PASSWORD` | rỗng | DB password (`DB_PASSWORD` ưu tiên) |
+| `FLYWAY_CONNECT_RETRIES` | `10` | Số lần Flyway retry khi database chưa sẵn sàng |
+| `FLYWAY_CONNECT_RETRIES_INTERVAL` | `5` | Số giây giữa các lần retry |
 | `JWT_SECRET` | bắt buộc | Khóa ký JWT Base64 do môi trường runtime cấp |
 | `JWT_EXPIRATION_MS` | `28800000` | JWT expiration in milliseconds (mặc định 8 giờ) |
 | `MAIL_USERNAME` | rỗng | SMTP username |
 | `MAIL_PASSWORD` | rỗng | SMTP password |
 | `VNPAY_TMN_CODE` | rỗng | VNPay merchant code |
 | `VNPAY_HASH_SECRET` | rỗng | VNPay secret |
+| `VNPAY_PAY_URL` | VNPay sandbox payment URL | URL cổng thanh toán HTTP(S), không có query/fragment |
+| `VNPAY_API_URL` | VNPay sandbox transaction API | URL API giao dịch HTTP(S), không có query/fragment |
+| `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | URL browser return từ VNPay; override khi cần |
 | `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary |
-| `FRONTEND_URL` | `http://localhost:3000` | Base URL frontend cho SEO |
+| `FRONTEND_URL` | `http://localhost:3000` | Origin frontend duy nhất cho CORS, email links và VNPay return mặc định |
+
+`FRONTEND_URL` phải là HTTP(S) origin tuyệt đối không có path, query, hay fragment; slash cuối được chuẩn hóa. Email activation/reset encode từng path segment, nên email/token có ký tự URL-reserved vẫn tạo liên kết hợp lệ.
+
+## Render Blueprint
+
+`render.yaml` mô tả một Docker web service trên gói Render Free, dùng `GET /health` làm health check và kết nối Aiven Free MySQL. Khi tạo Blueprint, nhập `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` bằng form bảo mật của Render; dùng JDBC URL dạng `jdbc:mysql://<host>:<port>/defaultdb?sslmode=require`. Blueprint tự sinh `JWT_SECRET` và cấu hình origin Vercel công khai. Render Free không hỗ trợ persistent disk/private service và chặn SMTP ports, nên mail chưa hoạt động; VNPay/Cloudinary chỉ bật sau khi thêm credentials. Không commit các giá trị Aiven vào repository.
 
 ## Tồn Kho
 

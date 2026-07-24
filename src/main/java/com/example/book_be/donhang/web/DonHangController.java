@@ -138,7 +138,7 @@ public class DonHangController {
             if (donHang.getTrangThaiThanhToan() != null && donHang.getTrangThaiThanhToan() == 1) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng này đã được thanh toán.");
             }
-            String paymentUrl = vnPayService.createOrder((int) Math.round(donHang.getTongTien()), String.valueOf(donHang.getMaDonHang()), "");
+            String paymentUrl = vnPayService.createOrder((int) Math.round(donHang.getTongTien()), String.valueOf(donHang.getMaDonHang()));
             return ResponseEntity.ok(new VNPayUrlResponse(paymentUrl));
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());

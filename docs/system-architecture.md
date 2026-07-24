@@ -147,7 +147,7 @@ hoanKho: soLuong <= MAX - restore      {"soLuongThayDoi": signed int != 0}
 |---|---|---|---|---|---|
 | `PATCH` | `/api/admin/sach/{id}/ton-kho` | ADMIN only | `{"soLuongThayDoi": integer khác 0}` | `200`, `{"maSach":integer,"soLuongTon":integer}` | `400` body missing/invalid/zero/malformed; `404` book missing; `409` below-zero or `int` range conflict; `401/403` non-admin |
 
-CORS permits `PATCH` from `http://localhost:3000`. The security matcher is path-based and requires `ADMIN` for `PATCH /api/admin/sach/**`.
+CORS permits `PATCH` only from the normalized `FRONTEND_URL` origin. The security matcher is path-based and requires `ADMIN` for `PATCH /api/admin/sach/**`.
 
 Spring Data REST preserves GET, including `/sach/{id}/listDanhGia`, but disables `POST`, `PUT`, `PATCH`, and `DELETE` on the `Sach` collection, item, and association surfaces. This prevents raw Data REST writes from bypassing the stock-delta contract.
 
@@ -226,7 +226,7 @@ SecurityConfiguration
 ├── DaoAuthenticationProvider     # Xác thực từ DB
 ├── SecurityFilterChain
 │   ├── Phân quyền endpoint (authorizeHttpRequests)
-│   ├── CORS config (localhost:3000)
+│   ├── CORS config (`FRONTEND_URL`, normalized exact origin)
 │   ├── JWT filter (trước UsernamePasswordAuthenticationFilter)
 │   ├── Session: STATELESS
 │   └── CSRF: disabled (dùng JWT)
@@ -261,7 +261,8 @@ Services:
 
   backend:    Spring Boot (multi-stage Maven build)
               Port: 8080, depends_on: mysql (healthy)
-              Env: DB_URL, DB_USER, DB_PASS, DDL_AUTO=validate
+              Env: DB_URL or DB_HOST/DB_PORT/DB_NAME, DB_USERNAME/DB_USER,
+                   DB_PASSWORD/MYSQL_PASSWORD, PORT, DDL_AUTO=validate
 
   frontend:   React build, port 3000
               build context: ../book_FE (repo frontend canonical)
@@ -272,32 +273,40 @@ Services:
 
 - Bằng chứng lịch sử trước inventory delta ghi nhận backend/frontend image build và stack ba service từng khởi động thành công từ hai repo sibling `book_BE`/`book_FE`.
 - Ngày 2026-07-14, stock-delta HTTP smoke trên Compose đạt 45/45 hai lần: mandatory flow kết thúc ở 13, checkout/admin contention ở 13, cancel/admin contention ở 9, bypass routes bị chặn và cleanup exact-ID thành công sau mỗi lần.
-- Full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket, đặt `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` và process-local `-Dapi.version=1.44` đã chạy Surefire 14/14 cùng bốn lớp Failsafe 28/28 trên MySQL Testcontainers. Deterministic concurrency proof đến từ latch/future assertions của integration tests, không từ background HTTP contention.
+- Ngày 2026-07-24, full `mvn -B clean verify` trong Maven-in-Docker gắn Docker Desktop socket, đặt `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` và process-local `-Dapi.version=1.44` đã chạy Surefire 27/27 cùng bốn lớp Failsafe 28/28 trên MySQL Testcontainers. Deterministic concurrency proof đến từ latch/future assertions của integration tests, không từ background HTTP contention.
 
 ## Biến Môi Trường
 
 | Biến | Mặc định | Mô tả |
 |------|---------|-------|
-| `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL |
-| `DB_USERNAME` | `root` | DB username |
-| `DB_PASSWORD` | (trống) | DB password |
+| `PORT` | `8080` | HTTP port của Spring Boot |
+| `DB_URL` | `jdbc:mysql://localhost:3306/web_ban_sach` | JDBC URL ưu tiên |
+| `DB_HOST`, `DB_PORT`, `DB_NAME` | `localhost`, `3306`, `web_ban_sach` | Thành phần JDBC fallback |
+| `DB_USERNAME` / `DB_USER` | `root` | DB username (`DB_USERNAME` ưu tiên) |
+| `DB_PASSWORD` / `MYSQL_PASSWORD` | (trống) | DB password (`DB_PASSWORD` ưu tiên) |
+| `FLYWAY_CONNECT_RETRIES` | `10` | Số lần retry kết nối khi database chưa sẵn sàng |
+| `FLYWAY_CONNECT_RETRIES_INTERVAL` | `5` | Số giây giữa các lần retry |
 | `JWT_SECRET` | Bắt buộc, không có mặc định | Khóa ký JWT Base64 do môi trường runtime cấp |
-| `MAIL_USERNAME` | Gmail address | SMTP username |
-| `MAIL_PASSWORD` | App password | SMTP password |
-| `VNPAY_TMN_CODE` | `B3C4EVLT` | VNPay merchant code |
-| `VNPAY_HASH_SECRET` | Sandbox key | VNPay secret key |
+| `MAIL_USERNAME` | (trống) | SMTP username |
+| `MAIL_PASSWORD` | (trống) | SMTP password |
+| `FRONTEND_URL` | `http://localhost:3000` | CORS exact origin, email link base, VNPay return base |
+| `VNPAY_PAY_URL` | VNPay sandbox payment URL | URL cổng thanh toán HTTP(S), không có query/fragment |
+| `VNPAY_API_URL` | VNPay sandbox transaction API | URL API giao dịch HTTP(S), không có query/fragment |
+| `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | VNPay browser return URL override |
+| `VNPAY_TMN_CODE` | (trống) | VNPay merchant code |
+| `VNPAY_HASH_SECRET` | (trống) | VNPay secret key |
 
 ## Những Vấn Đề Đã Biết (Known Limitations)
 
 ### Security & Authorization
-1. **CORS Configuration Conflict**: `SecurityConfiguration` giới hạn CORS origins thành `http://localhost:3000`, nhưng `RestConfig` (Spring Data REST) cho phép all origins trên `/**`, tạo ra conflict.
+Không có giới hạn CORS đã biết trong phạm vi cấu hình hiện tại: `SecurityConfiguration` là nguồn duy nhất, giới hạn exact origin cấu hình được qua `FRONTEND_URL`.
 
 ### Incomplete Implementation
-2. **Stub Service Methods**: Các method trong `AdminUserServiceImpl` (`save`, `update`, `delete`, `findById`) và `SachServiceImpl.delete()` trả về `null` như stubs.
-3. **Admin Order Filtering**: `DonHangAdminController.findAll` có vẻ lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn (có thể là unintended behavior).
+1. **Stub Service Methods**: Các method trong `AdminUserServiceImpl` (`save`, `update`, `delete`, `findById`) và `SachServiceImpl.delete()` trả về `null` như stubs.
+2. **Admin Order Filtering**: `DonHangAdminController.findAll` có vẻ lọc theo đơn hàng của admin yêu cầu thay vì trả tất cả đơn (có thể là unintended behavior).
 
 ### Code Quality
-4. **HTML Sanitization**: `BookDescriptionSanitizer` (`shared/util/`) sử dụng regex-based sanitization thay vì library-based HTML parser.
+3. **HTML Sanitization**: `BookDescriptionSanitizer` (`shared/util/`) sử dụng regex-based sanitization thay vì library-based HTML parser.
 
 ### Đã Khắc Phục
 - **Admin endpoint public GET** (`/api/admin/user**`, `/api/admin/sach**`) và **unprotected mutations** ở `SachUserController`: siết lại ở nhánh `security-hardening` (PR #1).

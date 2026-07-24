@@ -1,5 +1,12 @@
 # Project Changelog
 
+## 2026-07-24
+
+### Production connectivity
+- Centralized CORS in `SecurityConfiguration` and limited it to the normalized `FRONTEND_URL` origin; removed controller-local and Spring Data REST CORS mappings.
+- Made activation, password-reset, and VNPay browser return URLs deployment-configurable.
+- Added Render port/database configuration, a Java 17 runtime image, and a secret-safe Blueprint for a Render Free web service connected to Aiven Free MySQL.
+
 ## 2026-07-13
 
 ### Inventory-delta protection
@@ -23,7 +30,6 @@
 - Added comprehensive "Known Limitations" sections to project-overview-pdr.md, codebase-summary.md, code-standards.md, and system-architecture.md documenting:
   - Authorization matcher inconsistency (public GET endpoints for `/api/admin/*` paths)
   - Unprotected admin mutation endpoints in SachUserController
-  - CORS configuration conflicts between SecurityConfiguration and RestConfig
   - Stub/unimplemented service methods
   - Duplicate activation methods in TaiKhoanService
   - Regex-based HTML sanitization

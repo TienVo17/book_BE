@@ -2,10 +2,13 @@ package com.example.book_be.nguoidung.service;
 
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.shared.config.FrontendUrlProvider;
 import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.shared.email.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -14,12 +17,16 @@ import java.util.UUID;
 
 @Service
 public class TaiKhoanService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TaiKhoanService.class);
+
     @Autowired
     private BCryptPasswordEncoder bCryptPasswordEncoder;
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
     @Autowired
     private EmailService emailService;
+    @Autowired
+    private FrontendUrlProvider frontendUrlProvider;
 
     public ResponseEntity<?> dangKyNguoiDung(NguoiDung nguoiDung) {
         // kiểm tra tên đăng nhập đã tồn tại chưa
@@ -43,8 +50,8 @@ public class TaiKhoanService {
         // gửi email kích hoạt (không fail nếu gửi email lỗi)
         try {
             guiEmailKichHoat(nguoiDung.getEmail(), nguoiDung.getMaKichHoat());
-        } catch (Exception e) {
-            // Log lỗi nhưng không fail registration
+        } catch (Exception exception) {
+            LOGGER.warn("Could not send account activation email", exception);
         }
         return ResponseEntity.ok("Đăng ký thành công");
     }
@@ -57,8 +64,8 @@ public class TaiKhoanService {
         String subject = "Kích hoạt tài khoản của bạn tại WebBanSach";
         String text = "Vui lòng sử dụng mã sau để kich hoạt cho tài khoản <" + email + ">:<html><body><br/><h1>" + maKichHoat + "</h1></body></html>";
         text += "<br/> Click vào đường link để kích hoạt tài khoản: ";
-        String url = "http://localhost:3000/kich-hoat/" + email + "/" + maKichHoat;
-        text += ("<br/> <a href=" + url + ">" + url + "</a> ");
+        String url = frontendUrlProvider.activationUrl(email, maKichHoat);
+        text += ("<br/> <a href=\"" + url + "\">" + url + "</a> ");
 
         emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
     }
@@ -109,8 +116,8 @@ public class TaiKhoanService {
         nguoiDungRepository.save(nguoiDung);
         try {
             guiEmailResetPassword(email, token);
-        } catch (Exception e) {
-            // Log lỗi nhưng không fail
+        } catch (Exception exception) {
+            LOGGER.warn("Could not send password reset email", exception);
         }
         return ResponseEntity.ok(thongBaoThanhCong);
     }
@@ -138,10 +145,10 @@ public class TaiKhoanService {
     // ---- Helper: gửi email reset password ----
     private void guiEmailResetPassword(String email, String token) {
         String subject = "Đặt lại mật khẩu tại WebBanSach";
-        String url = "http://localhost:3000/dat-lai-mat-khau/" + email + "/" + token;
+        String url = frontendUrlProvider.resetPasswordUrl(email, token);
         String text = "Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản <" + email + ">."
                 + "<html><body><br/>Vui lòng click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
-                + "<br/><a href=" + url + ">" + url + "</a></body></html>";
+                + "<br/><a href=\"" + url + "\">" + url + "</a></body></html>";
         emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
     }
 

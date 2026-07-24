@@ -30,7 +30,7 @@ Tổng ~118 file Java, 18 entity, ~12 nghiệp vụ.
    **trả thẳng JPA entity** — chính là nguyên nhân lỗ hổng lộ hash mật khẩu (đã sửa, merge PR #1).
 3. **Vi phạm quy ước**: package `services/JWT` viết HOA; `dao/` là tên cũ (nên là `repository/`).
 4. **Trộn ngôn ngữ**: `Sach/DonHang/TheLoai` (Việt) lẫn `Cart/Order/Review/Coupon` (Anh).
-5. **`VnPayConfig`** gộp config + secret tĩnh + hàm crypto trong một class static.
+5. **`VnPayConfig`** chứa cấu hình VNPay và hàm crypto; credentials được inject từ Spring/env thay vì static environment reads.
 
 ## 3. So sánh 3 mô hình
 
@@ -152,7 +152,7 @@ Mỗi `*Repository` đi theo entity tương ứng: `SachRepository`→`sach/repo
 ## 7. Bất biến bắt buộc (từ Red-Team)
 
 - **[RT-4]** KHÔNG đổi `@RequestMapping` path khi move (phân quyền path-based); chạy `SecuritySmokeTest` sau mỗi phase.
-- **[RT-6]** Đợt này chỉ **MOVE** (đổi package). Rename class + sửa logic (stub `null`, static→bean) tách đợt riêng.
+- **[RT-6]** Đợt package move đã hoàn tất; `VnPayConfig` nay là Spring bean để inject cấu hình runtime. Các logic không thuộc phạm vi package move tiếp tục được tách riêng.
 - **[RT-5]** Cổng ROI sau Phase 3 — dừng đánh giá trước khi làm tiếp.
 - **[RT-3]** Test dùng MySQL thật (Testcontainers/compose), KHÔNG H2.
 - **[RT-2]** Test assert field ổn định, không so JSON toàn phần.

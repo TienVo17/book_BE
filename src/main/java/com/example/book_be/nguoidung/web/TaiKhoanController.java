@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000/")
 @RequestMapping("/tai-khoan")
 public class TaiKhoanController {
     @Autowired

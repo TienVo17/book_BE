@@ -13,7 +13,6 @@ import java.util.Map;
  * All endpoints require ADMIN role (enforced via SecurityConfig).
  */
 @RestController
-@CrossOrigin(origins = "http://localhost:3000/")
 @RequestMapping("/api/admin/thong-ke")
 public class ThongKeController {
 

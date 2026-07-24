@@ -103,9 +103,9 @@ domain/ (JPA Entities - MySQL)
 - Default page size: 8 (user) hoặc 10 (admin)
 
 ### CORS
-- Cấu hình global trong `SecurityConfiguration` (cho API)
-- Cấu hình riêng trong `RestConfig` (cho Spring Data REST endpoints)
-- Allowed origin: `http://localhost:3000`
+- Cấu hình tập trung duy nhất trong `SecurityConfiguration`, áp dụng cho API và Spring Data REST.
+- Origin chính xác lấy từ `app.frontend-url` / `FRONTEND_URL`, chuẩn hóa slash cuối; không dùng wildcard, controller-local annotation, hoặc CORS registration trong `RestConfig`.
+- Giữ methods `GET, POST, PUT, PATCH, DELETE, OPTIONS`, headers `*`, credentials và max age 3600 giây.
 
 ### Bảo Mật
 - JWT stateless; `JWT_SECRET` Base64 phải do môi trường runtime cấp (không fallback hoặc tự sinh khóa); expiration cấu hình qua `JWT_EXPIRATION_MS` (mặc định 8 giờ / `28800000` ms)
@@ -147,8 +147,6 @@ book_BE/
 ### Bảo Mật (Security)
 - Authorization dùng string-array matching (`Endpoints`) first-match-wins. **Lưu ý bất biến:** phân quyền
   phụ thuộc REST path — không đổi `@RequestMapping` path khi refactor package.
-- Hai cấu hình CORS: `SecurityConfiguration` giới hạn origin `http://localhost:3000`, nhưng `RestConfig`
-  (Spring Data REST) cho phép mọi origin trên `/**` — cân nhắc siết lại.
 
 ### Bảo Trì (Maintenance)
 - Một số method service trả về `null` như stubs: `AdminUserServiceImpl.save/update/delete/findById`, `SachServiceImpl.delete`.
