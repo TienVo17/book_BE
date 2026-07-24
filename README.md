@@ -86,6 +86,8 @@ Backend mặc định tại `http://localhost:8080`.
 
 `render.yaml` mô tả một Docker web service trên gói Render Free, dùng `GET /health` làm health check và kết nối Aiven Free MySQL. Khi tạo Blueprint, nhập `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` bằng form bảo mật của Render; dùng JDBC URL dạng `jdbc:mysql://<host>:<port>/defaultdb?sslmode=require`. Blueprint tự sinh `JWT_SECRET` và cấu hình origin Vercel công khai. Render Free không hỗ trợ persistent disk/private service và chặn SMTP ports, nên mail chưa hoạt động; VNPay/Cloudinary chỉ bật sau khi thêm credentials. Không commit các giá trị Aiven vào repository.
 
+`FlywayConfig` chạy `flyway.repair()` trước mỗi `flyway.migrate()` để tự đồng bộ `flyway_schema_history` khi một lần deploy trước đó fail giữa chừng (ví dụ do lỗi cấu hình DB_URL), không cần truy cập SQL thủ công. `repair()` chỉ sửa metadata lịch sử (checksum, xóa dòng `failed`) khớp với các file migration hiện có trên classpath; nó không rollback hay sửa dữ liệu/schema đã áp dụng. Vì vậy không được sửa nội dung một migration đã từng chạy production — luôn thêm migration mới.
+
 ## Tồn Kho
 
 ### Contract quản trị
