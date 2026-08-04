@@ -5,7 +5,9 @@ import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.DiaChiGiaoHang;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -45,11 +47,11 @@ public class DiaChiServiceImpl implements DiaChiService {
     @Override
     public DiaChiGiaoHang update(int maNguoiDung, int maDiaChi, DiaChiGiaoHang diaChi) {
         DiaChiGiaoHang db = diaChiRepo.findById((long) maDiaChi)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy địa chỉ"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy địa chỉ"));
 
         // Ownership check
         if (db.getNguoiDung().getMaNguoiDung() != maNguoiDung) {
-            throw new RuntimeException("Không có quyền sửa địa chỉ này");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền sửa địa chỉ này");
         }
 
         db.setHoTen(diaChi.getHoTen());
@@ -69,11 +71,11 @@ public class DiaChiServiceImpl implements DiaChiService {
     @Override
     public void delete(int maNguoiDung, int maDiaChi) {
         DiaChiGiaoHang db = diaChiRepo.findById((long) maDiaChi)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy địa chỉ"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy địa chỉ"));
 
         // Ownership check
         if (db.getNguoiDung().getMaNguoiDung() != maNguoiDung) {
-            throw new RuntimeException("Không có quyền xóa địa chỉ này");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền xóa địa chỉ này");
         }
 
         diaChiRepo.deleteById((long) maDiaChi);

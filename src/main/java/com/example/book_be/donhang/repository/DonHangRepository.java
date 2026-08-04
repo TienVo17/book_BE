@@ -6,11 +6,14 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
+import java.util.Optional;
+
 /**
  * Repository for DonHang (orders).
  * Includes aggregate queries for admin dashboard statistics.
  */
-@RepositoryRestResource(path = "don-hang")
+/** exported=false: order data la nhay cam, chi /api/don-hang/** (co kiem tra ownership) duoc dung. */
+@RepositoryRestResource(path = "don-hang", exported = false)
 public interface DonHangRepository extends JpaRepository<DonHang, Long>, JpaSpecificationExecutor {
 
     // Doanh thu KHONG tinh don da huy (trangThaiGiaoHang = 3) du da thanh toan.
@@ -24,4 +27,7 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long>, JpaSpec
     double sumDoanhThuHomNay();
 
     long countByTrangThaiGiaoHang(Integer trangThaiGiaoHang);
+
+    /** Tra cuu don da tao boi cung nguoi dung + cung Idempotency-Key (phuc vu replay/claim khi checkout). */
+    Optional<DonHang> findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(int maNguoiDung, String checkoutIdempotencyKey);
 }

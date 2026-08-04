@@ -7,7 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@RepositoryRestResource(path = "sach-yeu-thich")
+/** exported=false: wishlist la du lieu rieng tu nguoi dung; /api/yeu-thich/** la contract duy nhat. */
+@RepositoryRestResource(path = "sach-yeu-thich", exported = false)
 public interface SachYeuThichRepository extends JpaRepository<SachYeuThich, Long> {
 
     List<SachYeuThich> findByNguoiDung_MaNguoiDung(int maNguoiDung);

@@ -16,19 +16,16 @@ public class CouponController {
 
     @PostMapping("/kiem-tra")
     public ResponseEntity<?> kiemTra(@RequestBody Map<String, Object> body) {
-        try {
-            String ma = (String) body.get("ma");
-            Object tongTienRaw = body.get("tongTien");
-            if (tongTienRaw == null) {
-                tongTienRaw = body.get("tongGioHang");
-            }
-            double tongTien = Double.parseDouble(String.valueOf(tongTienRaw));
-            Map<String, Object> result = couponService.kiemTra(ma, tongTien);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            // Khong tra e.getMessage() ra client — tranh lo text exception/thong tin noi bo.
-            return ResponseEntity.badRequest().body("Yêu cầu không hợp lệ");
+        String ma = body.get("ma") instanceof String value ? value : null;
+        Object tongTienRaw = body.get("tongTien");
+        if (tongTienRaw == null) {
+            tongTienRaw = body.get("tongGioHang");
         }
+        if (ma == null || ma.isBlank() || tongTienRaw == null) {
+            throw new IllegalArgumentException("Yêu cầu coupon không hợp lệ.");
+        }
+        double tongTien = Double.parseDouble(String.valueOf(tongTienRaw));
+        Map<String, Object> result = couponService.kiemTra(ma, tongTien);
+        return ResponseEntity.ok(result);
     }
 }

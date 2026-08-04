@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-@RepositoryRestResource(path = "hinh-thuc-thanh-toan")
+@RepositoryRestResource(path = "hinh-thuc-thanh-toan", exported = false)
 public interface HinhThucThanhToanRepository extends JpaRepository<HinhThucThanhToan, Long> {
     Optional<HinhThucThanhToan> findByMaCodeIgnoreCase(String maCode);
 }

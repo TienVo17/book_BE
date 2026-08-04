@@ -85,6 +85,7 @@ Client                     Backend                          DB
   │                           │                              │
   │  (Đã đăng nhập)          │                              │
   ├──POST /api/don-hang/them─►│                              │
+  │  Header: Idempotency-Key  │  (bat buoc; thieu -> 400)    │
   │  Body: {                  │──SecurityContext.getAuth()   │
   │    items: [{maSach,soLuong}],                            │
   │    maDiaChiGiaoHang,                                     │
@@ -101,11 +102,14 @@ Client                     Backend                          DB
   │                           │  soTienGiam, maCoupon         │
   │                           │                              │
   │  (Không đăng nhập)        │                              │
-  ├──POST /them-don-hang-moi──►│                              │
-  │  ?hoTen&soDienThoai       │──Tạo DonHang (no user)──────►│
-  │  &diaChiNhanHang          │                              │
-  │◄──DonHang response────────┤                              │
+  ├──POST /api/don-hang/them──►│                              │
+  │                           │──Security từ chối (401)─────►│
+  │◄──ApiError UNAUTHENTICATED┤                              │
 ```
+
+> **Không có guest checkout.** Endpoint `them-don-hang-moi` cùng matcher public
+> và trang `DatHangNhanh` đã bị xóa; mọi lần tạo đơn đều cần JWT hợp lệ và một
+> địa chỉ giao hàng thuộc sở hữu của chính người dùng đó.
 
 > **Tồn kho nguyên tử:** checkout trừ kho bằng UPDATE có điều kiện `SachRepository.truKhoNeuDu` (0 bản ghi = hết hàng → 400, rollback cả đơn). Lặp trừ theo `maSach` tăng dần (TreeMap) để chống deadlock. Query chỉ nhận số lượng dương và không làm tồn âm.
 
@@ -158,7 +162,7 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 - **VNPay callback** → `chuyenTrangThaiGiaoHang(DANG_GIAO)` + `chuyenTrangThaiThanhToan(DA_THANH_TOAN)` — idempotent, an toàn khi callback chạy lại.
 - **Admin `cap-nhat-trang-thai-giao-hang`** → `chuyenTrangThaiTiepTheo` (tiến 1 bước: 0→1→2; ở 2/3 → 409). Đơn COD cần 2 lần bấm để tới "đã giao". Ràng buộc theo phương thức thanh toán:
   - **VNPAY (trả trước):** đơn `chưa thanh toán` → **chặn giao (409)**.
-  - **COD (trả khi nhận):** khi lên `DA_GIAO (2)` → tự động set `trang_thai_thanh_toan=1` (đã thu tiền mặt) để doanh thu tính đúng. (null-method của `them-don-hang-moi` coi như COD.)
+  - **COD (trả khi nhận):** khi lên `DA_GIAO (2)` → tự động set `trang_thai_thanh_toan=1` (đã thu tiền mặt) để doanh thu tính đúng. (Đơn có phương thức thanh toán `null` cũng được coi như COD.)
 - **Hủy đơn** `POST /api/don-hang/huy/{maDonHang}` (owner hoặc admin):
   1. Kiểm quyền (owner/admin) + trạng thái (user chỉ hủy khi `CHO_XU_LY`; admin `CHO_XU_LY`/`DANG_GIAO`); user không hủy được đơn đã thanh toán online (400).
   2. `chuyenTrangThaiGiaoHang(DA_HUY)` **trước** — `@Version` optimistic lock chặn double-cancel (request thứ 2 → 409, không hoàn kho/coupon 2 lần).
@@ -180,11 +184,9 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 | POST | `/tai-khoan/dang-ky` | Đăng ký |
 | POST | `/tai-khoan/dang-nhap` | Đăng nhập |
 | GET | `/tai-khoan/kich-hoat` | Kích hoạt tài khoản |
-| ALL | `/gio-hang/**` | Thao tác giỏ hàng |
+| ALL | `/gio-hang/**` | Matcher legacy Spring Data REST; repository `GioHang` đã `exported=false` nên các path này không còn phục vụ dữ liệu. Frontend dùng giỏ hàng local (`localStorage`), không gọi `/api/gio-hang/**`. |
 | GET | `/api/danh-gia/findAll**` | Xem đánh giá |
 | GET | `/api/don-hang/vnpay-payment` | Callback VNPay |
-| POST | `/api/don-hang/them-don-hang-moi` | Đặt hàng (guest) |
-| GET | `/api/dia-chi` | Danh sách địa chỉ giao hàng của user |
 
 ### Endpoint Yêu Cầu Đăng Nhập (Authenticated)
 

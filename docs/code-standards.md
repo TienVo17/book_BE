@@ -110,8 +110,10 @@ domain/ (JPA Entities - MySQL)
 ### Bảo Mật
 - JWT stateless; `JWT_SECRET` Base64 phải do môi trường runtime cấp (không fallback hoặc tự sinh khóa); expiration cấu hình qua `JWT_EXPIRATION_MS` (mặc định 8 giờ / `28800000` ms)
 - BCrypt cho mật khẩu
-- Rate limiting đăng nhập (in-memory ConcurrentHashMap)
-- Endpoint phân quyền trong `SecurityConfiguration`
+- Rate limiting qua `RateLimiter` (in-memory, per-process) cho đăng nhập, đăng ký, kích hoạt, quên/đặt lại mật khẩu. Đăng nhập **chỉ đếm lần sai** và reset khi thành công, nên người dùng hợp lệ không bị khóa. Trần theo IP đặt cao để không chặn nhầm mạng NAT dùng chung
+- Thông báo đăng nhập thất bại giống nhau cho mọi nguyên nhân, không tiết lộ tài khoản tồn tại
+- Endpoint phân quyền trong `SecurityConfiguration`, kết thúc bằng `anyRequest().denyAll()` — route mới phải được khai báo tường minh
+- Quyền sở hữu tài nguyên (đơn hàng, địa chỉ, đánh giá) kiểm tra ở service, không chỉ dựa vào matcher đường dẫn
 
 ## Cấu Trúc Thư Mục Dự Án
 

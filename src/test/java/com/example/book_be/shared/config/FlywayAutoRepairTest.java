@@ -17,10 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Reproduces a real production incident: a prior deploy failed mid-migration (V1 partially
- * applied on Aiven), leaving a "failed" row in flyway_schema_history. The next deploy must
- * self-heal via FlywayConfig's repair-then-migrate strategy instead of requiring manual
- * database access.
+ * Tai hien su co that: mot lan deploy truoc do fail giua chung (V1 apply do dang tren Aiven) de lai
+ * dong "failed" trong flyway_schema_history.
+ *
+ * Hop dong hien tai: khoi dong binh thuong PHAI fail-closed tren lich su dirty. Chi khi nguoi van
+ * hanh bat repair tuong minh thi migration moi tiep tuc — de mot lan deploy hong khong the am tham
+ * ghi de metadata lich su.
  */
 @Testcontainers
 class FlywayAutoRepairTest {
@@ -39,7 +41,8 @@ class FlywayAutoRepairTest {
     }
 
     @Test
-    void repairs_failed_history_left_by_a_previous_broken_deploy(@TempDir Path brokenMigrationDir) throws IOException {
+    void khoi_dong_mac_dinh_fail_closed_va_chi_khoi_phuc_khi_bat_tuong_minh(
+            @TempDir Path brokenMigrationDir) throws IOException {
         Files.writeString(brokenMigrationDir.resolve("V1__init_schema.sql"), "THIS IS NOT VALID SQL;");
 
         Flyway brokenFlyway = Flyway.configure()
@@ -54,12 +57,12 @@ class FlywayAutoRepairTest {
                 .locations("classpath:db/migration")
                 .load();
 
-        assertThatThrownBy(realFlyway::migrate)
-                .as("a dirty history must block migrate() before repair, matching the production symptom")
+        assertThatThrownBy(() -> new FlywayConfig(false).migrationStrategy().migrate(realFlyway))
+                .as("mac dinh khong repair: lich su dirty phai lam deploy dung lai")
                 .isInstanceOf(FlywayException.class);
 
-        new FlywayConfig().repairBeforeMigrateStrategy().migrate(realFlyway);
+        new FlywayConfig(true).migrationStrategy().migrate(realFlyway);
 
-        assertThat(realFlyway.info().current().getVersion().toString()).isEqualTo("8");
+        assertThat(realFlyway.info().current().getVersion().toString()).isEqualTo("10");
     }
 }

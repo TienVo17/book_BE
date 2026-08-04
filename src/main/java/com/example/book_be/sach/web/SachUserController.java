@@ -6,6 +6,7 @@ import com.example.book_be.sach.repository.HinhAnhRepository;
 import com.example.book_be.sach.domain.HinhAnh;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.sach.service.SachService;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -87,7 +88,7 @@ public class SachUserController {
     public ResponseEntity<SachResponse> findBySlug(@PathVariable String slug) {
         Sach sach = sachService.findBySlug(slug);
         if (sach == null) {
-            return ResponseEntity.notFound().build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sách không tồn tại.");
         }
         return ResponseEntity.ok(SachResponse.from(sach));
     }

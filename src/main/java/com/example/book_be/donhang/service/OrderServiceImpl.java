@@ -18,17 +18,23 @@ import com.example.book_be.donhang.domain.DonHang;
 import com.example.book_be.thanhtoan.domain.HinhThucThanhToan;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
-import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 @Service
@@ -61,11 +67,70 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private CouponRepository couponRepository;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @Override
-    @Transactional
     public CheckoutOrderResponse saveOrUpdate(CheckoutOrderRequest request) {
-        NguoiDung nguoiDung = getCurrentUser();
+        return saveOrUpdate(request, null);
+    }
+
+    /**
+     * Idempotency: neu idempotencyKey duoc truyen (khong null/blank), thao tac claim/replay chay
+     * TRUOC khi tru kho/dung coupon (khong mutation neu la replay hoac 409). Khi 2 request cung
+     * key chay dong thoi va ca hai deu khong thay don da ton tai, unique constraint
+     * (ma_nguoi_dung, checkout_idempotency_key) chan ban ghi thu 2 luc INSERT; ben thua
+     * (DataIntegrityViolationException) rollback TOAN BO transaction cua no (hoan tra kho/coupon
+     * da tru trong transaction do) roi doc lai don da commit boi ben thang de replay - khong bao
+     * gio de lai kho/coupon bi tru "mo coi".
+     */
+    @Override
+    public CheckoutOrderResponse saveOrUpdate(CheckoutOrderRequest request, String idempotencyKeyRaw) {
+        // Chi dung de xac thuc dang nhap + lay ten_dang_nhap/ma_nguoi_dung (gia tri nguyen thuy, an toan
+        // mang qua transaction boundary). KHONG dung truc tiep entity nay de gan vao DonHang: no se
+        // detached ngay khi request rieng cua findByTenDangNhap ket thuc, gay "detached entity passed
+        // to persist" khi cascade PERSIST. NguoiDung managed phai duoc doc lai BEN TRONG transaction.
+        NguoiDung currentUserSnapshot = getCurrentUser();
         validateCheckoutRequest(request);
+
+        String idempotencyKey = (idempotencyKeyRaw == null || idempotencyKeyRaw.isBlank())
+                ? null
+                : idempotencyKeyRaw.trim();
+        String fingerprint = idempotencyKey != null ? computeFingerprint(request) : null;
+        String tenDangNhap = currentUserSnapshot.getTenDangNhap();
+        int maNguoiDung = currentUserSnapshot.getMaNguoiDung();
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        try {
+            return transactionTemplate.execute(status -> executeCheckout(request, tenDangNhap, idempotencyKey, fingerprint));
+        } catch (IdempotencyKeyRaceException race) {
+            // Transaction cua ben thua da rollback het (kho/coupon da hoan). Doc lai trong transaction
+            // MOI de thay du lieu ben thang vua commit, roi replay hoac 409 neu fingerprint lech.
+            return new TransactionTemplate(transactionManager).execute(status -> donHangRepository
+                    .findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(maNguoiDung, idempotencyKey)
+                    .map(existing -> buildReplayOrConflict(existing, fingerprint))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Xung đột khi tạo đơn hàng, vui lòng thử lại.")));
+        }
+    }
+
+    private CheckoutOrderResponse executeCheckout(CheckoutOrderRequest request, String tenDangNhap,
+                                                    String idempotencyKey, String fingerprint) {
+        // Doc lai NguoiDung BEN TRONG transaction nay de no la managed entity: DonHang.nguoiDung
+        // cascade PERSIST, mot instance detached (doc ngoai transaction) se lam Hibernate nem
+        // "detached entity passed to persist" khi luu don hang moi.
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
+        if (nguoiDung == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập.");
+        }
+
+        if (idempotencyKey != null) {
+            Optional<DonHang> existing = donHangRepository
+                    .findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(nguoiDung.getMaNguoiDung(), idempotencyKey);
+            if (existing.isPresent()) {
+                return buildReplayOrConflict(existing.get(), fingerprint);
+            }
+        }
 
         DiaChiGiaoHang diaChiGiaoHang = diaChiGiaoHangRepository.findById(Long.valueOf(request.getMaDiaChiGiaoHang()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ giao hàng không tồn tại."));
@@ -112,7 +177,19 @@ public class OrderServiceImpl implements OrderService {
         if (coupon != null) {
             donHang.setMaCoupon(coupon.getMaCoupon());
         }
-        donHangRepository.save(donHang);
+        if (idempotencyKey != null) {
+            donHang.setCheckoutIdempotencyKey(idempotencyKey);
+            donHang.setCheckoutRequestFingerprint(fingerprint);
+            donHang.setCheckoutResponseCouponCode(coupon != null ? coupon.getMa() : null);
+            donHang.setCheckoutResponsePaymentMethod(normalizePaymentMethodCode(hinhThucThanhToan));
+            donHang.setCheckoutResponsePaymentStatus(donHang.getTrangThaiThanhToan());
+        }
+        try {
+            donHangRepository.save(donHang);
+        } catch (DataIntegrityViolationException e) {
+            // Race: request khac (cung user+key) vua insert truoc va commit/dang commit.
+            throw new IdempotencyKeyRaceException();
+        }
 
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
             Sach db = sachRepository.findById(Long.valueOf(entry.getKey()))
@@ -146,6 +223,67 @@ public class OrderServiceImpl implements OrderService {
                 donHang.getSoDienThoai(),
                 donHang.getDiaChiNhanHang()
         );
+    }
+
+    /** Fingerprint khop -> replay nguyen response da commit (khong mutation). Lech -> 409, khong mutation. */
+    private CheckoutOrderResponse buildReplayOrConflict(DonHang existing, String fingerprint) {
+        String storedFingerprint = existing.getCheckoutRequestFingerprint();
+        if (storedFingerprint == null || !storedFingerprint.equals(fingerprint)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Idempotency-Key đã được dùng cho một yêu cầu đặt hàng khác.");
+        }
+        return toReplayResponse(existing);
+    }
+
+    private CheckoutOrderResponse toReplayResponse(DonHang donHang) {
+        double soTienGiam = donHang.getTongTienSanPham() + donHang.getChiPhiGiaoHang()
+                + donHang.getChiPhiThanhToan() - donHang.getTongTien();
+        return new CheckoutOrderResponse(
+                donHang.getMaDonHang(),
+                donHang.getTongTien(),
+                donHang.getTongTienSanPham(),
+                soTienGiam,
+                donHang.getCheckoutResponseCouponCode(),
+                donHang.getCheckoutResponsePaymentMethod(),
+                donHang.getCheckoutResponsePaymentStatus(),
+                donHang.getHoTen(),
+                donHang.getSoDienThoai(),
+                donHang.getDiaChiNhanHang()
+        );
+    }
+
+    /**
+     * Hash on dinh tren request DA NORMALIZE: sach sap xep tang dan theo maSach voi so luong da
+     * gop (khong phu thuoc thu tu items trong JSON goc), dia chi, phuong thuc thanh toan, coupon.
+     */
+    private String computeFingerprint(CheckoutOrderRequest request) {
+        Map<Integer, Integer> normalizedItems = gomSoLuongTheoSach(request.getItems());
+        StringBuilder canonical = new StringBuilder("items=");
+        normalizedItems.forEach((maSach, soLuong) -> canonical.append(maSach).append(':').append(soLuong).append(';'));
+        canonical.append("|address=").append(request.getMaDiaChiGiaoHang());
+        canonical.append("|payment=").append(request.getPhuongThucThanhToan() == null
+                ? "" : request.getPhuongThucThanhToan().trim().toUpperCase());
+        canonical.append("|coupon=").append(request.getMaCoupon() == null || request.getMaCoupon().isBlank()
+                ? "" : request.getMaCoupon().trim().toUpperCase());
+        return sha256Hex(canonical.toString());
+    }
+
+    private String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                String byteHex = Integer.toHexString(0xff & b);
+                if (byteHex.length() == 1) {
+                    hex.append('0');
+                }
+                hex.append(byteHex);
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 không khả dụng trong JVM này.", e);
+        }
     }
 
     private void validateCheckoutRequest(CheckoutOrderRequest request) {
@@ -243,5 +381,12 @@ public class OrderServiceImpl implements OrderService {
             return PAYMENT_METHOD_COD;
         }
         return hinhThucThanhToan.getMaCode().trim().toUpperCase();
+    }
+
+    /** Signal noi bo: insert va cham unique (ma_nguoi_dung, checkout_idempotency_key). Khong bao gio leak ra ngoai service. */
+    private static final class IdempotencyKeyRaceException extends RuntimeException {
+        IdempotencyKeyRaceException() {
+            super(null, null, false, false);
+        }
     }
 }

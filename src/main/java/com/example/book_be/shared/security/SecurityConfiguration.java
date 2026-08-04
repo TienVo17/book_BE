@@ -3,6 +3,7 @@ package com.example.book_be.shared.security;
 import com.example.book_be.nguoidung.baomat.Jwtfilter;
 import com.example.book_be.nguoidung.service.UserService;
 import com.example.book_be.shared.config.FrontendUrlProvider;
+import com.example.book_be.shared.web.RequestTraceFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +27,12 @@ import java.util.List;
 public class SecurityConfiguration {
     @Autowired
     private Jwtfilter jwtFilter;
+    @Autowired
+    private RequestTraceFilter requestTraceFilter;
+    @Autowired
+    private ApiAuthenticationEntryPoint authenticationEntryPoint;
+    @Autowired
+    private ApiAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder() {
@@ -47,6 +54,7 @@ public class SecurityConfiguration {
         corsConfig.setAllowedOrigins(List.of(frontendUrlProvider.getFrontendUrl()));
         corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         corsConfig.addAllowedHeader("*");
+        corsConfig.setExposedHeaders(List.of(RequestTraceFilter.HEADER_NAME));
         corsConfig.setAllowCredentials(true);
         corsConfig.setMaxAge(3600L);
 
@@ -72,7 +80,6 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/admin/sach/insert").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/admin/sach/update/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.PATCH, "/api/admin/sach/**").hasAuthority("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/admin/sach/findImage/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/admin/quyen/findAll").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/don-hang/cap-nhat-trang-thai-giao-hang/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/user/phan-quyen").hasAuthority("ADMIN")
@@ -93,13 +100,23 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
+                // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/xoa-danh-gia/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/sach**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/don-hang/them-don-hang-moi").permitAll()
+
+                // Fail-closed tuong minh: route moi phai duoc khai bao co y, khong duoc mo
+                // chi vi khong khop matcher nao o tren.
+                .anyRequest().denyAll()
         );
 
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
+        http.exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler));
 
-        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(requestTraceFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(jwtFilter, RequestTraceFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.csrf(AbstractHttpConfigurer::disable);
 

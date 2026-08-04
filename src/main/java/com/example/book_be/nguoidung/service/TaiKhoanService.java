@@ -3,14 +3,17 @@ package com.example.book_be.nguoidung.service;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.shared.config.FrontendUrlProvider;
-import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.shared.email.EmailService;
+import com.example.book_be.shared.email.HtmlEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.UUID;
@@ -28,13 +31,14 @@ public class TaiKhoanService {
     @Autowired
     private FrontendUrlProvider frontendUrlProvider;
 
+    @Transactional
     public ResponseEntity<?> dangKyNguoiDung(NguoiDung nguoiDung) {
         // kiểm tra tên đăng nhập đã tồn tại chưa
         if (nguoiDungRepository.existsByTenDangNhap(nguoiDung.getTenDangNhap())) {
-            return ResponseEntity.badRequest().body(new ThongBao("Tên đăng nhập đã tồn tại"));
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tên đăng nhập đã tồn tại.");
         }
         if (nguoiDungRepository.existsByEmail(nguoiDung.getEmail())) {
-            return ResponseEntity.badRequest().body(new ThongBao("Email đã tồn tại"));
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email đã tồn tại.");
         }
         // Mã hoá mật khẩu
         String encryptPassword = bCryptPasswordEncoder.encode(nguoiDung.getMatKhau());
@@ -47,11 +51,19 @@ public class TaiKhoanService {
         // Neu khong co loi luu nguoi dung
         NguoiDung nguoiDung_DaDangKy = nguoiDungRepository.save(nguoiDung);
 
-        // gửi email kích hoạt (không fail nếu gửi email lỗi)
+        // Tai khoan chua kich hoat se la dead-end neu email khong gui duoc, nen KHONG
+        // duoc bao dang ky thanh cong. Nhung SMTP hong la loi ha tang phia tren, khong
+        // phai defect cua server: tra 503 co the thu lai, va de exception rollback
+        // transaction nay de khong bo lai tai khoan khong the kich hoat.
         try {
             guiEmailKichHoat(nguoiDung.getEmail(), nguoiDung.getMaKichHoat());
-        } catch (Exception exception) {
-            LOGGER.warn("Could not send account activation email", exception);
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            LOGGER.warn("event=email_failed type=account_activation exception={}",
+                    e.getClass().getSimpleName());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Không gửi được email kích hoạt, vui lòng thử lại sau.");
         }
         return ResponseEntity.ok("Đăng ký thành công");
     }
@@ -62,28 +74,29 @@ public class TaiKhoanService {
 
     private void guiEmailKichHoat(String email, String maKichHoat) {
         String subject = "Kích hoạt tài khoản của bạn tại WebBanSach";
-        String text = "Vui lòng sử dụng mã sau để kich hoạt cho tài khoản <" + email + ">:<html><body><br/><h1>" + maKichHoat + "</h1></body></html>";
-        text += "<br/> Click vào đường link để kích hoạt tài khoản: ";
         String url = frontendUrlProvider.activationUrl(email, maKichHoat);
-        text += ("<br/> <a href=\"" + url + "\">" + url + "</a> ");
+        String text = "<html><body><p>Vui lòng sử dụng mã sau để kích hoạt tài khoản &lt;"
+                + HtmlEncoder.encode(email) + "&gt;:</p><h1>" + HtmlEncoder.encode(maKichHoat) + "</h1>"
+                + "<p>Click vào đường link để kích hoạt tài khoản:</p><a href=\""
+                + HtmlEncoder.encode(url) + "\">" + HtmlEncoder.encode(url) + "</a></body></html>";
 
-        emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
+        emailService.sendEmail(email, subject, text);
     }
 
     public ResponseEntity<?> kichHoatTaiKhoan(String email, String maKichHoat) {
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Người dùng không tồn tại");
         }
         if (nguoiDung.getDaKichHoat()) {
-            return ResponseEntity.badRequest().body(new ThongBao("Tài khoản đã được kích hoạt"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản đã được kích hoạt");
         }
         if(maKichHoat.equals(nguoiDung.getMaKichHoat())) {
             nguoiDung.setDaKichHoat(true);
             nguoiDungRepository.save(nguoiDung);
             return ResponseEntity.ok("Kích hoạt tài khoản thành công");
         }else {
-            return ResponseEntity.badRequest().body(new ThongBao("Mã kích hoạt không chính xác"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã kích hoạt không chính xác");
         }
     }
 
@@ -91,10 +104,10 @@ public class TaiKhoanService {
     public ResponseEntity<?> doiMatKhau(String tenDangNhap, String matKhauCu, String matKhauMoi) {
         NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Người dùng không tồn tại");
         }
         if (!bCryptPasswordEncoder.matches(matKhauCu, nguoiDung.getMatKhau())) {
-            return ResponseEntity.badRequest().body(new ThongBao("Mật khẩu cũ không chính xác"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu cũ không chính xác");
         }
         nguoiDung.setMatKhau(bCryptPasswordEncoder.encode(matKhauMoi));
         nguoiDungRepository.save(nguoiDung);
@@ -103,6 +116,7 @@ public class TaiKhoanService {
 
     // ---- Quên mật khẩu: tạo token và gửi email ----
     public ResponseEntity<?> quenMatKhau(String email) {
+        emailService.ensureConfigured();
         String thongBaoThanhCong = "Nếu email tồn tại, hệ thống đã gửi hướng dẫn đặt lại mật khẩu.";
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
@@ -117,7 +131,8 @@ public class TaiKhoanService {
         try {
             guiEmailResetPassword(email, token);
         } catch (Exception exception) {
-            LOGGER.warn("Could not send password reset email", exception);
+            LOGGER.warn("event=email_failed type=password_reset exception={}",
+                    exception.getClass().getSimpleName());
         }
         return ResponseEntity.ok(thongBaoThanhCong);
     }
@@ -126,14 +141,14 @@ public class TaiKhoanService {
     public ResponseEntity<?> datLaiMatKhau(String email, String token, String matKhauMoi) {
         NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Token không hợp lệ"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token không hợp lệ");
         }
         if (nguoiDung.getResetPasswordToken() == null || !nguoiDung.getResetPasswordToken().equals(token)) {
-            return ResponseEntity.badRequest().body(new ThongBao("Token không hợp lệ"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token không hợp lệ");
         }
         if (nguoiDung.getResetPasswordTokenExpiry() == null
                 || nguoiDung.getResetPasswordTokenExpiry().before(new Date())) {
-            return ResponseEntity.badRequest().body(new ThongBao("Token đã hết hạn"));
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token đã hết hạn");
         }
         nguoiDung.setMatKhau(bCryptPasswordEncoder.encode(matKhauMoi));
         nguoiDung.setResetPasswordToken(null);
@@ -146,10 +161,12 @@ public class TaiKhoanService {
     private void guiEmailResetPassword(String email, String token) {
         String subject = "Đặt lại mật khẩu tại WebBanSach";
         String url = frontendUrlProvider.resetPasswordUrl(email, token);
-        String text = "Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản <" + email + ">."
-                + "<html><body><br/>Vui lòng click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):"
-                + "<br/><a href=\"" + url + "\">" + url + "</a></body></html>";
-        emailService.sendEmail("tienvovan917@gmail.com", email, subject, text);
+        String text = "<html><body><p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản &lt;"
+                + HtmlEncoder.encode(email) + "&gt;.</p>"
+                + "<p>Vui lòng click vào đường link sau để đặt lại mật khẩu (có hiệu lực trong 10 phút):</p>"
+                + "<a href=\"" + HtmlEncoder.encode(url) + "\">"
+                + HtmlEncoder.encode(url) + "</a></body></html>";
+        emailService.sendEmail(email, subject, text);
     }
 
 }

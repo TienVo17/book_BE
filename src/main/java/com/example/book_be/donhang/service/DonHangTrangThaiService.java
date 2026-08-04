@@ -79,7 +79,7 @@ public class DonHangTrangThaiService {
                 hienTai.getGiaTri(), tiep.getGiaTri(), nguoiThucHien);
 
         // COD giao thanh cong (DA_GIAO) = da thu tien mat -> danh dau da thanh toan (dong bo doanh thu).
-        // null-method (them-don-hang-moi) coi nhu COD, khop isCashOnDelivery. Chay trong cung transaction.
+        // Don co phuong thuc thanh toan null cung duoc coi nhu COD, khop isCashOnDelivery. Chay trong cung transaction.
         if (tiep == TrangThaiGiaoHang.DA_GIAO && !laVnpay) {
             chuyenTrangThaiThanhToan(don, TrangThaiThanhToan.DA_THANH_TOAN, nguoiThucHien);
         }

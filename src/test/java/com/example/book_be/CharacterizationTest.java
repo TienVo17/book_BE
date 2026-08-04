@@ -1,7 +1,10 @@
 package com.example.book_be;
 
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
+import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.domain.Quyen;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +13,10 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.*;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,20 +31,48 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfig.class)
 class CharacterizationTest {
 
-    private static final String ADMIN_USER = "admin";
     private static final String ADMIN_PASS = "Smoke@12345";
 
     @Autowired TestRestTemplate rest;
     @Autowired NguoiDungRepository nguoiDungRepository;
+    @Autowired QuyenRepository quyenRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
+    @Autowired PlatformTransactionManager txManager;
 
-    /** Mat khau admin seed khong khop comment migration => dat mot mat khau biet truoc de test login. */
+    private String adminUser;
+
+    /**
+     * Tu tao admin rieng cho test. Cac tai khoan seed cong khai da bi V10 vo hieu hoa vinh vien,
+     * nen khong the muon lai chung de dang nhap.
+     */
     @BeforeEach
     void provisionAdmin() {
-        NguoiDung admin = nguoiDungRepository.findByTenDangNhap(ADMIN_USER);
-        assertThat(admin).as("admin seed ton tai").isNotNull();
-        admin.setMatKhau(passwordEncoder.encode(ADMIN_PASS));
-        nguoiDungRepository.save(admin);
+        adminUser = "characterization-admin-" + System.nanoTime();
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            Quyen quyenAdmin = quyenRepository.findByTenQuyen("ADMIN");
+            assertThat(quyenAdmin).as("quyen ADMIN da duoc seed").isNotNull();
+
+            NguoiDung admin = new NguoiDung();
+            admin.setHoDem("Characterization");
+            admin.setTen("Admin");
+            admin.setTenDangNhap(adminUser);
+            admin.setMatKhau(passwordEncoder.encode(ADMIN_PASS));
+            admin.setGioiTinh('X');
+            admin.setEmail(adminUser + "@example.test");
+            admin.setDaKichHoat(true);
+            admin.setDanhSachQuyen(List.of(quyenAdmin));
+            nguoiDungRepository.saveAndFlush(admin);
+        });
+    }
+
+    @AfterEach
+    void cleanupAdmin() {
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            NguoiDung admin = nguoiDungRepository.findByTenDangNhap(adminUser);
+            if (admin != null) {
+                nguoiDungRepository.deleteById((long) admin.getMaNguoiDung());
+            }
+        });
     }
 
     @Test
@@ -62,7 +96,7 @@ class CharacterizationTest {
 
     @Test
     void admin_user_co_token_khong_lo_mat_khau() {
-        String jwt = login(ADMIN_USER, ADMIN_PASS);
+        String jwt = login(adminUser, ADMIN_PASS);
         assertThat(jwt).as("login admin tra JWT").isNotBlank();
 
         HttpHeaders headers = new HttpHeaders();

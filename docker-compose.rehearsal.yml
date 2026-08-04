@@ -1,0 +1,71 @@
+# Isolated rehearsal stack for Phase 5 browser scenarios.
+#
+# Deliberately shares nothing with the dev stack in docker-compose.yml: different
+# container names, a different database name, a different volume and different
+# host ports. The fixture-reset script refuses to run unless it finds exactly
+# these identities, so a misconfigured run fails closed instead of truncating the
+# developer's own database.
+#
+# Start with:
+#   JWT_SECRET='<base64-key>' docker compose -f docker-compose.rehearsal.yml -p rehearsal up --build -d
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rehearsal_ban_sach_db
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ""
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: rehearsal_ban_sach
+    ports:
+      # 3307 is commonly already taken by another local MySQL; 3316 keeps this
+      # stack clear of both the dev stack (3306) and that.
+      - "3316:3306"
+    volumes:
+      - rehearsal_mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rehearsal_ban_sach_be
+    restart: "no"
+    ports:
+      - "8081:8080"
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/rehearsal_ban_sach?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: root
+      DB_PASSWORD: ""
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      # Rehearsal never sends real mail; MAIL_FROM only has to be a valid
+      # non-routable address so activation/reset flows fail closed on delivery
+      # rather than on configuration.
+      MAIL_FROM: rehearsal@example.test
+      FRONTEND_URL: http://localhost:3001
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../book_FE
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE_URL: http://localhost:8081
+    container_name: rehearsal_ban_sach_fe
+    restart: "no"
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+
+volumes:
+  rehearsal_mysql_data:

@@ -48,6 +48,7 @@ class SecurityCorsConfigurationTest {
         assertThat(configuration.getAllowedMethods())
                 .containsExactly("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
         assertThat(configuration.getAllowedHeaders()).containsExactly("*");
+        assertThat(configuration.getExposedHeaders()).containsExactly("X-Trace-Id");
         assertThat(configuration.getAllowCredentials()).isTrue();
         assertThat(configuration.getMaxAge()).isEqualTo(3600L);
     }
