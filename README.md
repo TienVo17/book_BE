@@ -72,6 +72,7 @@ Backend mặc định tại `http://localhost:8080`.
 | `JWT_EXPIRATION_MS` | `28800000` | JWT expiration in milliseconds (mặc định 8 giờ) |
 | `MAIL_USERNAME` | rỗng | SMTP username |
 | `MAIL_PASSWORD` | rỗng | SMTP password |
+| `MAIL_FROM` | rỗng | Địa chỉ gửi cho mọi email. Bỏ trống thì đăng ký/quên mật khẩu trả `503` thay vì báo thành công giả. |
 | `VNPAY_TMN_CODE` | rỗng | VNPay merchant code |
 | `VNPAY_HASH_SECRET` | rỗng | VNPay secret |
 | `VNPAY_PAY_URL` | VNPay sandbox payment URL | URL cổng thanh toán HTTP(S), không có query/fragment |
@@ -147,10 +148,33 @@ Hệ thống đã chuyển sang lưu URL ảnh trên Cloudinary thay vì lưu ba
 
 ### Authenticated
 
-- `POST /api/don-hang/them`
+- `POST /api/don-hang/them` — accepts an optional `Idempotency-Key` header
 - `GET /api/don-hang/findAll**`
+- `GET /api/don-hang/{id}`
+- `POST /api/don-hang/huy/{maDonHang}`
 - `GET /api/don-hang/submitOrder**`
+- `GET /api/dia-chi`, `POST/PUT/DELETE /api/dia-chi/**`
 - `POST /api/danh-gia/them-danh-gia-v1`
+
+There is no guest checkout: every order requires a valid JWT and an address owned
+by that user.
+
+## Lỗi API và Trace
+
+Mọi lỗi 4xx/5xx do controller sinh ra — kể cả 401/403 từ Spring Security — dùng
+chung một schema:
+
+```json
+{"timestamp":"...","status":409,"code":"CONFLICT","message":"...","path":"/api/don-hang/them","traceId":"..."}
+```
+
+`X-Trace-Id` được trả trong response header và trùng với `traceId` trong body của
+cùng một request. Header này được expose qua CORS nên trình duyệt đọc được, và
+mọi lỗi đều ghi một log event `event=api_failure` kèm `traceId`, method, path,
+status, code — không log token, mật khẩu, body hay stack trace.
+
+Client có thể gửi `X-Trace-Id`; giá trị chỉ được nhận nếu khớp allow-list
+`^[A-Za-z0-9._-]+$` và dài tối đa 64 ký tự, ngược lại server tự sinh UUID.
 
 ### Admin
 
@@ -217,6 +241,8 @@ docker compose up --build -d
 
 Xem thêm trong thư mục `docs/`:
 
+- `docs/portfolio-evidence.md` — verified behavior, commands/results và giới hạn đã biết
+- `docs/portfolio-walkthrough.md` — kịch bản demo 5–7 phút
 - `docs/project-overview-pdr.md`
 - `docs/codebase-summary.md`
 - `docs/code-standards.md`
