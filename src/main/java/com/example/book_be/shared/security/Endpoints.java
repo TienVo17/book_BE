@@ -14,7 +14,6 @@ public class Endpoints {
             "/api/sach",
             "/api/sach/**",
             "/api/sach/search",
-            "/api/don-hang/them-don-hang-moi",
             "/api/the-loai",
             "/api/the-loai/**",
             "/api/sach/ban-chay",
@@ -29,7 +28,6 @@ public class Endpoints {
             "/tai-khoan/dang-ky",
             "/tai-khoan/dang-nhap",
             "/gio-hang/them",
-            "/api/don-hang/them-don-hang-moi",
             "/tai-khoan/quen-mat-khau",
             "/tai-khoan/dat-lai-mat-khau",
     };

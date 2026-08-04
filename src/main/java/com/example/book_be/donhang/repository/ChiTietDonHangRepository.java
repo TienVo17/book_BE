@@ -13,7 +13,8 @@ import java.util.List;
  * Repository for ChiTietDonHang (order line items).
  * Includes queries for top best-selling books aggregation.
  */
-@RepositoryRestResource(path = "chi-tiet-don-hang")
+/** exported=false: chi tiet don hang la nhay cam, khong co API cong khai/user can den truc tiep. */
+@RepositoryRestResource(path = "chi-tiet-don-hang", exported = false)
 public interface ChiTietDonHangRepository extends JpaRepository<ChiTietDonHang, Long>, JpaSpecificationExecutor {
 
     // Returns Object[] rows: [maSach, tenSach, tongBan] ordered by sales volume desc

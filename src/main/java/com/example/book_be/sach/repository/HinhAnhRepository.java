@@ -9,7 +9,7 @@ import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
 import java.util.List;
 
-@RepositoryRestResource(path = "hinh-anh")
+@RepositoryRestResource(path = "hinh-anh", exported = false)
 public interface HinhAnhRepository extends JpaRepository<HinhAnh, Long>, JpaSpecificationExecutor<HinhAnh> {
 
     @Query(value = """

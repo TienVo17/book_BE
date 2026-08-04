@@ -6,7 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import org.springframework.stereotype.Repository;
 
-@RepositoryRestResource(path = "quyen")
+/** exported=false: danh sach quyen he thong khong can cong khai; dung /api/admin/quyen/findAll. */
+@RepositoryRestResource(path = "quyen", exported = false)
 public interface QuyenRepository extends JpaRepository<Quyen, Long> {
     public Quyen findByTenQuyen(String tenQuyen);
 }
