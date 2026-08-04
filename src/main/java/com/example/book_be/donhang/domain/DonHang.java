@@ -79,6 +79,31 @@ public class DonHang {
     @Column(name = "version")
     private Long version;
 
+    /** Idempotency-Key header cua request checkout tao don nay (null = legacy/khong dung key). */
+    @JsonIgnore
+    @Column(name = "checkout_idempotency_key", length = 100)
+    private String checkoutIdempotencyKey;
+
+    /** Hash on dinh cua request checkout da normalize (sach+so luong sap xep, dia chi, thanh toan, coupon). */
+    @JsonIgnore
+    @Column(name = "checkout_request_fingerprint", length = 128)
+    private String checkoutRequestFingerprint;
+
+    /** Snapshot bat bien cua coupon code da tra trong CheckoutOrderResponse, khong lookup lai khi replay. */
+    @JsonIgnore
+    @Column(name = "checkout_response_coupon_code", length = 255)
+    private String checkoutResponseCouponCode;
+
+    /** Snapshot bat bien cua payment method da tra trong CheckoutOrderResponse. */
+    @JsonIgnore
+    @Column(name = "checkout_response_payment_method", length = 20)
+    private String checkoutResponsePaymentMethod;
+
+    /** Snapshot trang thai thanh toan tai luc tao response; state cua don co the doi sau VNPay callback. */
+    @JsonIgnore
+    @Column(name = "checkout_response_payment_status")
+    private Integer checkoutResponsePaymentStatus;
+
     @Transient
     public String getPhuongThucThanhToan() {
         if (hinhThucThanhToan == null || hinhThucThanhToan.getMaCode() == null) {
