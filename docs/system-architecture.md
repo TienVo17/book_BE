@@ -85,6 +85,7 @@ Client                     Backend                          DB
   │                           │                              │
   │  (Đã đăng nhập)          │                              │
   ├──POST /api/don-hang/them─►│                              │
+  │  Header: Idempotency-Key  │  (bat buoc; thieu -> 400)    │
   │  Body: {                  │──SecurityContext.getAuth()   │
   │    items: [{maSach,soLuong}],                            │
   │    maDiaChiGiaoHang,                                     │

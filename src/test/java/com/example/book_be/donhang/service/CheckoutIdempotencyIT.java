@@ -304,8 +304,12 @@ class CheckoutIdempotencyIT {
         assertThat(tonKho(sach.getMaSach())).isEqualTo(0);
     }
 
+    /**
+     * Khong co key thi mot request gui lai se tao don trung va tru kho lan nua — thiet hai that,
+     * client khong the tu sua. Server phai tu choi truoc khi cham vao kho.
+     */
     @Test
-    void thieu_hoac_rong_idempotency_key_duoc_chap_nhan_nhu_legacy_khong_idempotent() {
+    void thieu_hoac_rong_idempotency_key_bi_tu_choi_va_khong_tao_don() {
         Sach sach = taoSach(20);
         DiaChiGiaoHang diaChi = taoDiaChi(owner);
         CheckoutOrderRequest request = checkoutRequest(sach.getMaSach(), 1, diaChi.getMaDiaChi(), null);
@@ -313,17 +317,11 @@ class CheckoutIdempotencyIT {
         ResponseEntity<?> missingHeader = checkout(owner, request, null);
         ResponseEntity<?> blankHeader = checkout(owner, request, "   ");
 
-        assertThat(missingHeader.getStatusCode().value()).isEqualTo(200);
-        assertThat(blankHeader.getStatusCode().value()).isEqualTo(200);
-        CheckoutOrderResponse bodyMissing = (CheckoutOrderResponse) missingHeader.getBody();
-        CheckoutOrderResponse bodyBlank = (CheckoutOrderResponse) blankHeader.getBody();
-        assertThat(bodyMissing).isNotNull();
-        assertThat(bodyBlank).isNotNull();
-        // Khong co key -> khong claim/replay: moi request la 1 don MOI doc lap (hanh vi legacy giu nguyen).
-        assertThat(bodyMissing.getMaDonHang()).isNotEqualTo(bodyBlank.getMaDonHang());
-        donHangFixtures.add(bodyMissing.getMaDonHang().longValue());
-        donHangFixtures.add(bodyBlank.getMaDonHang().longValue());
-        assertThat(tonKho(sach.getMaSach())).isEqualTo(18);
+        assertThat(missingHeader.getStatusCode().value()).isEqualTo(400);
+        assertThat(blankHeader.getStatusCode().value()).isEqualTo(400);
+        assertThat(tonKho(sach.getMaSach()))
+                .as("request bi tu choi khong duoc tru kho")
+                .isEqualTo(20);
     }
 
     @Test

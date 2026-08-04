@@ -137,6 +137,7 @@ class GuestCheckoutRemovalIT {
         DiaChiGiaoHang diaChi = taoDiaChi(owner);
         HttpHeaders headers = bearerHeaders(login(owner.getTenDangNhap(), FIXTURE_PASSWORD));
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Idempotency-Key", "guest-removal-" + System.nanoTime());
         String payload = "{\"items\":[{\"maSach\":" + MA_SACH + ",\"soLuong\":1}],"
                 + "\"maDiaChiGiaoHang\":" + diaChi.getMaDiaChi() + ",\"phuongThucThanhToan\":\"COD\"}";
 

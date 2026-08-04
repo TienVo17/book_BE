@@ -170,7 +170,7 @@ Hệ thống đã chuyển sang lưu URL ảnh trên Cloudinary thay vì lưu ba
 
 ### Authenticated
 
-- `POST /api/don-hang/them` — accepts an optional `Idempotency-Key` header
+- `POST /api/don-hang/them` — bắt buộc header `Idempotency-Key`; thiếu hoặc rỗng trả `400`. Gửi lại cùng key với cùng nội dung sẽ trả về đúng đơn đã tạo thay vì tạo đơn mới; cùng key nhưng nội dung khác trả `409` — accepts an optional `Idempotency-Key` header
 - `GET /api/don-hang/findAll**`
 - `GET /api/don-hang/{id}`
 - `POST /api/don-hang/huy/{maDonHang}`

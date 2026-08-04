@@ -122,16 +122,19 @@ public class DonHangController {
     }
 
     /**
-     * Header thieu/rong -> null (legacy, khong idempotent - giu nguyen hop dong hien co cho client
-     * cu). Header co gia tri nhung vuot chieu dai hoac chua ky tu ngoai allow-list -> 400.
+     * Idempotency-Key la BAT BUOC cho checkout.
+     *
+     * Khong co key thi mot request bi gui lai — nguoi dung bam hai lan, trinh duyet retry, mang
+     * chap chon — se tao them mot don hang that va tru kho lan nua. Client khong the tu sua sai
+     * do sau khi da xay ra, nen server phai tu choi ngay tu dau thay vi chap nhan roi tao don trung.
+     *
+     * Header thieu/rong -> 400. Header vuot chieu dai hoac chua ky tu ngoai allow-list -> 400.
      */
     private String resolveIdempotencyKey(String idempotencyKeyHeader) {
-        if (idempotencyKeyHeader == null) {
-            return null;
-        }
-        String trimmed = idempotencyKeyHeader.trim();
+        String trimmed = idempotencyKeyHeader == null ? "" : idempotencyKeyHeader.trim();
         if (trimmed.isEmpty()) {
-            return null;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Thiếu Idempotency-Key cho yêu cầu đặt hàng.");
         }
         if (trimmed.length() > IDEMPOTENCY_KEY_MAX_LENGTH || !IDEMPOTENCY_KEY_PATTERN.matcher(trimmed).matches()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idempotency-Key không hợp lệ.");
