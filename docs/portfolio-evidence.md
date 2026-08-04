@@ -24,14 +24,18 @@ Testcontainers pinned to Docker client API `1.44`, `agent-browser` 0.31.1
 Both repositories are separate Git repositories, reviewed and tested
 independently.
 
-| Repo | Branch | Baseline commit | Working tree |
+| Repo | Branch | Baseline commit | Head after this work |
 |---|---|---|---|
-| `book_BE` | `fix/flyway-auto-repair` | `7ce5689bc19eefebeb1ebbe45d7e81bbf4b5d1fc` | 63 files changed, uncommitted |
-| `book_FE` | `fix/vercel-api-base-url` | `fb6441c9da871296dd0b8bf8d3acaadd86e5b18b` | 80 files changed, uncommitted |
+| `book_BE` | `fix/flyway-auto-repair` | `7ce5689` | `4759266` (6 commits) |
+| `book_FE` | `fix/vercel-api-base-url` | `fb6441c` | `93b7c62` (6 commits) |
 
-The commits above are the **baseline before** this work. The results in this
-document describe the current uncommitted working tree; the SHAs will change
-once the work is committed, and this table must be updated at that point.
+One commit per phase in each repository, in the order the phases ran. The two
+repositories must be reviewed and released together for the paired changes: the
+error-schema commits (`cc61f4b` / `a3e87d0`) change a shared contract, so
+shipping the frontend parser before the backend schema would break error
+handling.
+
+Verified against the committed state, not just a working tree.
 
 ## Verification results
 
