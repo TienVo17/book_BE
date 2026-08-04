@@ -40,11 +40,13 @@ public class UserServiceImpl implements UserService {
             throw new UsernameNotFoundException("Tai khoan khong ton tai: " + username);
         }
 
-        return new User(
-                nguoiDung.getTenDangNhap(),
-                nguoiDung.getMatKhau(),
-                rolesToAuthorities(nguoiDung.getDanhSachQuyen())
-        );
+        // Tai khoan chua kich hoat (hoac da bi vo hieu hoa boi V10) phai bi chan ngay tai tang
+        // xac thuc: chi dat da_kich_hoat=0 trong DB la khong du neu UserDetails van bao enabled.
+        return User.withUsername(nguoiDung.getTenDangNhap())
+                .password(nguoiDung.getMatKhau())
+                .authorities(rolesToAuthorities(nguoiDung.getDanhSachQuyen()))
+                .disabled(!Boolean.TRUE.equals(nguoiDung.getDaKichHoat()))
+                .build();
     }
 
     private Collection<? extends GrantedAuthority> rolesToAuthorities(Collection<Quyen> quyens) {

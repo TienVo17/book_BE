@@ -34,6 +34,11 @@ build/
 
 plans/
 
+### Agent working files (khong thuoc san pham, khong publish) ###
+.claude/agent-memory/
+.claude/worktrees/
+.agentkit/
+
 ### Secrets & data dumps (never commit) ###
 .env
 .env.local

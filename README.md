@@ -50,7 +50,9 @@ CREATE DATABASE web_ban_sach CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ./mvnw spring-boot:run
 ```
 
-Flyway sẽ tự động tạo schema, seed dữ liệu tham chiếu (quyền, hình thức giao hàng/thanh toán), và tài khoản admin mặc định.
+Flyway sẽ tự động tạo schema và seed dữ liệu tham chiếu (quyền, hình thức giao hàng/thanh toán).
+
+**Không còn tài khoản admin mặc định.** Migration `V10` vô hiệu hóa các tài khoản seed công khai cũ (`admin`, `user1`–`user5`) trên cả database mới lẫn database đã chạy trước đó: quyền bị thu hồi, tài khoản bị tắt kích hoạt và mật khẩu được thay bằng giá trị không thể đăng nhập. Xem "Tạo Admin Đầu Tiên" bên dưới.
 
 Backend mặc định tại `http://localhost:8080`.
 
@@ -80,6 +82,11 @@ Backend mặc định tại `http://localhost:8080`.
 | `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | URL browser return từ VNPay; override khi cần |
 | `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary |
 | `FRONTEND_URL` | `http://localhost:3000` | Origin frontend duy nhất cho CORS, email links và VNPay return mặc định |
+| `FLYWAY_REPAIR_ON_START` | `false` | Chỉ bật tạm thời khi cần khôi phục lịch sử migration hỏng |
+| `ADMIN_BOOTSTRAP_ENABLED` | `false` | Bật bootstrap admin một lần |
+| `ADMIN_BOOTSTRAP_USERNAME` | rỗng | Bắt buộc khi bật; không được dùng lại định danh seed cũ |
+| `ADMIN_BOOTSTRAP_EMAIL` | rỗng | Bắt buộc khi bật |
+| `ADMIN_BOOTSTRAP_PASSWORD` | rỗng | Bắt buộc khi bật; tối thiểu 12 ký tự |
 
 `FRONTEND_URL` phải là HTTP(S) origin tuyệt đối không có path, query, hay fragment; slash cuối được chuẩn hóa. Email activation/reset encode từng path segment, nên email/token có ký tự URL-reserved vẫn tạo liên kết hợp lệ.
 
@@ -87,7 +94,22 @@ Backend mặc định tại `http://localhost:8080`.
 
 `render.yaml` mô tả một Docker web service trên gói Render Free, dùng `GET /health` làm health check và kết nối Aiven Free MySQL. Khi tạo Blueprint, nhập `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` bằng form bảo mật của Render; dùng JDBC URL dạng `jdbc:mysql://<host>:<port>/defaultdb?sslmode=require`. Blueprint tự sinh `JWT_SECRET` và cấu hình origin Vercel công khai. Render Free không hỗ trợ persistent disk/private service và chặn SMTP ports, nên mail chưa hoạt động; VNPay/Cloudinary chỉ bật sau khi thêm credentials. Không commit các giá trị Aiven vào repository.
 
-`FlywayConfig` chạy `flyway.repair()` trước mỗi `flyway.migrate()` để tự đồng bộ `flyway_schema_history` khi một lần deploy trước đó fail giữa chừng (ví dụ do lỗi cấu hình DB_URL), không cần truy cập SQL thủ công. `repair()` chỉ sửa metadata lịch sử (checksum, xóa dòng `failed`) khớp với các file migration hiện có trên classpath; nó không rollback hay sửa dữ liệu/schema đã áp dụng. Vì vậy không được sửa nội dung một migration đã từng chạy production — luôn thêm migration mới.
+**Khởi động bình thường không tự repair.** Nếu `flyway_schema_history` còn dòng `failed` từ một lần deploy hỏng giữa chừng, ứng dụng sẽ dừng lại thay vì tự sửa metadata — để backup và đối chiếu checksum diễn ra trước, không phải sau. Khi thực sự cần khôi phục, đặt `FLYWAY_REPAIR_ON_START=true` cho đúng một lần deploy, xác minh kết quả, rồi tắt lại. `repair()` chỉ sửa metadata lịch sử; nó không rollback hay sửa dữ liệu/schema đã áp dụng. Không sửa nội dung một migration đã từng chạy — luôn thêm migration mới.
+
+## Tạo Admin Đầu Tiên
+
+Bootstrap admin mặc định **tắt**. Bật đúng một lần trên môi trường cần khởi tạo:
+
+```bash
+ADMIN_BOOTSTRAP_ENABLED=true
+ADMIN_BOOTSTRAP_USERNAME=<tên đăng nhập riêng, không dùng lại 'admin'>
+ADMIN_BOOTSTRAP_EMAIL=<email quản trị>
+ADMIN_BOOTSTRAP_PASSWORD=<mật khẩu tối thiểu 12 ký tự>
+```
+
+Khởi động ứng dụng một lần, đăng nhập kiểm tra, **xóa các biến `ADMIN_BOOTSTRAP_*` khỏi môi trường và khởi động lại**.
+
+Bảng `admin_bootstrap_state` giữ một dòng singleton đánh dấu đã sử dụng, nên kể cả khi biến môi trường bị bỏ quên hoặc nhiều instance khởi động cùng lúc, tối đa một admin được tạo. Database đã có admin đang hoạt động thì bootstrap coi như đã dùng ngay từ đầu.
 
 ## Tồn Kho
 
