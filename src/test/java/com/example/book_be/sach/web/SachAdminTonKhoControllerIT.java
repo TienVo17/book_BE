@@ -2,7 +2,9 @@ package com.example.book_be.sach.web;
 
 import com.example.book_be.TestcontainersConfig;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.domain.Quyen;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
+import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.repository.SachRepository;
@@ -39,29 +41,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfig.class)
 class SachAdminTonKhoControllerIT {
 
-    private static final String ADMIN_USER = "admin";
     private static final String ADMIN_PASS = "StockContract@123";
-    private static final String USER_USER = "user1";
     private static final String USER_PASS = "StockContractUser@123";
 
     @Autowired TestRestTemplate rest;
     @Autowired SachRepository sachRepository;
     @Autowired SachService sachService;
     @Autowired NguoiDungRepository nguoiDungRepository;
+    @Autowired QuyenRepository quyenRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired PlatformTransactionManager txManager;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final List<Integer> sachFixtures = new ArrayList<>();
-    private String matKhauAdminCu;
-    private String matKhauUserCu;
+    private String adminUser;
+    private String userUser;
 
+    /**
+     * Tu tao principal rieng. Cac tai khoan seed cong khai da bi V10 vo hieu hoa vinh vien nen
+     * khong the dung lam fixture dang nhap.
+     */
     @BeforeEach
     void provisionCredentials() {
         rest.getRestTemplate().setRequestFactory(
                 new JdkClientHttpRequestFactory(httpClient));
-        matKhauAdminCu = datMatKhau(ADMIN_USER, ADMIN_PASS);
-        matKhauUserCu = datMatKhau(USER_USER, USER_PASS);
+        long runId = System.nanoTime();
+        adminUser = taoNguoiDung("stock-admin-" + runId, ADMIN_PASS, "ADMIN");
+        userUser = taoNguoiDung("stock-user-" + runId, USER_PASS, "USER");
     }
 
     @AfterEach
@@ -69,8 +75,8 @@ class SachAdminTonKhoControllerIT {
         for (Integer maSach : sachFixtures) {
             sachRepository.deleteById((long) maSach);
         }
-        khoiPhucMatKhau(ADMIN_USER, matKhauAdminCu);
-        khoiPhucMatKhau(USER_USER, matKhauUserCu);
+        xoaNguoiDung(adminUser);
+        xoaNguoiDung(userUser);
     }
 
     @Test
@@ -241,11 +247,11 @@ class SachAdminTonKhoControllerIT {
     }
 
     private HttpHeaders adminHeaders() {
-        return bearerHeaders(login(ADMIN_USER, ADMIN_PASS));
+        return bearerHeaders(login(adminUser, ADMIN_PASS));
     }
 
     private HttpHeaders userHeaders() {
-        return bearerHeaders(login(USER_USER, USER_PASS));
+        return bearerHeaders(login(userUser, USER_PASS));
     }
 
     private HttpHeaders bearerHeaders(String jwt) {
@@ -286,24 +292,39 @@ class SachAdminTonKhoControllerIT {
         return sachRepository.findById((long) maSach).orElseThrow().getSoLuong();
     }
 
-    private String datMatKhau(String tenDangNhap, String matKhau) {
-        NguoiDung user = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
-        assertThat(user).as("seed user %s", tenDangNhap).isNotNull();
-        String old = user.getMatKhau();
-        user.setMatKhau(passwordEncoder.encode(matKhau));
-        nguoiDungRepository.saveAndFlush(user);
-        return old;
+    /**
+     * NguoiDung.danhSachQuyen cascade PERSIST, nen Quyen phai duoc load va user phai duoc luu
+     * trong cung mot transaction de role khong bi detached.
+     */
+    private String taoNguoiDung(String tenDangNhap, String matKhau, String tenQuyen) {
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            Quyen quyen = quyenRepository.findByTenQuyen(tenQuyen);
+            assertThat(quyen).as("quyen %s da duoc seed", tenQuyen).isNotNull();
+
+            NguoiDung user = new NguoiDung();
+            user.setHoDem("Stock");
+            user.setTen("Fixture");
+            user.setTenDangNhap(tenDangNhap);
+            user.setMatKhau(passwordEncoder.encode(matKhau));
+            user.setGioiTinh('X');
+            user.setEmail(tenDangNhap + "@example.test");
+            user.setDaKichHoat(true);
+            user.setDanhSachQuyen(List.of(quyen));
+            nguoiDungRepository.saveAndFlush(user);
+        });
+        return tenDangNhap;
     }
 
-    private void khoiPhucMatKhau(String tenDangNhap, String matKhauCu) {
-        if (matKhauCu == null) {
+    private void xoaNguoiDung(String tenDangNhap) {
+        if (tenDangNhap == null) {
             return;
         }
-        NguoiDung user = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
-        if (user != null) {
-            user.setMatKhau(matKhauCu);
-            nguoiDungRepository.saveAndFlush(user);
-        }
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            NguoiDung user = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
+            if (user != null) {
+                nguoiDungRepository.deleteById((long) user.getMaNguoiDung());
+            }
+        });
     }
 
     private record MetadataSnapshot(
