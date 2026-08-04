@@ -1,10 +1,15 @@
 -- =============================================
--- V10: Vo hieu hoa cac tai khoan seed cong khai (V3/V4), them rang buoc dinh danh
+-- V10: Vo hieu hoa cac tai khoan seed tu V3/V4, them rang buoc dinh danh
 --      va bang trang thai bootstrap admin mot lan.
 --
--- V3/V4 KHONG duoc sua: chung co the da apply tren database dang chay. Migration
--- forward-only nay chay ngay sau chung trong cung chuoi Flyway, nen ca database moi
--- lan database cu deu ket thuc o trang thai khong con credential seed dung duoc.
+-- Ghi chu quan trong: comment trong V3/V4 ghi "Password: 1" nhung hash thuc te KHONG
+-- khop voi "1" (da kiem chung bang BCrypt.checkpw). Day khong phai credential cong khai
+-- bi lo. Van de la 6 tai khoan nay dang kich hoat tren production voi mat khau khong ai
+-- biet, trong do 'admin' nam quyen ADMIN — tai khoan mo coi khong the kiem soat.
+--
+-- V3/V4 KHONG duoc sua: chung da apply tren database dang chay. Migration forward-only
+-- nay chay ngay sau chung trong cung chuoi Flyway, nen ca database moi lan database cu
+-- deu ket thuc o trang thai khong con tai khoan seed dung duoc.
 -- =============================================
 
 -- ---------------------------------------------

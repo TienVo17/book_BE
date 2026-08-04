@@ -52,7 +52,7 @@ CREATE DATABASE web_ban_sach CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 Flyway sẽ tự động tạo schema và seed dữ liệu tham chiếu (quyền, hình thức giao hàng/thanh toán).
 
-**Không còn tài khoản admin mặc định.** Migration `V10` vô hiệu hóa các tài khoản seed công khai cũ (`admin`, `user1`–`user5`) trên cả database mới lẫn database đã chạy trước đó: quyền bị thu hồi, tài khoản bị tắt kích hoạt và mật khẩu được thay bằng giá trị không thể đăng nhập. Xem "Tạo Admin Đầu Tiên" bên dưới.
+**Không còn tài khoản admin mặc định.** Migration `V10` vô hiệu hóa các tài khoản seed cũ (`admin`, `user1`–`user5`) trên cả database mới lẫn database đã chạy trước đó: quyền bị thu hồi, tài khoản bị tắt kích hoạt và mật khẩu được thay bằng giá trị không thể đăng nhập. Xem "Tạo Admin Đầu Tiên" bên dưới.
 
 Backend mặc định tại `http://localhost:8080`.
 
