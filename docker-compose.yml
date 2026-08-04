@@ -34,6 +34,10 @@
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Registration and password reset refuse to report success when no sender
+      # is configured, so local runs need a value. This default is a reserved
+      # example.com address: it never routes anywhere real.
+      MAIL_FROM: ${MAIL_FROM:-no-reply@example.com}
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
       CLOUDINARY_URL: ${CLOUDINARY_URL:-}
