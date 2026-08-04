@@ -3,9 +3,10 @@ package com.example.book_be.nguoidung.web;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.shared.security.JwtResponse;
 import com.example.book_be.shared.security.LoginRequest;
+import com.example.book_be.shared.security.RateLimiter;
 import com.example.book_be.nguoidung.baomat.JwtService;
 import com.example.book_be.nguoidung.service.TaiKhoanService;
-import com.example.book_be.nguoidung.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,72 +19,76 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/tai-khoan")
 public class TaiKhoanController {
+
+    /**
+     * Dang nhap sai lien tiep tren cung mot tai khoan: chan do mat khau ma van cho nguoi dung
+     * that thu lai. Bo dem duoc xoa ngay khi dang nhap thanh cong.
+     */
+    private static final int DANG_NHAP_SAI_TOI_DA = 5;
+    private static final Duration DANG_NHAP_CUA_SO = Duration.ofMinutes(5);
+    /**
+     * Tran theo IP dat cao hon nhieu: nhieu nguoi dung that co the dung chung mot IP (NAT, VPN,
+     * mang van phong). Nguong nay chi de chan spam quy mo lon, khong phai de chan nguoi dung.
+     */
+    private static final int DANG_NHAP_IP_TOI_DA = 300;
+    /** Cac endpoint gui email: gioi han theo IP de khong bien server thanh cong cu spam. */
+    private static final int GUI_EMAIL_TOI_DA = 5;
+    private static final Duration GUI_EMAIL_CUA_SO = Duration.ofMinutes(15);
+
     @Autowired
     private TaiKhoanService taiKhoanService;
     @Autowired
     private AuthenticationManager AuthenticationManager;
-
-    private UserService userService;
     @Autowired
     private JwtService jwtService;
-
-    // Rate limiting: theo dõi số lần đăng nhập sai theo username
-    // long[0] = số lần sai, long[1] = thời điểm lần sai cuối cùng (ms)
-    private final Map<String, long[]> loginAttempts = new ConcurrentHashMap<>();
-    private static final int MAX_ATTEMPTS = 5;
-    private static final long LOCK_TIME_MS = 5 * 60 * 1000; // 5 phút
+    @Autowired
+    private RateLimiter rateLimiter;
 
     @PostMapping("/dang-ky")
-    public ResponseEntity<?> dangKyNguoiDung(@Validated @RequestBody NguoiDung nguoiDung) {
-        ResponseEntity<?> response = taiKhoanService.dangKyNguoiDung(nguoiDung);
-        return response;
+    public ResponseEntity<?> dangKyNguoiDung(@Validated @RequestBody NguoiDung nguoiDung,
+                                             HttpServletRequest request) {
+        batBuocTrongGioiHan("dang-ky:" + diaChiIp(request), GUI_EMAIL_TOI_DA, GUI_EMAIL_CUA_SO);
+        return taiKhoanService.dangKyNguoiDung(nguoiDung);
     }
 
     @GetMapping("/kich-hoat")
-    public ResponseEntity<?> kichHoatTaiKhoan(@RequestParam String email, @RequestParam String maKichHoat) {
-        ResponseEntity<?> response = taiKhoanService.kichHoatTaiKhoan(email, maKichHoat);
-        return response;
+    public ResponseEntity<?> kichHoatTaiKhoan(@RequestParam String email, @RequestParam String maKichHoat,
+                                              HttpServletRequest request) {
+        batBuocTrongGioiHan("kich-hoat:" + diaChiIp(request), GUI_EMAIL_TOI_DA, GUI_EMAIL_CUA_SO);
+        return taiKhoanService.kichHoatTaiKhoan(email, maKichHoat);
     }
 
     @PostMapping("/dang-nhap")
-    public ResponseEntity<?> dangNhap(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> dangNhap(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         String username = loginRequest.getUsername();
+        String ip = diaChiIp(request);
 
-        // Kiểm tra rate limit - nếu đăng nhập sai quá nhiều thì khóa tạm thời
-        long[] attemptData = loginAttempts.get(username);
-        if (attemptData != null && attemptData[0] >= MAX_ATTEMPTS) {
-            long lockUntil = attemptData[1] + LOCK_TIME_MS;
-            if (System.currentTimeMillis() < lockUntil) {
-                long remainingSec = (lockUntil - System.currentTimeMillis()) / 1000;
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                        "Tài khoản tạm khóa do đăng nhập sai quá " + MAX_ATTEMPTS
-                                + " lần. Vui lòng thử lại sau " + remainingSec + " giây.");
-            }
-            // Hết thời gian khóa, reset
-            loginAttempts.remove(username);
-        }
+        // Chan theo ca IP lan tai khoan: chi dem theo username thi ke tan cong doi username la
+        // thoat; chi dem theo IP thi mot mang NAT chung se chan nham nguoi dung that.
+        batBuocTrongGioiHan("dang-nhap-ip:" + ip, DANG_NHAP_IP_TOI_DA, DANG_NHAP_CUA_SO);
 
+        // Chi dem lan SAI. Dang nhap dung khong tieu ton han muc, nen nguoi dung binh thuong
+        // (nhieu tab, nhieu thiet bi) khong bao gio cham tran.
+        String khoaSai = "dang-nhap-sai:" + username;
         try {
             Authentication authentication = AuthenticationManager.authenticate(new
                     UsernamePasswordAuthenticationToken(username, loginRequest.getPassword())
             );
             if (authentication.isAuthenticated()) {
-                // Đăng nhập thành công, xóa record đếm lần sai
-                loginAttempts.remove(username);
+                rateLimiter.datLai(khoaSai);
                 final String jwt = jwtService.generateToken(username);
                 return ResponseEntity.ok(new JwtResponse(jwt));
             }
         } catch (AuthenticationException a) {
-            // Đăng nhập thất bại, tăng bộ đếm
-            long now = System.currentTimeMillis();
-            loginAttempts.merge(username, new long[]{1, now},
-                    (old, v) -> new long[]{old[0] + 1, now});
+            batBuocTrongGioiHan(khoaSai, DANG_NHAP_SAI_TOI_DA, DANG_NHAP_CUA_SO);
+            // Thong bao giong nhau cho moi nguyen nhan that bai (sai mat khau, khong ton tai,
+            // tai khoan bi vo hieu hoa) de khong lo tai khoan nao ton tai.
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
@@ -104,7 +109,8 @@ public class TaiKhoanController {
 
     // ---- Quên mật khẩu: gửi email reset ----
     @PostMapping("/quen-mat-khau")
-    public ResponseEntity<?> quenMatKhau(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> quenMatKhau(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        batBuocTrongGioiHan("quen-mat-khau:" + diaChiIp(request), GUI_EMAIL_TOI_DA, GUI_EMAIL_CUA_SO);
         String email = body.get("email");
         if (email == null || email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống.");
@@ -114,7 +120,8 @@ public class TaiKhoanController {
 
     // ---- Đặt lại mật khẩu bằng token ----
     @PostMapping("/dat-lai-mat-khau")
-    public ResponseEntity<?> datLaiMatKhau(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> datLaiMatKhau(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        batBuocTrongGioiHan("dat-lai-mat-khau:" + diaChiIp(request), GUI_EMAIL_TOI_DA, GUI_EMAIL_CUA_SO);
         String email = body.get("email");
         String token = body.get("token");
         String matKhauMoi = body.get("matKhauMoi");
@@ -122,5 +129,24 @@ public class TaiKhoanController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin đặt lại mật khẩu.");
         }
         return taiKhoanService.datLaiMatKhau(email, token, matKhauMoi);
+    }
+
+    private void batBuocTrongGioiHan(String khoa, int soLanToiDa, Duration cuaSo) {
+        if (!rateLimiter.choPhep(khoa, soLanToiDa, cuaSo)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "Bạn đã thao tác quá nhiều lần. Vui lòng thử lại sau.");
+        }
+    }
+
+    /**
+     * Render/nginx dat client IP that vao X-Forwarded-For. Chi lay IP dau tien va chi khi header
+     * ton tai; neu khong thi dung remote address.
+     */
+    private String diaChiIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
     }
 }
