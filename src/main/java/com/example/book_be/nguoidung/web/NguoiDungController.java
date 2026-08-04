@@ -1,7 +1,6 @@
 package com.example.book_be.nguoidung.web;
 
 import com.example.book_be.nguoidung.domain.NguoiDung;
-import com.example.book_be.shared.dto.ThongBao;
 import com.example.book_be.nguoidung.service.NguoiDungService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +20,8 @@ public class NguoiDungController {
         String tenDangNhap = SecurityContextHolder.getContext().getAuthentication().getName();
         NguoiDung nguoiDung = nguoiDungService.getHoSo(tenDangNhap);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Người dùng không tồn tại.");
         }
         // Ẩn các trường nhạy cảm trước khi trả về client
         nguoiDung.setMatKhau(null);
@@ -37,7 +37,8 @@ public class NguoiDungController {
         String tenDangNhap = SecurityContextHolder.getContext().getAuthentication().getName();
         NguoiDung nguoiDung = nguoiDungService.capNhatHoSo(tenDangNhap, updates);
         if (nguoiDung == null) {
-            return ResponseEntity.badRequest().body(new ThongBao("Người dùng không tồn tại"));
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Người dùng không tồn tại.");
         }
         // Ẩn các trường nhạy cảm trước khi trả về client
         nguoiDung.setMatKhau(null);

@@ -8,6 +8,9 @@ import com.example.book_be.giamgia.repository.CouponRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.shared.email.EmailService;
+import com.example.book_be.shared.email.HtmlEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,7 @@ import java.util.List;
 @Service
 public class DonHangHuyService {
 
-    private static final String FROM_EMAIL = "tienvovan917@gmail.com";
+    private static final Logger log = LoggerFactory.getLogger(DonHangHuyService.class);
 
     private final DonHangRepository donHangRepository;
     private final DonHangTrangThaiService donHangTrangThaiService;
@@ -133,12 +136,12 @@ public class DonHangHuyService {
 
     private void guiEmail(int maDon, String toEmail, String tenKhach) {
         try {
-            String noiDung = "<p>Chào " + tenKhach + ",</p>"
+            String noiDung = "<p>Chào " + HtmlEncoder.encode(tenKhach) + ",</p>"
                     + "<p>Đơn hàng <b>#" + maDon + "</b> của bạn đã được hủy thành công.</p>"
                     + "<p>Nếu bạn đã thanh toán, chúng tôi sẽ liên hệ để hoàn tiền. Trân trọng!</p>";
-            emailService.sendEmail(FROM_EMAIL, toEmail, "Đơn hàng #" + maDon + " đã được hủy", noiDung);
+            emailService.sendEmail(toEmail, "Đơn hàng #" + maDon + " đã được hủy", noiDung);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("event=email_failed type=order_cancel exception={}", e.getClass().getSimpleName());
         }
     }
 }

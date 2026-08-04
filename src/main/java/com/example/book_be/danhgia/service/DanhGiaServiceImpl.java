@@ -8,6 +8,8 @@ import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.danhgia.domain.SuDanhGia;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.Timestamp;
 
@@ -28,15 +30,16 @@ public class DanhGiaServiceImpl implements DanhGiaService {
         suDanhGia.setTimestamp(new Timestamp(System.currentTimeMillis()));
         suDanhGia.setIsActive(1);
         suDanhGia.setNguoiDung(nguoiDungRepository.findById(maNguoiDung).orElseThrow(
-                () -> new RuntimeException("Không tìm thấy người dùng")));
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng.")));
         suDanhGia.setSach(sachRepository.findById(maSach).orElseThrow(
-                () -> new RuntimeException("Không tìm thấy sách")));
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sách.")));
         return suDanhGiaRepository.save(suDanhGia);
     }
 
     @Override
     public SuDanhGia updateReview(Long maDanhGia, SuDanhGia danhGia) {
-        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia).orElse(null);
+        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         db.setDiemXepHang(danhGia.getDiemXepHang());
         db.setNhanXet(danhGia.getNhanXet());
         db.setTimestamp(new Timestamp(System.currentTimeMillis()));
@@ -45,7 +48,8 @@ public class DanhGiaServiceImpl implements DanhGiaService {
 
     @Override
     public SuDanhGia deleteReview(Long maDanhGia) {
-        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia).orElse(null);
+        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         suDanhGiaRepository.delete(db);
         return db;
     }

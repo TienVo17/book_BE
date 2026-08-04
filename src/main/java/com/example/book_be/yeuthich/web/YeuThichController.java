@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,7 +44,7 @@ public class YeuThichController {
     public ResponseEntity<?> findAll() {
         NguoiDung user = getCurrentUser();
         if (user == null) {
-            return ResponseEntity.status(401).body("Chưa đăng nhập");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
         }
         List<SachYeuThich> list = sachYeuThichRepository.findByNguoiDung_MaNguoiDung(user.getMaNguoiDung());
         return ResponseEntity.ok(list);
@@ -53,18 +55,16 @@ public class YeuThichController {
     public ResponseEntity<?> addToWishlist(@PathVariable int maSach) {
         NguoiDung user = getCurrentUser();
         if (user == null) {
-            return ResponseEntity.status(401).body("Chưa đăng nhập");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
         }
 
         // Check if already in wishlist
         if (sachYeuThichRepository.existsByNguoiDung_MaNguoiDungAndSach_MaSach(user.getMaNguoiDung(), maSach)) {
-            return ResponseEntity.badRequest().body("Sách đã có trong danh sách yêu thích");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sách đã có trong danh sách yêu thích.");
         }
 
-        Sach sach = sachRepository.findById((long) maSach).orElse(null);
-        if (sach == null) {
-            return ResponseEntity.notFound().build();
-        }
+        Sach sach = sachRepository.findById((long) maSach)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sách không tồn tại."));
 
         SachYeuThich yeuThich = new SachYeuThich();
         yeuThich.setNguoiDung(user);
@@ -78,11 +78,11 @@ public class YeuThichController {
     public ResponseEntity<?> removeFromWishlist(@PathVariable int maSach) {
         NguoiDung user = getCurrentUser();
         if (user == null) {
-            return ResponseEntity.status(401).body("Chưa đăng nhập");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
         }
 
         if (!sachYeuThichRepository.existsByNguoiDung_MaNguoiDungAndSach_MaSach(user.getMaNguoiDung(), maSach)) {
-            return ResponseEntity.notFound().build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sách không có trong danh sách yêu thích.");
         }
 
         sachYeuThichRepository.deleteByNguoiDung_MaNguoiDungAndSach_MaSach(user.getMaNguoiDung(), maSach);

@@ -22,34 +22,19 @@ public class CouponAdminController {
 
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Coupon coupon) {
-        try {
-            Coupon saved = couponService.save(coupon);
-            return ResponseEntity.ok(saved);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        Coupon saved = couponService.save(coupon);
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable int id, @RequestBody Coupon coupon) {
-        try {
-            Coupon updated = couponService.update(id, coupon);
-            return ResponseEntity.ok(updated);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        Coupon updated = couponService.update(id, coupon);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable int id) {
-        try {
-            couponService.delete(id);
-            return ResponseEntity.ok("Xóa coupon thành công");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        couponService.delete(id);
+        return ResponseEntity.ok("Xóa coupon thành công");
     }
 }

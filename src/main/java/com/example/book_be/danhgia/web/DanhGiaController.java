@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("api/danh-gia")
@@ -44,16 +46,25 @@ public class DanhGiaController {
 
     @PostMapping("/them-danh-gia-v1")
     public DanhGiaResponse addReview(@RequestBody DanhGiaBo danhGia) {
-        NguoiDung nguoiDung = null;
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication.getName() != null) {
-            nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        if (danhGia == null || danhGia.getMaSach() == null || danhGia.getDiemXepHang() == null
+                || danhGia.getDiemXepHang() < 1 || danhGia.getDiemXepHang() > 5
+                || danhGia.getNhanXet() == null || danhGia.getNhanXet().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin đánh giá không hợp lệ.");
         }
-        NguoiDung finalNguoiDung = nguoiDung;
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
+        }
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        if (nguoiDung == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
+        }
         SuDanhGia suDanhGia = danhGiaService.addReview(
                 danhGia.getNhanXet(),
                 danhGia.getDiemXepHang(),
-                (long) finalNguoiDung.getMaNguoiDung(),
+                (long) nguoiDung.getMaNguoiDung(),
                 (long) danhGia.getMaSach()
         );
         return DanhGiaResponse.from(suDanhGia);

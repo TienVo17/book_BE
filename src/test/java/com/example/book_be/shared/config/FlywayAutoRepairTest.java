@@ -60,6 +60,6 @@ class FlywayAutoRepairTest {
 
         new FlywayConfig().repairBeforeMigrateStrategy().migrate(realFlyway);
 
-        assertThat(realFlyway.info().current().getVersion().toString()).isEqualTo("8");
+        assertThat(realFlyway.info().current().getVersion().toString()).isEqualTo("9");
     }
 }

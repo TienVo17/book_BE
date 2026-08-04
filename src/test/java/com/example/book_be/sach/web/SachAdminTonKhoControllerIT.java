@@ -99,7 +99,10 @@ class SachAdminTonKhoControllerIT {
                 "{not-json")) {
             ResponseEntity<String> response = patch(sach.getMaSach(), body, adminHeaders());
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-            assertThat(response.getBody()).contains("\"error\"");
+            assertThat(response.getBody())
+                    .contains("\"status\":400")
+                    .contains("\"code\":\"VALIDATION_ERROR\"")
+                    .contains("\"traceId\"");
             assertThat(tonKho(sach.getMaSach())).isEqualTo(8);
         }
     }
@@ -108,12 +111,16 @@ class SachAdminTonKhoControllerIT {
     void patch_ton_kho_tra_404_khi_sach_khong_ton_tai_va_409_khi_giam_xuong_am() {
         ResponseEntity<String> missing = patch(999_999, "{\"soLuongThayDoi\":1}", adminHeaders());
         assertThat(missing.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(missing.getBody()).contains("\"error\"");
+        assertThat(missing.getBody())
+                .contains("\"status\":404")
+                .contains("\"code\":\"BOOK_NOT_FOUND\"");
 
         Sach sach = taoSach(8);
         ResponseEntity<String> belowZero = patch(sach.getMaSach(), "{\"soLuongThayDoi\":-9}", adminHeaders());
         assertThat(belowZero.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(belowZero.getBody()).contains("\"error\"");
+        assertThat(belowZero.getBody())
+                .contains("\"status\":409")
+                .contains("\"code\":\"STOCK_CONFLICT\"");
         assertThat(tonKho(sach.getMaSach())).isEqualTo(8);
     }
 

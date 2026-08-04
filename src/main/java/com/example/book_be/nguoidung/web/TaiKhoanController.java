@@ -14,6 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -59,8 +61,9 @@ public class TaiKhoanController {
             long lockUntil = attemptData[1] + LOCK_TIME_MS;
             if (System.currentTimeMillis() < lockUntil) {
                 long remainingSec = (lockUntil - System.currentTimeMillis()) / 1000;
-                return ResponseEntity.status(429)
-                        .body("Tài khoản tạm khóa do đăng nhập sai quá " + MAX_ATTEMPTS + " lần. Vui lòng thử lại sau " + remainingSec + " giây.");
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Tài khoản tạm khóa do đăng nhập sai quá " + MAX_ATTEMPTS
+                                + " lần. Vui lòng thử lại sau " + remainingSec + " giây.");
             }
             // Hết thời gian khóa, reset
             loginAttempts.remove(username);
@@ -81,9 +84,10 @@ public class TaiKhoanController {
             long now = System.currentTimeMillis();
             loginAttempts.merge(username, new long[]{1, now},
                     (old, v) -> new long[]{old[0] + 1, now});
-            return ResponseEntity.badRequest().body("Tên đăng nhập hoặc mật khẩu không chính xác. ");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
-        return ResponseEntity.badRequest().body("Xác thực không thành công.");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Xác thực không thành công.");
     }
 
     // ---- Đổi mật khẩu (yêu cầu đăng nhập) ----
@@ -93,7 +97,7 @@ public class TaiKhoanController {
         String matKhauCu = body.get("matKhauCu");
         String matKhauMoi = body.get("matKhauMoi");
         if (matKhauCu == null || matKhauMoi == null) {
-            return ResponseEntity.badRequest().body("Thiếu thông tin mật khẩu");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin mật khẩu.");
         }
         return taiKhoanService.doiMatKhau(tenDangNhap, matKhauCu, matKhauMoi);
     }
@@ -103,7 +107,7 @@ public class TaiKhoanController {
     public ResponseEntity<?> quenMatKhau(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body("Email không được để trống");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống.");
         }
         return taiKhoanService.quenMatKhau(email);
     }
@@ -115,7 +119,7 @@ public class TaiKhoanController {
         String token = body.get("token");
         String matKhauMoi = body.get("matKhauMoi");
         if (email == null || token == null || matKhauMoi == null) {
-            return ResponseEntity.badRequest().body("Thiếu thông tin đặt lại mật khẩu");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin đặt lại mật khẩu.");
         }
         return taiKhoanService.datLaiMatKhau(email, token, matKhauMoi);
     }
