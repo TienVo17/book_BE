@@ -36,21 +36,41 @@ public class DanhGiaServiceImpl implements DanhGiaService {
         return suDanhGiaRepository.save(suDanhGia);
     }
 
+    /** Chi chu so huu duoc sua noi dung danh gia cua chinh minh. */
     @Override
-    public SuDanhGia updateReview(Long maDanhGia, SuDanhGia danhGia) {
+    public SuDanhGia updateReview(Long maDanhGia, SuDanhGia danhGia, Long maNguoiDungYeuCau) {
         SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
+        kiemTraChuSoHuu(db, maNguoiDungYeuCau);
+
+        if (danhGia.getDiemXepHang() < 1 || danhGia.getDiemXepHang() > 5
+                || danhGia.getNhanXet() == null || danhGia.getNhanXet().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin đánh giá không hợp lệ.");
+        }
+
         db.setDiemXepHang(danhGia.getDiemXepHang());
         db.setNhanXet(danhGia.getNhanXet());
         db.setTimestamp(new Timestamp(System.currentTimeMillis()));
         return suDanhGiaRepository.save(db);
     }
 
+    /** Chu so huu tu xoa danh gia cua minh; ADMIN xoa duoc de kiem duyet noi dung. */
     @Override
-    public SuDanhGia deleteReview(Long maDanhGia) {
+    public SuDanhGia deleteReview(Long maDanhGia, Long maNguoiDungYeuCau, boolean laQuanTri) {
         SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
+        if (!laQuanTri) {
+            kiemTraChuSoHuu(db, maNguoiDungYeuCau);
+        }
         suDanhGiaRepository.delete(db);
         return db;
+    }
+
+    private void kiemTraChuSoHuu(SuDanhGia danhGia, Long maNguoiDungYeuCau) {
+        NguoiDung chuSoHuu = danhGia.getNguoiDung();
+        if (chuSoHuu == null || maNguoiDungYeuCau == null
+                || chuSoHuu.getMaNguoiDung() != maNguoiDungYeuCau.intValue()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền với đánh giá này.");
+        }
     }
 }

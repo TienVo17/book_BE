@@ -100,7 +100,14 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
+                // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/xoa-danh-gia/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/sach**").permitAll()
+
+                // Fail-closed tuong minh: route moi phai duoc khai bao co y, khong duoc mo
+                // chi vi khong khop matcher nao o tren.
+                .anyRequest().denyAll()
         );
 
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));

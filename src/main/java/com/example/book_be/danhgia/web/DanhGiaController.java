@@ -72,16 +72,35 @@ public class DanhGiaController {
 
     @PostMapping("/sua-danh-gia/{maDanhGia}")
     public DanhGiaResponse updateReview(@PathVariable Long maDanhGia, @RequestBody SuDanhGia danhGia) {
+        NguoiDung nguoiDung = nguoiDungHienTai();
         return DanhGiaResponse.from(danhGiaService.updateReview(
-                maDanhGia, danhGia
+                maDanhGia, danhGia, (long) nguoiDung.getMaNguoiDung()
         ));
     }
 
     @PostMapping("/xoa-danh-gia/{maDanhGia}")
     public DanhGiaResponse deleteReview(@PathVariable Long maDanhGia) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        NguoiDung nguoiDung = nguoiDungHienTai();
+        boolean laQuanTri = authentication.getAuthorities().stream()
+                .anyMatch(quyen -> "ADMIN".equals(quyen.getAuthority()));
         return DanhGiaResponse.from(danhGiaService.deleteReview(
-                maDanhGia
+                maDanhGia, (long) nguoiDung.getMaNguoiDung(), laQuanTri
         ));
+    }
+
+    /** Principal da duoc SecurityConfiguration xac thuc; van kiem tra lai de fail-closed. */
+    private NguoiDung nguoiDungHienTai() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
+        }
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        if (nguoiDung == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
+        }
+        return nguoiDung;
     }
 
 }
