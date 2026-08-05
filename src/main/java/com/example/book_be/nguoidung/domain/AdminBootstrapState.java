@@ -15,11 +15,15 @@ import java.util.Date;
 @Table(name = "admin_bootstrap_state")
 public class AdminBootstrapState {
 
-    public static final int SINGLETON_ID = 1;
+    public static final byte SINGLETON_ID = 1;
 
+    /**
+     * Cot la TINYINT trong V10. Entity phai khai bao Byte cho khop, neu khong
+     * ddl-auto=validate se tu choi khoi dong ung dung.
+     */
     @Id
     @Column(name = "singleton_id")
-    private Integer singletonId;
+    private Byte singletonId;
 
     @Column(name = "da_su_dung", nullable = false)
     private boolean daSuDung;
@@ -33,7 +37,7 @@ public class AdminBootstrapState {
     protected AdminBootstrapState() {
     }
 
-    public Integer getSingletonId() {
+    public Byte getSingletonId() {
         return singletonId;
     }
 
