@@ -12,7 +12,7 @@ import java.util.Optional;
 
 /** exported=false: trang thai bootstrap la noi bo, khong duoc lo qua Spring Data REST. */
 @RepositoryRestResource(exported = false)
-public interface AdminBootstrapStateRepository extends JpaRepository<AdminBootstrapState, Integer> {
+public interface AdminBootstrapStateRepository extends JpaRepository<AdminBootstrapState, Byte> {
 
     /**
      * PESSIMISTIC_WRITE giu instance thu hai cho tai day cho den khi instance thu nhat commit,
@@ -20,5 +20,5 @@ public interface AdminBootstrapStateRepository extends JpaRepository<AdminBootst
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select trangThai from AdminBootstrapState trangThai where trangThai.singletonId = :id")
-    Optional<AdminBootstrapState> khoaDeGhi(@Param("id") Integer id);
+    Optional<AdminBootstrapState> khoaDeGhi(@Param("id") Byte id);
 }
