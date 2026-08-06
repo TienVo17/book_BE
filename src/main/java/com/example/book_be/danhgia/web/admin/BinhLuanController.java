@@ -5,6 +5,11 @@ import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.danhgia.dto.DanhGiaQuanTriResponse;
+import com.example.book_be.danhgia.dto.PhanHoiShopBo;
+import com.example.book_be.nguoidung.domain.NguoiDung;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.server.ResponseStatusException;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.danhgia.service.DanhGiaService;
 import com.example.book_be.nguoidung.domain.Quyen;
@@ -65,6 +70,29 @@ public class BinhLuanController {
     public ResponseEntity<DanhGiaQuanTriResponse> unactive(@PathVariable Long id) {
         return ResponseEntity.ok(DanhGiaQuanTriResponse.from(
                 danhGiaService.doiTrangThai(id, TrangThaiDanhGia.DA_AN)));
+    }
+
+    /**
+     * Shop tra loi cong khai duoi mot danh gia. Goi lan hai la sua noi dung, khong tao
+     * them dong: phan hoi luu thang tren dong danh gia nen "moi danh gia toi da mot phan
+     * hoi" la dieu khong the vi pham.
+     */
+    @PostMapping("{id}/phan-hoi")
+    public ResponseEntity<DanhGiaQuanTriResponse> phanHoi(@PathVariable Long id,
+                                                          @RequestBody PhanHoiShopBo yeuCau) {
+        NguoiDung quanTri = nguoiDungQuanTriHienTai();
+        return ResponseEntity.ok(DanhGiaQuanTriResponse.from(danhGiaService.datPhanHoiShop(
+                id, yeuCau == null ? null : yeuCau.getNoiDung(), quanTri.getMaNguoiDung())));
+    }
+
+    private NguoiDung nguoiDungQuanTriHienTai() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        NguoiDung nguoiDung = authentication == null ? null
+                : nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        if (nguoiDung == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập.");
+        }
+        return nguoiDung;
     }
 
     /** Tinh lai toan bo du lieu tong hop khi da lech. Idempotent. */

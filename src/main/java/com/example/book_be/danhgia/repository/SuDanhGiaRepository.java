@@ -52,6 +52,29 @@ public interface SuDanhGiaRepository extends JpaRepository<SuDanhGia, Long>, Jpa
             int maSach, TrangThaiDanhGia trangThai, float diemXepHang, Pageable pageable);
 
     /**
+     * Sap xep theo so luot huu ich, tinh bang JOIN chu khong doc cot dem san.
+     *
+     * <p>{@code LEFT JOIN} chu khong phai {@code JOIN}: danh gia chua ai binh chon van
+     * phai xuat hien, chi la o cuoi. {@code countQuery} rieng vi cau chinh co
+     * {@code GROUP BY} — dem tren cau do se tra ve mot dong cho moi nhom.
+     */
+    @EntityGraph(attributePaths = {"nguoiDung"})
+    @Query(value = "SELECT d FROM SuDanhGia d "
+            + "LEFT JOIN DanhGiaHuuIch h ON h.maDanhGia = d.maDanhGia "
+            + "WHERE d.sach.maSach = :maSach "
+            + "AND d.trangThai = com.example.book_be.danhgia.domain.TrangThaiDanhGia.HIEN_THI "
+            + "AND (:diemXepHang IS NULL OR d.diemXepHang = :diemXepHang) "
+            + "GROUP BY d "
+            + "ORDER BY COUNT(h) DESC, d.maDanhGia DESC",
+            countQuery = "SELECT COUNT(d) FROM SuDanhGia d "
+                    + "WHERE d.sach.maSach = :maSach "
+                    + "AND d.trangThai = com.example.book_be.danhgia.domain.TrangThaiDanhGia.HIEN_THI "
+                    + "AND (:diemXepHang IS NULL OR d.diemXepHang = :diemXepHang)")
+    Page<SuDanhGia> timTheoLuotHuuIch(@Param("maSach") int maSach,
+                                      @Param("diemXepHang") Float diemXepHang,
+                                      Pageable pageable);
+
+    /**
      * Phan bo sao trong MOT cau, thay vi nam truy van dem hoac dem tay tren client.
      * Tra ve cac cap [diemXepHang, soLuong]; sao khong ai chon se khong co dong nao, va
      * {@code DanhGiaTrangResponse} chiu trach nhiem bu day du 5 khoa.

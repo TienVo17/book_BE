@@ -89,6 +89,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/tinh-lai-tat-ca").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/*/phan-hoi").hasAuthority("ADMIN")
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
                 .requestMatchers(HttpMethod.GET, Endpoints.AUTH_GET_ENDPOINTS).authenticated()
@@ -107,6 +108,9 @@ public class SecurityConfiguration {
                 // anyRequest().denyAll() ben duoi.
                 .requestMatchers(HttpMethod.GET, "/api/danh-gia/co-the-danh-gia**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
+                // Binh chon huu ich: phai dang nhap de rang buoc mot nguoi mot luot
+                // co y nghia. Chan tu binh chon nam o service, khong phai o day.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/*/huu-ich").authenticated()
                 // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/xoa-danh-gia/**").authenticated()

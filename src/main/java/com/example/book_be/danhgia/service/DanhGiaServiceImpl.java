@@ -3,11 +3,13 @@ package com.example.book_be.danhgia.service;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.danhgia.repository.DanhGiaAnTombstoneRepository;
+import com.example.book_be.danhgia.repository.DanhGiaHuuIchRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.danhgia.domain.DanhGiaAnTombstone;
+import com.example.book_be.danhgia.domain.DanhGiaHuuIch;
 import com.example.book_be.danhgia.domain.LyDoKhongDanhGiaDuoc;
 import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
@@ -46,6 +48,8 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     private DonHangRepository donHangRepository;
     @Autowired
     private DanhGiaAnTombstoneRepository tombstoneRepository;
+    @Autowired
+    private DanhGiaHuuIchRepository danhGiaHuuIchRepository;
 
     /**
      * Che do Chat: chi nguoi co don DA_GIAO chua cuon sach do moi danh gia duoc.
@@ -178,6 +182,62 @@ public class DanhGiaServiceImpl implements DanhGiaService {
 
         tinhLaiTongHop(db.getSach().getMaSach());
         return daLuu;
+    }
+
+    /**
+     * Binh chon lan hai la go binh chon. Rang buoc {@code uk_danhgia_huu_ich_nguoi} cua
+     * V11 moi la thu chan binh chon trung — kiem tra o day chi de tra loi dung cho nguoi
+     * dung, khong phai de bao dam tinh duy nhat.
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public long doiBinhChonHuuIch(Long maDanhGia, int maNguoiDung) {
+        SuDanhGia danhGia = suDanhGiaRepository.findById(maDanhGia)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
+
+        // Chan o service chu khong phai o giao dien: an nut chi ngan nguoi dung binh
+        // thuong, khong ngan mot request gui thang toi API.
+        if (danhGia.getMaNguoiDung() != null && danhGia.getMaNguoiDung() == maNguoiDung) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Bạn không thể bình chọn cho đánh giá của chính mình.");
+        }
+        if (danhGia.getTrangThai() != TrangThaiDanhGia.HIEN_THI) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá.");
+        }
+
+        danhGiaHuuIchRepository.findByMaDanhGiaAndMaNguoiDung(maDanhGia, maNguoiDung)
+                .ifPresentOrElse(danhGiaHuuIchRepository::delete, () -> {
+                    DanhGiaHuuIch binhChon = new DanhGiaHuuIch();
+                    binhChon.setMaDanhGia(maDanhGia);
+                    binhChon.setMaNguoiDung(maNguoiDung);
+                    binhChon.setTaoLuc(new Timestamp(System.currentTimeMillis()));
+                    danhGiaHuuIchRepository.save(binhChon);
+                });
+        danhGiaHuuIchRepository.flush();
+
+        return danhGiaHuuIchRepository.demTheoDanhGia(java.util.List.of(maDanhGia)).stream()
+                .findFirst()
+                .map(dong -> ((Number) dong[1]).longValue())
+                .orElse(0L);
+    }
+
+    /**
+     * Luu thang tren dong danh gia, nen "moi danh gia toi da mot phan hoi" la dieu khong
+     * the vi pham chu khong phai mot quy tac phai canh. Goi lan hai la sua noi dung.
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SuDanhGia datPhanHoiShop(Long maDanhGia, String noiDung, int maNguoiDungQuanTri) {
+        if (noiDung == null || noiDung.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nội dung phản hồi không được để trống.");
+        }
+        SuDanhGia db = suDanhGiaRepository.timKemNguoiDung(maDanhGia)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
+
+        db.setPhanHoiShop(noiDung.strip());
+        db.setPhanHoiShopTai(new Timestamp(System.currentTimeMillis()));
+        db.setPhanHoiShopBoi(maNguoiDungQuanTri);
+        return suDanhGiaRepository.save(db);
     }
 
     /** Duong sua chua khi du lieu tong hop da lech khoi thuc te. */

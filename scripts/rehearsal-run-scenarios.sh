@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Executes the six Phase 5 browser scenarios once and emits one structured
+# Executes the rehearsal scenarios once and emits one structured
 # evidence row per scenario:
 #   run<TAB>timestamp<TAB>scenario<TAB>status<TAB>elapsed_ms<TAB>traceId<TAB>note
 #
@@ -141,6 +141,36 @@ if [ "$UNAUTH_CODE" = "401" ] && [ -n "$HDR_TRACE" ] && [ "$HDR_TRACE" = "$BODY_
   row 6-failure-recovery PASS $(( $(now_ms) - T0 )) "$BODY_TRACE" "401 traced+matched, retry orders=$DUPES, stock held at $POST_CONFLICT"
 else
   row 6-failure-recovery FAIL $(( $(now_ms) - T0 )) "$BODY_TRACE" "code=$UNAUTH_CODE hdr==body:$([ "$HDR_TRACE" = "$BODY_TRACE" ] && echo y || echo n) replay:$([ "$R1" = "$R2" ] && echo y || echo n) dupes=$DUPES stock $PRE_CONFLICT->$POST_CONFLICT"
+fi
+
+# --- Scenario 7: review helpful vote toggles and never self-votes ---------
+# The fixture customer's order was advanced to DA_GIAO by scenario 5, so they are
+# eligible to review. The admin votes on it; the author must not be able to.
+T0=$(now_ms)
+REVIEW_BODY="{\"maSach\":$BOOK_ID,\"diemXepHang\":5,\"nhanXet\":\"Rehearsal review run $RUN\"}"
+POST_REVIEW="$(curl -s -X POST "$BE/api/danh-gia/them-danh-gia-v1" -H "Authorization: Bearer $JWT_CUSTOMER" \
+  -H 'Content-Type: application/json' -d "$REVIEW_BODY")"
+REVIEW_ID="$(sql "SELECT ma_danh_gia FROM danhgia WHERE ma_sach=$BOOK_ID ORDER BY ma_danh_gia DESC LIMIT 1;")"
+if [ -z "$REVIEW_ID" ]; then
+  row 7-review-helpful FAIL $(( $(now_ms) - T0 )) "$(trace_of "$POST_REVIEW")" "review not created"
+else
+  VOTE1="$(curl -s -X POST "$BE/api/danh-gia/$REVIEW_ID/huu-ich" -H "Authorization: Bearer $JWT_ADMIN")"
+  COUNT1="$(sql "SELECT COUNT(*) FROM danhgia_huu_ich WHERE ma_danh_gia=$REVIEW_ID;")"
+  # Pressing again removes the vote, the same as a like button anywhere else.
+  curl -s -o /dev/null -X POST "$BE/api/danh-gia/$REVIEW_ID/huu-ich" -H "Authorization: Bearer $JWT_ADMIN"
+  COUNT2="$(sql "SELECT COUNT(*) FROM danhgia_huu_ich WHERE ma_danh_gia=$REVIEW_ID;")"
+  # Blocked in the service, so a direct API call must fail too -- not just a hidden button.
+  SELF="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BE/api/danh-gia/$REVIEW_ID/huu-ich" -H "Authorization: Bearer $JWT_CUSTOMER")"
+  # Deleting the review must take its votes with it, or the count reports orphans forever.
+  curl -s -o /dev/null -X POST "$BE/api/danh-gia/$REVIEW_ID/huu-ich" -H "Authorization: Bearer $JWT_ADMIN"
+  curl -s -o /dev/null -X POST "$BE/api/danh-gia/xoa-danh-gia/$REVIEW_ID" -H "Authorization: Bearer $JWT_CUSTOMER"
+  ORPHANS="$(sql "SELECT COUNT(*) FROM danhgia_huu_ich WHERE ma_danh_gia=$REVIEW_ID;")"
+
+  if [ "$COUNT1" = "1" ] && [ "$COUNT2" = "0" ] && [ "$SELF" = "403" ] && [ "$ORPHANS" = "0" ]; then
+    row 7-review-helpful PASS $(( $(now_ms) - T0 )) - "vote=$COUNT1 unvote=$COUNT2 self-denied=$SELF orphans=$ORPHANS"
+  else
+    row 7-review-helpful FAIL $(( $(now_ms) - T0 )) "$(trace_of "$VOTE1")" "vote=$COUNT1 unvote=$COUNT2 self-denied=$SELF orphans=$ORPHANS"
+  fi
 fi
 
 # Leave the database clean for the next run.

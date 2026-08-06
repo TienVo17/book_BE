@@ -4,6 +4,7 @@ import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
 import com.example.book_be.danhgia.dto.DanhGiaCongKhaiResponse;
 import com.example.book_be.danhgia.dto.DanhGiaTrangResponse;
+import com.example.book_be.danhgia.repository.DanhGiaHuuIchRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Duong doc cong khai cua phan danh gia.
@@ -28,27 +30,39 @@ public class DanhGiaDocService {
     /** Chan tren cho kich thuoc trang: client khong duoc tu quyet dinh tai cua may chu. */
     private static final int KICH_THUOC_TOI_DA = 50;
     private static final int KICH_THUOC_MAC_DINH = 10;
+    /** Kieu sap xep duy nhat khong bieu dien duoc bang {@link Sort} — no can mot JOIN. */
+    private static final String SAP_XEP_HUU_ICH = "huu-ich";
 
     private final SuDanhGiaRepository suDanhGiaRepository;
+    private final DanhGiaHuuIchRepository danhGiaHuuIchRepository;
 
-    public DanhGiaDocService(SuDanhGiaRepository suDanhGiaRepository) {
+    public DanhGiaDocService(SuDanhGiaRepository suDanhGiaRepository,
+                             DanhGiaHuuIchRepository danhGiaHuuIchRepository) {
         this.suDanhGiaRepository = suDanhGiaRepository;
+        this.danhGiaHuuIchRepository = danhGiaHuuIchRepository;
     }
 
     @Transactional(readOnly = true)
     public DanhGiaTrangResponse docTrang(int maSach, Integer trang, Integer kichThuoc,
                                          String sapXep, Integer locSao,
                                          Integer maNguoiDungDangXem) {
-        Pageable pageable = PageRequest.of(
-                trang == null || trang < 0 ? 0 : trang,
-                chuanHoaKichThuoc(kichThuoc),
-                sapXepTheo(sapXep));
+        int soTrang = trang == null || trang < 0 ? 0 : trang;
+        int cuaSo = chuanHoaKichThuoc(kichThuoc);
 
-        Page<SuDanhGia> ketQua = locSao == null
-                ? suDanhGiaRepository.findBySach_MaSachAndTrangThai(
-                        maSach, TrangThaiDanhGia.HIEN_THI, pageable)
-                : suDanhGiaRepository.findBySach_MaSachAndTrangThaiAndDiemXepHang(
-                        maSach, TrangThaiDanhGia.HIEN_THI, locSao, pageable);
+        Page<SuDanhGia> ketQua;
+        if (SAP_XEP_HUU_ICH.equals(sapXep)) {
+            // Thu tu do truy van quyet dinh (ORDER BY COUNT), nen Pageable o day khong
+            // mang Sort — dua Sort vao se sinh ORDER BY thu hai de len tren.
+            ketQua = suDanhGiaRepository.timTheoLuotHuuIch(maSach,
+                    locSao == null ? null : (float) locSao, PageRequest.of(soTrang, cuaSo));
+        } else {
+            Pageable pageable = PageRequest.of(soTrang, cuaSo, sapXepTheo(sapXep));
+            ketQua = locSao == null
+                    ? suDanhGiaRepository.findBySach_MaSachAndTrangThai(
+                            maSach, TrangThaiDanhGia.HIEN_THI, pageable)
+                    : suDanhGiaRepository.findBySach_MaSachAndTrangThaiAndDiemXepHang(
+                            maSach, TrangThaiDanhGia.HIEN_THI, locSao, pageable);
+        }
 
         // Phan bo va cac so tong doc tu MOT nguon duy nhat va khong dinh gi toi bo loc:
         // neu tinh lai theo bo loc, bam vao cot "5 sao" se lam bon cot con lai bien mat.
@@ -64,13 +78,41 @@ public class DanhGiaDocService {
         }
 
         return DanhGiaTrangResponse.cua(
-                DanhGiaCongKhaiResponse.fromList(ketQua.getContent(), maNguoiDungDangXem),
+                gopHuuIch(DanhGiaCongKhaiResponse.fromList(ketQua.getContent(), maNguoiDungDangXem),
+                        maNguoiDungDangXem),
                 ketQua.getNumber(),
                 ketQua.getSize(),
                 ketQua.getTotalPages(),
                 tongSo,
                 tongSo == 0 ? 0 : tongDiem / tongSo,
                 phanBo);
+    }
+
+    /**
+     * Bo sung so luot huu ich bang HAI truy van cho ca trang, khong phai hai truy van moi
+     * dong. Day la ly do khong can cot dem san: chi phi la hang so theo so trang, va
+     * khong sinh ra bat bien hai nguon su that nao phai canh.
+     */
+    private List<DanhGiaCongKhaiResponse> gopHuuIch(List<DanhGiaCongKhaiResponse> trang,
+                                                    Integer maNguoiDungDangXem) {
+        if (trang.isEmpty()) {
+            return trang;
+        }
+        List<Long> danhSachMa = trang.stream().map(DanhGiaCongKhaiResponse::getMaDanhGia).toList();
+
+        Map<Long, Long> soLuot = new HashMap<>();
+        for (Object[] dong : danhGiaHuuIchRepository.demTheoDanhGia(danhSachMa)) {
+            soLuot.put(((Number) dong[0]).longValue(), ((Number) dong[1]).longValue());
+        }
+        Set<Long> daBinhChon = maNguoiDungDangXem == null
+                ? Set.of()
+                : Set.copyOf(danhGiaHuuIchRepository.timDaBinhChon(maNguoiDungDangXem, danhSachMa));
+
+        for (DanhGiaCongKhaiResponse dong : trang) {
+            dong.setSoLuotHuuIch(soLuot.getOrDefault(dong.getMaDanhGia(), 0L));
+            dong.setToiDaBinhChon(daBinhChon.contains(dong.getMaDanhGia()));
+        }
+        return trang;
     }
 
     private int chuanHoaKichThuoc(Integer kichThuoc) {
@@ -80,11 +122,6 @@ public class DanhGiaDocService {
         return Math.min(kichThuoc, KICH_THUOC_TOI_DA);
     }
 
-    /**
-     * {@code huu-ich} duoc nhan nhung chua co du lieu that: so luot binh chon huu ich chi
-     * ton tai tu phase sau. Cho toi luc do no tuong duong {@code moi-nhat} — nhan tu bay gio
-     * de giao dien va URL da chia se khong phai doi khi du lieu san sang.
-     */
     private Sort sapXepTheo(String sapXep) {
         String khoa = sapXep == null ? "moi-nhat" : sapXep;
         Sort chinh = switch (khoa) {

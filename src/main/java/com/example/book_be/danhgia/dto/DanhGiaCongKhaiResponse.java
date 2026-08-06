@@ -31,6 +31,12 @@ public class DanhGiaCongKhaiResponse {
     private String tenHienThi;
     /** De giao dien danh dau "danh gia cua ban" ma khong can lo danh tinh ai khac. */
     private boolean laCuaToi;
+    /** Dem bang mot cau GROUP BY cho ca trang; khong co cot dem san nao. */
+    private long soLuotHuuIch;
+    private boolean toiDaBinhChon;
+    /** Phan hoi cong khai cua shop, neu co. Khong kem danh tinh nguoi tra loi. */
+    private String phanHoiShop;
+    private Timestamp phanHoiShopTai;
 
     public static DanhGiaCongKhaiResponse from(SuDanhGia d, Integer maNguoiDungDangXem) {
         if (d == null) {
@@ -48,6 +54,8 @@ public class DanhGiaCongKhaiResponse {
         r.laCuaToi = maNguoiDungDangXem != null
                 && d.getMaNguoiDung() != null
                 && d.getMaNguoiDung().equals(maNguoiDungDangXem);
+        r.phanHoiShop = d.getPhanHoiShop();
+        r.phanHoiShopTai = d.getPhanHoiShopTai();
         return r;
     }
 

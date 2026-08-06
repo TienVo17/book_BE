@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("api/danh-gia")
 public class DanhGiaController {
@@ -66,6 +68,19 @@ public class DanhGiaController {
         }
         NguoiDung nguoiDung = nguoiDungHienTai();
         return danhGiaService.kiemTraCoTheDanhGia(nguoiDung.getMaNguoiDung(), maSach);
+    }
+
+    /**
+     * Bat/tat binh chon "huu ich". Bam lan hai la go binh chon, nhu nut thich o moi noi khac.
+     *
+     * <p>Tra ve so luot con lai de giao dien khong phai tai lai ca trang chi de cap nhat
+     * mot con so.
+     */
+    @PostMapping("/{maDanhGia}/huu-ich")
+    public Map<String, Object> doiBinhChonHuuIch(@PathVariable Long maDanhGia) {
+        NguoiDung nguoiDung = nguoiDungHienTai();
+        long soLuot = danhGiaService.doiBinhChonHuuIch(maDanhGia, nguoiDung.getMaNguoiDung());
+        return Map.of("maDanhGia", maDanhGia, "soLuotHuuIch", soLuot);
     }
 
     @PostMapping("/them-danh-gia-v1")

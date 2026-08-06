@@ -1,5 +1,15 @@
 # Project Changelog
 
+## 2026-08-06 (5) — Helpful votes and shop replies (plan phase 5)
+
+- `POST /api/danh-gia/{id}/huu-ich` toggles a helpful vote — pressing it a second time removes the vote, like a like button anywhere else — and returns the resulting count so the page does not reload to update one number.
+- **No `so_luot_huu_ich` column was added.** Unlike `trung_binh_xep_hang`, which already existed in the contract and whose missing writer was a real bug, a count column here would be brand-new denormalisation: a second source of truth to keep honest, for a shop with ten books. The count comes from one `GROUP BY` over the current page's ids, so cost is constant per page and there is no invariant to police.
+- **Self-voting is blocked in the service, not the UI.** Hiding the button only stops ordinary users; the test calls the API directly. Anonymous callers get 401, and the `UNIQUE (ma_danh_gia, ma_nguoi_dung)` constraint from V11 — not a service check — is what makes concurrent double-votes impossible.
+- Deleting a review takes its votes with it via the V11 cascade; orphaned votes would inflate the count permanently, so there is a test for it.
+- `sort=huu-ich` now orders by a real `LEFT JOIN … GROUP BY … ORDER BY COUNT(h)` instead of standing in for `moi-nhat`. `LEFT` so unvoted reviews still appear, just last, and with a separate `countQuery` because counting over the grouped query would return one row per group.
+- `POST /api/admin/danh-gia/{id}/phan-hoi` (ADMIN) lets the shop reply publicly. The reply lives on the review row itself, so "at most one reply per review" is structurally impossible to violate rather than a rule to enforce; calling it again edits. The public response carries the reply text and time but not who wrote it.
+- Added a helpful-vote scenario to `scripts/rehearsal-run-scenarios.sh` — vote, unvote, self-vote denied, cascade on delete — rather than creating a second script.
+
 ## 2026-08-06 (4) — Reviewer identity and the review form (plan phase 4)
 
 - **Reviews show a masked real name instead of the literal string "Khách hàng".** `TenHienThiUtil` keeps the family name and abbreviates the rest — "Nguyễn Văn An" → "Nguyễn V. A." — and it runs on the **backend**. Masking in the frontend would leave the full name sitting in the response for anyone who opens DevTools; that is decoration, not protection.

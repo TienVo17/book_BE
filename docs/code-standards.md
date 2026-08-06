@@ -89,6 +89,8 @@ domain/ (JPA Entities - MySQL)
 
 ### Quy Tắc Nghiệp Vụ Đánh Giá
 
+- **Không thêm cột đếm sẵn cho lượt hữu ích.** Khác `trung_binh_xep_hang` (đã có trong contract, thiếu writer là bug thật), một cột đếm ở đây là denormalize hoàn toàn mới — thêm một nguồn sự thật thứ hai phải canh, cho một cửa hàng mười cuốn sách. Đếm bằng một câu `GROUP BY` trên tập id của trang.
+- **Chặn tự bình chọn ở service.** Ẩn nút chỉ ngăn người dùng bình thường, không ngăn một request gửi thẳng tới API. Tính duy nhất do ràng buộc `uk_danhgia_huu_ich_nguoi` bảo đảm, không phải do kiểm tra ở service.
 - **Che tên chạy ở backend** (`shared/util/TenHienThiUtil`). Che ở frontend thì tên đầy đủ vẫn nằm nguyên trong response — đó là trang trí, không phải bảo vệ.
 - **Đường công khai không trả `maNguoiDung`.** Từ khi chỉ người đã nhận hàng mới đánh giá được, mỗi đánh giá là bằng chứng của một đơn đã giao; một định danh ổn định đi kèm cho phép quét cả catalog rồi dựng lại lịch sử mua hàng từng người. Quyền sở hữu do cờ `laCuaToi` mang.
 - **Hai DTO, hai khán giả.** `DanhGiaCongKhaiResponse` cho `/api/danh-gia**`: không `maNguoiDung`, không `isActive`. `DanhGiaQuanTriResponse` cho `/api/admin/danh-gia**`: có danh tính thật. Đừng gộp lại — test PII của đường công khai sẽ khoá chết khả năng nhìn thấy tên thật của màn kiểm duyệt, mà đó chính là việc của admin.

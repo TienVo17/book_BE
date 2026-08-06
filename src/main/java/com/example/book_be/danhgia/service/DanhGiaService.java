@@ -24,4 +24,13 @@ public interface DanhGiaService {
 
     /** Tinh lai toan bo du lieu tong hop — duong sua chua khi da lech. */
     int tinhLaiTongHopTatCa();
+
+    /**
+     * Bat/tat binh chon "huu ich". Binh chon lan hai la go binh chon, nhu nut thich o moi
+     * noi khac. Tra ve so luot con lai sau thao tac.
+     */
+    long doiBinhChonHuuIch(Long maDanhGia, int maNguoiDung);
+
+    /** Shop tra loi cong khai duoi mot danh gia. Goi lan hai la sua, khong tao them dong. */
+    SuDanhGia datPhanHoiShop(Long maDanhGia, String noiDung, int maNguoiDungQuanTri);
 }

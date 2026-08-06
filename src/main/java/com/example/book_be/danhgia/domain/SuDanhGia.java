@@ -72,6 +72,20 @@ public class SuDanhGia  {
     private Integer maDonHang;
 
     /**
+     * Phan hoi cong khai cua shop. Luu thang tren dong danh gia chu khong phai mot bang
+     * rieng: cau truc nay lam "moi danh gia toi da mot phan hoi" thanh dieu khong the vi
+     * pham, thay vi mot quy tac phai canh.
+     */
+    @Column(name = "phan_hoi_shop", columnDefinition = "text")
+    private String phanHoiShop;
+
+    @Column(name = "phan_hoi_shop_tai")
+    private Timestamp phanHoiShopTai;
+
+    @Column(name = "phan_hoi_shop_boi")
+    private Integer phanHoiShopBoi;
+
+    /**
      * Duong ghi DUY NHAT cho trang thai — setter cua ca hai truong da bi go.
      * Neu de Lombok sinh setTrangThai/setIsActive, moi noi goi mot trong hai se
      * lam cot cu va cot moi lech nhau ma khong co gi chan lai.
