@@ -1,6 +1,5 @@
 package com.example.book_be.shared.config;
 
-import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
 import jakarta.persistence.EntityManager;
@@ -45,10 +44,22 @@ public class RestConfig implements RepositoryRestConfigurer {
         // config nay nen 2 endpoint public van hoat dong (xac nhan boi AdminAndRepositoryExposureIT).
         blockHttpMethods(NguoiDung.class, config, ALL_HTTP_METHODS);
 
-        // Su danh gia (danhgia): dong collection/item rieng cua repository nay, nhung KHONG dong
-        // association exposure de /sach/{id}/listDanhGia (quan he doc-only tu Sach, FE dang dung)
-        // van hoat dong binh thuong.
-        blockCollectionAndItem(SuDanhGia.class, config, ALL_HTTP_METHODS);
+        // Su danh gia: khong con cau hinh o day.
+        //
+        // Ly do cu ("KHONG dong association exposure de /sach/{id}/listDanhGia van hoat dong
+        // vi FE dang dung") da sai tren hai mat. Thu nhat, ham FE goi no —
+        // getOneReviewOfOneBook — khong duoc import o dau ca. Thu hai, de ngo association
+        // co nghia la danh gia bi admin an van doc duoc cong khai kem nguyen "isActive": 0,
+        // tuc la thao tac kiem duyet khong co tac dung.
+        //
+        // Chan collection/item o day cung khong du: /sach/{id}/listDanhGia la association cua
+        // Sach, khong phai cua SuDanhGia, nen cau hinh forDomainType(SuDanhGia) khong cham toi
+        // no. Cach dung la @RepositoryRestResource(exported = false) tren chinh
+        // SuDanhGiaRepository — khi do Spring Data REST khong sinh link nao, ke ca link
+        // association tu Sach, va association con lai cua Sach (/sach/{id}/listTheLoai)
+        // van tra 200. (/sach/{id}/listHinhAnh da dong san tu truoc vi HinhAnhRepository
+        // la exported = false — khong lien quan den thay doi nay.)
+        // Kiem chung boi ReviewExposureIT.
     }
 
     private void blockHttpMethods(Class<?> type, RepositoryRestConfiguration config, HttpMethod[] methods) {
@@ -57,12 +68,5 @@ public class RestConfig implements RepositoryRestConfigurer {
                 .withItemExposure((metadata, httpMethods) -> httpMethods.disable(methods))
                 .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(methods))
                 .withAssociationExposure((metadata, httpMethods) -> httpMethods.disable(methods));
-    }
-
-    private void blockCollectionAndItem(Class<?> type, RepositoryRestConfiguration config, HttpMethod[] methods) {
-        config.getExposureConfiguration()
-                .forDomainType(type)
-                .withItemExposure((metadata, httpMethods) -> httpMethods.disable(methods))
-                .withCollectionExposure((metadata, httpMethods) -> httpMethods.disable(methods));
     }
 }

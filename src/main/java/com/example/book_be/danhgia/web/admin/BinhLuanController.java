@@ -6,9 +6,11 @@ import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.repository.SachRepository;
 import com.example.book_be.danhgia.dto.DanhGiaResponse;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
+import com.example.book_be.danhgia.service.DanhGiaService;
 import com.example.book_be.nguoidung.domain.Quyen;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.danhgia.domain.SuDanhGia;
+import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,9 @@ public class BinhLuanController {
     @Autowired
     private SachRepository sachRepository;
 
+    @Autowired
+    private DanhGiaService danhGiaService;
+
     @GetMapping("findAll")
     public Page<DanhGiaResponse> findAll(@RequestParam("page") Integer page) {
         Pageable pageable = PageRequest.of(page,10);
@@ -46,20 +51,33 @@ public class BinhLuanController {
     }
 
 
+    /**
+     * An/hien danh gia di qua service chu khong ghi thang repository.
+     *
+     * <p>Day la hai thao tac duy nhat lam doi kha kien cua danh gia, tuc la dung thu ma
+     * du lieu tong hop cua sach duoc dinh nghia tren do. Ghi thang repository nhu truoc
+     * dong nghia diem trung binh khong bao gio duoc tinh lai khi admin kiem duyet.
+     *
+     * <p>Truoc day ham nay dung {@code orElse(null)} roi goi setter ngay — id khong ton tai
+     * tao NullPointerException va tra ve HTTP 500; va {@code return null} khien client nhan
+     * 200 rong, khong phan biet duoc thanh cong hay that bai.
+     */
     @PostMapping("active/{id}")
-    public ResponseEntity<?> active(@PathVariable Long id) {
-        SuDanhGia suDanhGia = suDanhGiaRepository.findById(id).orElse(null);
-        suDanhGia.setIsActive(1);
-        suDanhGiaRepository.save(suDanhGia);
-        return null;
+    public ResponseEntity<DanhGiaResponse> active(@PathVariable Long id) {
+        return ResponseEntity.ok(DanhGiaResponse.from(
+                danhGiaService.doiTrangThai(id, TrangThaiDanhGia.HIEN_THI)));
     }
 
     @PostMapping("unactive/{id}")
-    public ResponseEntity<?> unactive(@PathVariable Long id) {
-        SuDanhGia suDanhGia = suDanhGiaRepository.findById(id).orElse(null);
-        suDanhGia.setIsActive(0);
-        suDanhGiaRepository.save(suDanhGia);
-        return null;
+    public ResponseEntity<DanhGiaResponse> unactive(@PathVariable Long id) {
+        return ResponseEntity.ok(DanhGiaResponse.from(
+                danhGiaService.doiTrangThai(id, TrangThaiDanhGia.DA_AN)));
+    }
+
+    /** Tinh lai toan bo du lieu tong hop khi da lech. Idempotent. */
+    @PostMapping("tinh-lai-tat-ca")
+    public ResponseEntity<Integer> tinhLaiTatCa() {
+        return ResponseEntity.ok(danhGiaService.tinhLaiTongHopTatCa());
     }
 
 

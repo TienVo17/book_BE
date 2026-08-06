@@ -6,6 +6,7 @@ import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.danhgia.domain.SuDanhGia;
+import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
 import com.example.book_be.danhgia.service.DanhGiaService;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,8 +38,8 @@ public class DanhGiaController {
     public List<DanhGiaResponse> findAll(@RequestParam("maSach") Integer maSach) {
         List<SuDanhGia> suDanhGiaPage = suDanhGiaRepository.findAll((root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(builder.equal(root.get("sach").get("maSach"),maSach));
-            predicates.add(builder.equal(root.get("isActive"),1));
+            predicates.add(builder.equal(root.get("sach").get("maSach"), maSach));
+            predicates.add(builder.equal(root.get("trangThai"), TrangThaiDanhGia.HIEN_THI));
             return builder.and(predicates.toArray(new Predicate[0]));
         });
         return DanhGiaResponse.fromList(suDanhGiaPage);

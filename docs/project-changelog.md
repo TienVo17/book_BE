@@ -1,5 +1,18 @@
 # Project Changelog
 
+## 2026-08-06
+
+### Review foundation (plan phase 1)
+- **Reversed the 2026-07-13 decision to keep `GET /sach/{id}/listDanhGia` open.** `SuDanhGiaRepository` is now `@RepositoryRestResource(exported = false)`, so that relation and `/su-danh-gia/**` return 404. Evidence for the reversal: the relation bypasses `DanhGiaController` and therefore every status filter, and was serving admin-hidden reviews — including a literal `"isActive": 0` — to anonymous callers, which made moderation cosmetic. The only public read path for reviews is `GET /api/danh-gia/findAll?maSach=`. `/sach/{id}/listTheLoai` is unaffected.
+- Book rating aggregates are now written. `sach.trung_binh_xep_hang` had no writer anywhere in the codebase and only ever held a static seed number; added `sach.so_luot_danh_gia` beside it, and all six write paths (add, update, delete, admin hide, admin show, backfill) recompute inside `@Transactional(rollbackFor = Exception.class)` with `@Modifying(flushAutomatically = true, clearAutomatically = true)`.
+- Added `POST /api/admin/danh-gia/tinh-lai-tat-ca` (ADMIN) to recompute every book's aggregate; idempotent.
+- Admin hide/show now route through the service instead of writing the repository directly, so moderation recomputes the rating. A non-existent id returns `404 NOT_FOUND` in the unified error schema instead of the previous `500` from an `orElse(null)` NPE.
+- One review per user per book, enforced by `uk_danhgia_nguoi_sach`; a duplicate returns `409 CONFLICT` and writes no row. The catch is narrowed to that constraint name so unrelated integrity violations are not mislabelled.
+- Fixed a real deadlock between two concurrent reviews of the same book: every mutating path now takes `SachRepository.khoaSachDeCapNhat` (`PESSIMISTIC_WRITE`) before touching `danhgia`, giving a consistent lock order.
+- Added a handler for Spring Data REST `ResourceNotFoundException`, which had no handler and returned `500 INTERNAL_ERROR`. Pre-existing: `/sach/{id}/listHinhAnh` had behaved this way since `HinhAnhRepository` became `exported = false`.
+- `V11__review_schema_additive.sql`: additive and re-runnable — `trang_thai`, `ma_don_hang`, shop-reply columns, `tung_bi_an`, `sach.so_luot_danh_gia`, a `trung_binh_xep_hang_truoc_v11` rollback column, the `danhgia_huu_ich` and `danhgia_hinh_anh` tables, the unique constraint, and the aggregate backfill. Its one destructive step is documented in the file header: to add the unique constraint it keeps the highest `ma_danh_gia` per `(người, sách)` pair and deletes the rest, unrecoverably. That step is a no-op on current data.
+- `FlywayAutoRepairTest` asserted a hardcoded latest version `"10"`, so every new migration would have broken it; it now asserts the invariant that no migration is pending.
+
 ## 2026-07-24
 
 ### Production connectivity

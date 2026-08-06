@@ -222,7 +222,12 @@ class SachAdminTonKhoControllerIT {
                         .getListTheLoai()
                         .isEmpty());
         assertThat(theLoaiRong).isTrue();
-        assertThat(relationGet.getStatusCode()).isEqualTo(HttpStatus.OK);
+        // Quan he listDanhGia da bi dong (xem ReviewExposureIT): de ngo no dong nghia
+        // danh gia bi admin an van doc duoc cong khai. Truoc day dong nay khang dinh
+        // HTTP 200; dao lai theo bang chung do ngay 2026-08-05.
+        assertThat(relationGet.getStatusCode().is2xxSuccessful())
+                .as("association listDanhGia khong con mo cong khai")
+                .isFalse();
     }
 
     @Test

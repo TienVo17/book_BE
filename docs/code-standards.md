@@ -86,7 +86,7 @@ domain/ (JPA Entities - MySQL)
 - **Tồn kho:** `Sach.soLuong` luôn trong `0..Integer.MAX_VALUE`. Checkout chỉ nhận quantity dương, aggregate duplicate line bằng `long` và từ chối aggregate ngoài `int`; cancellation restore và admin delta phải dùng predicate upper/lower bound trong chính câu `UPDATE`. Không thực hiện arithmetic có thể overflow trong `WHERE`.
 - **Tách intent tạo/sửa:** `POST /api/admin/sach/insert` validate/ghi `soLuongTon >= 0`; `PUT /api/admin/sach/update/{id}` không được gán, validate, hoặc khôi phục `soLuongTon` từ payload legacy, kể cả `null`, âm hoặc stale. `Sach` dùng `@DynamicUpdate` để metadata flush chỉ ghi dirty columns.
 - **Điều chỉnh runtime:** chỉ `PATCH /api/admin/sach/{id}/ton-kho` được dùng cho signed delta; request là `{soLuongThayDoi: integer khác 0}`, response scalar `{maSach,soLuongTon}` phải được coi là authoritative. Dùng exception/status 400 (invalid), 404 (missing), 409 (range conflict).
-- **Spring Data REST:** write methods của `Sach` phải bị tắt tại collection, item và association. Giữ và regression-test GET relation `/sach/{id}/listDanhGia` trước khi đổi export/read contract.
+- **Spring Data REST:** write methods của `Sach` phải bị tắt tại collection, item và association. `SuDanhGiaRepository` là `@RepositoryRestResource(exported = false)` — `/su-danh-gia/**` và relation `/sach/{id}/listDanhGia` đều trả 404 và **không được mở lại**: relation này bỏ qua mọi bộ lọc trạng thái nên đánh giá bị admin ẩn vẫn đọc được công khai. Đường đọc đánh giá công khai duy nhất là `GET /api/danh-gia/findAll?maSach=`, đã lọc `trangThai = HIEN_THI`. Relation `/sach/{id}/listTheLoai` vẫn mở; `/sach/{id}/listHinhAnh` đã đóng từ trước vì `HinhAnhRepository` là `exported = false`.
 
 ## Phong Cách Code
 

@@ -192,11 +192,24 @@ class AdminAndRepositoryExposureIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
+    /**
+     * Quyet dinh nguoc lai voi ban truoc cua test nay, va co chu y.
+     *
+     * <p>Truoc day test ten {@code quan_he_danh_gia_cua_sach_van_doc_duoc_cong_khai} khang dinh
+     * endpoint nay tra HTTP 200 cho khach an danh. Bang chung moi ngay 2026-08-05: no tra ve ca
+     * danh gia da bi admin an, kem nguyen {@code "isActive": 0}, nen thao tac kiem duyet khong
+     * co tac dung that. Vi vay association nay bi dong lai
+     * ({@code @RepositoryRestResource(exported = false)} tren SuDanhGiaRepository).
+     *
+     * <p>Danh gia cong khai gio doc qua {@code /api/danh-gia}, noi co bo loc trang thai.
+     */
     @Test
-    void quan_he_danh_gia_cua_sach_van_doc_duoc_cong_khai() {
+    void quan_he_danh_gia_cua_sach_khong_con_doc_duoc_cong_khai() {
         ResponseEntity<String> response = rest.getForEntity("/sach/1/listDanhGia", String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode().is2xxSuccessful())
+                .as("association listDanhGia da bi dong de kiem duyet co hieu luc")
+                .isFalse();
     }
 
     private ResponseEntity<String> call(HttpMethod method, String path, HttpHeaders callerHeaders) {

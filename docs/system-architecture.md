@@ -153,7 +153,9 @@ hoanKho: soLuong <= MAX - restore      {"soLuongThayDoi": signed int != 0}
 
 CORS permits `PATCH` only from the normalized `FRONTEND_URL` origin. The security matcher is path-based and requires `ADMIN` for `PATCH /api/admin/sach/**`.
 
-Spring Data REST preserves GET, including `/sach/{id}/listDanhGia`, but disables `POST`, `PUT`, `PATCH`, and `DELETE` on the `Sach` collection, item, and association surfaces. This prevents raw Data REST writes from bypassing the stock-delta contract.
+Spring Data REST preserves GET on the `Sach` surfaces but disables `POST`, `PUT`, `PATCH`, and `DELETE` at the collection, item, and association level. This prevents raw Data REST writes from bypassing the stock-delta contract.
+
+`SuDanhGiaRepository` is `@RepositoryRestResource(exported = false)`, so `/su-danh-gia/**` and the relation `/sach/{id}/listDanhGia` both return 404. That relation used to be open and served admin-hidden reviews — complete with `"isActive": 0` — to anonymous callers, because it never passes through `DanhGiaController` and therefore honours no status filter. The only public read path for reviews is `GET /api/danh-gia/findAll?maSach=`, which filters `trangThai = HIEN_THI`. Blocking the repository rather than the `Sach` association was deliberate: association-exposure config is keyed on the *owning* domain type, so disabling it on `Sach` would also have killed `/sach/{id}/listTheLoai`.
 
 ## Luồng Trạng Thái & Hủy Đơn Hàng
 

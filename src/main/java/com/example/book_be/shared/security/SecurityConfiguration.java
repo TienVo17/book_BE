@@ -88,6 +88,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/admin/danh-gia/findAll**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/tinh-lai-tat-ca").hasAuthority("ADMIN")
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
                 .requestMatchers(HttpMethod.GET, Endpoints.AUTH_GET_ENDPOINTS).authenticated()

@@ -26,6 +26,11 @@ public class SachResponse {
     private double giaBan;
     private int soLuong;
     private double trungBinhXepHang;
+    /**
+     * Di kem trungBinhXepHang. Mot diem trung binh khong co so luot di cung thi khong
+     * doc duoc: 5.0 tu mot danh gia va 5.0 tu hai tram danh gia hien ra y het nhau.
+     */
+    private int soLuotDanhGia;
     private String ISBN;
     private String slug;
     private Integer isActive;
@@ -49,6 +54,7 @@ public class SachResponse {
         r.giaBan = s.getGiaBan();
         r.soLuong = s.getSoLuong();
         r.trungBinhXepHang = s.getTrungBinhXepHang();
+        r.soLuotDanhGia = s.getSoLuotDanhGia();
         r.ISBN = s.getISBN();
         r.slug = s.getSlug();
         r.isActive = s.getIsActive();

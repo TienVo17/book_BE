@@ -83,6 +83,21 @@ public class ApiExceptionHandler {
         return response(request, HttpStatus.CONFLICT, "DATA_CONFLICT", "Dữ liệu đang xung đột.");
     }
 
+    /**
+     * Spring Data REST nem exception nay khi mot repository resource khong duoc expose.
+     * Khong co handler thi no roi vao handleUnexpected va tra ve 500 INTERNAL_ERROR — sai
+     * ca ma lan y nghia: tai nguyen khong ton tai la 404, khong phai loi may chu.
+     *
+     * <p>Lo hong nay co san tu truoc (vi du /sach/{id}/listHinhAnh, do HinhAnhRepository
+     * da la exported = false), chi lo ra khi dong not association cua danh gia.
+     */
+    @ExceptionHandler(org.springframework.data.rest.webmvc.ResourceNotFoundException.class)
+    public ResponseEntity<ApiError> handleRestResourceNotFound(
+            org.springframework.data.rest.webmvc.ResourceNotFoundException exception,
+            HttpServletRequest request) {
+        return response(request, HttpStatus.NOT_FOUND, "NOT_FOUND", "Không tìm thấy tài nguyên.");
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiError> handleMethodNotAllowed(HttpRequestMethodNotSupportedException exception,
                                                             HttpServletRequest request) {

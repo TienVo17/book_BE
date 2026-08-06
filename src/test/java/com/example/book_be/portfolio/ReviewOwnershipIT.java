@@ -163,7 +163,7 @@ class ReviewOwnershipIT {
             danhGia.setNhanXet("Danh gia goc cua chu so huu");
             danhGia.setDiemXepHang(5F);
             danhGia.setTimestamp(new Timestamp(System.currentTimeMillis()));
-            danhGia.setIsActive(1);
+            danhGia.datTrangThai(com.example.book_be.danhgia.domain.TrangThaiDanhGia.HIEN_THI);
             danhGia.setNguoiDung(nguoiDung);
             danhGia.setSach(sach);
             return suDanhGiaRepository.saveAndFlush(danhGia).getMaDanhGia();

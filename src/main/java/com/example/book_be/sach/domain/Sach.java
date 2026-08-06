@@ -65,6 +65,14 @@ public class Sach {
     @Column(name = "trung_binh_xep_hang")
     private double trungBinhXepHang;
 
+    /**
+     * So danh gia dang hien thi. Cung {@link #trungBinhXepHang}, ca hai deu duoc tinh lai
+     * trong cung transaction voi moi thao tac doi danh gia — xem
+     * {@code SuDanhGiaRepository.capNhatTongHopChoSach}.
+     */
+    @Column(name = "so_luot_danh_gia", nullable = false)
+    private int soLuotDanhGia;
+
     @Column(name = "isbn", length = 256)
     private String ISBN;
 
