@@ -50,6 +50,8 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     private DanhGiaAnTombstoneRepository tombstoneRepository;
     @Autowired
     private DanhGiaHuuIchRepository danhGiaHuuIchRepository;
+    @Autowired
+    private DanhGiaHinhAnhService danhGiaHinhAnhService;
 
     /**
      * Che do Chat: chi nguoi co don DA_GIAO chua cuon sach do moi danh gia duoc.
@@ -150,13 +152,24 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SuDanhGia deleteReview(Long maDanhGia, Long maNguoiDungYeuCau, boolean laQuanTri) {
-        SuDanhGia db = suDanhGiaRepository.timKemNguoiDung(maDanhGia)
+        // Cung pessimistic lock voi duong upload: doi upload dang do commit xong roi moi
+        // nap danh sach anh, neu khong cascade co the xoa dong anh ma chua don Cloudinary.
+        SuDanhGia db = suDanhGiaRepository.khoaDeXoaKemNguoiDung(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         if (!laQuanTri) {
             kiemTraChuSoHuu(db, maNguoiDungYeuCau);
         }
         int maSach = db.getSach().getMaSach();
         sachRepository.khoaSachDeCapNhat(maSach);
+        // Don anh TRUOC khi xoa. Cascade cua database khong chay dong Java nao: no xoa
+        // dong danhgia_hinh_anh cung voi cloudinary_public_id, va anh nam lai Cloudinary
+        // vinh vien trong khi ma de tim ra chung vua bi chinh cau DELETE do huy.
+        try {
+            danhGiaHinhAnhService.donAnhCuaDanhGia(maDanhGia);
+        } catch (java.io.IOException loiLuuTru) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Không xoá được ảnh đính kèm, vui lòng thử lại.", loiLuuTru);
+        }
         suDanhGiaRepository.delete(db);
 
         tinhLaiTongHop(maSach);

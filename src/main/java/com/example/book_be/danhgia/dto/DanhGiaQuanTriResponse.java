@@ -7,6 +7,7 @@ import lombok.Data;
 import org.springframework.data.domain.Page;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 /**
  * Danh gia nhu admin kiem duyet nhin thay.
@@ -34,6 +35,7 @@ public class DanhGiaQuanTriResponse {
     /** Da tung bi an it nhat mot lan, ke ca khi hien tai dang hien thi. */
     private boolean tungBiAn;
     private Integer maDonHang;
+    private List<DanhGiaHinhAnhCongKhaiResponse> anhDinhKem = List.of();
 
     public static DanhGiaQuanTriResponse from(SuDanhGia d) {
         if (d == null) {

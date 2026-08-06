@@ -37,6 +37,8 @@ public class DanhGiaCongKhaiResponse {
     /** Phan hoi cong khai cua shop, neu co. Khong kem danh tinh nguoi tra loi. */
     private String phanHoiShop;
     private Timestamp phanHoiShopTai;
+    /** Anh dinh kem theo thu tu tai len. Co id de chu so huu/admin go dung anh; khong co public id. */
+    private List<DanhGiaHinhAnhCongKhaiResponse> anhDinhKem = List.of();
 
     public static DanhGiaCongKhaiResponse from(SuDanhGia d, Integer maNguoiDungDangXem) {
         if (d == null) {

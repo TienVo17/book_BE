@@ -196,6 +196,54 @@ database even if pointed at it. Both refusals were exercised. It arms its
 cleanup trap before the first mutation and removes only the IDs it created; after
 10 runs the database held zero leftover rehearsal rows.
 
+## Review images — Phase 6 verification (2026-08-06)
+
+Customer reviews can carry up to five JPEG, PNG or WebP images, each limited to
+5 MB. Review assets use the separate Cloudinary folder `web-ban-sach/reviews`;
+the backend validates signatures from file bytes rather than trusting the
+client-provided media type. Upload is authenticated, rate-limited to 20 attempts
+per 10 minutes per user, and capped by a lifetime quota of 50 accepted images.
+Only the review owner or an ADMIN can remove an attached image.
+
+| Gate | Result |
+|---|---|
+| Backend full verification | PASS — 81 Surefire + 219 Failsafe tests (MySQL Testcontainers) |
+| Backend focused image/admin/error/MVC tests | PASS; lock-race suite 10/10 and V14 migration suite 2/2 |
+| Frontend full suite | PASS — 33 suites, 227 tests |
+| Frontend typecheck | PASS — `tsc --noEmit` |
+| Frontend production build | PASS |
+| Real Cloudinary upload/delete | **Not verified** — no `CLOUDINARY_URL` was supplied to this environment |
+
+Each upload requires an `Idempotency-Key`. Replaying the same review/key/file
+returns the stored image without a second Cloudinary upload or lifetime-quota
+increment; reusing the key for different bytes returns `409`. The public response
+contains only the image ID and URL, never the Cloudinary public ID. Replays still
+count toward the 20-per-10-minute rate limit.
+
+The review service reads each accepted payload once, reuses those bytes for SHA-256,
+magic-byte validation and Cloudinary upload, avoiding a second full-size byte array.
+Upload and review deletion acquire the same pessimistic review-row lock, which
+prevents a concurrent delete from committing between the Cloudinary upload and
+its database row. A deterministic two-worker MySQL integration test confirms the
+delete reaches that lock and waits until upload commits. A database failure after
+upload triggers deletion of the new asset. Deletion calls Cloudinary before
+deleting the database row; if Cloudinary fails, the row and public ID remain
+available for a manual retry.
+
+This is not an atomic transaction across MySQL and Cloudinary. There is no
+durable outbox or background retry worker. If both a database insert and the
+immediate compensating Cloudinary delete fail, the new asset can remain without a
+durable retry record. During a multi-image deletion, an external failure after
+one asset has already been deleted can leave retained DB rows temporarily
+inconsistent with Cloudinary until an operator retries or reconciles them.
+`RateLimiter` is per JVM; 20 uploads/10 minutes is accurate for the current
+single-instance Render topology, but a multi-replica deployment needs a shared
+DB/Redis counter. Signature checks are a format filter, not malware scanning.
+`CLOUDINARY_URL` is mandatory; there is no local-storage fallback.
+
+The ADMIN catalog-image upload now benefits from the same byte-signature checks
+inside `CloudinaryService`; it does not rely solely on a browser `Content-Type`.
+
 ## Known limitations
 
 - **Bearer token in `localStorage`.** Readable by any script on the page.

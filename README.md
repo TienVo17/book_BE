@@ -80,7 +80,7 @@ Backend mặc định tại `http://localhost:8080`.
 | `VNPAY_PAY_URL` | VNPay sandbox payment URL | URL cổng thanh toán HTTP(S), không có query/fragment |
 | `VNPAY_API_URL` | VNPay sandbox transaction API | URL API giao dịch HTTP(S), không có query/fragment |
 | `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | URL browser return từ VNPay; override khi cần |
-| `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary |
+| `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary; bắt buộc cho upload/xóa ảnh sách và ảnh đánh giá, không có fallback local |
 | `FRONTEND_URL` | `http://localhost:3000` | Origin frontend duy nhất cho CORS, email links và VNPay return mặc định |
 | `FLYWAY_REPAIR_ON_START` | `false` | Chỉ bật tạm thời khi cần khôi phục lịch sử migration hỏng |
 | `ADMIN_BOOTSTRAP_ENABLED` | `false` | Bật bootstrap admin một lần |
@@ -152,6 +152,26 @@ Hệ thống đã chuyển sang lưu URL ảnh trên Cloudinary thay vì lưu ba
 - Upload file mới qua endpoint multipart `POST /api/admin/sach/{id}/hinh-anh`
 - Có endpoint admin migrate dữ liệu legacy base64: `POST /api/admin/sach/migrate-hinh-anh-base64?limit=20`
 - Bảng `hinh_anh` lưu thêm `cloudinary_public_id` để hỗ trợ xóa/thay thế asset
+
+## Luồng Ảnh Đánh Giá
+
+Khách đã nhận hàng tạo đánh giá chữ trước, sau đó có thể đính kèm tối đa 5 ảnh
+JPEG/PNG/WebP, mỗi ảnh tối đa 5 MB. Backend kiểm tra chữ ký nội dung thay vì tin
+`Content-Type` từ client; ảnh đánh giá nằm trong thư mục Cloudinary riêng
+`web-ban-sach/reviews`.
+
+- Upload: `POST /api/danh-gia/{maDanhGia}/hinh-anh`, multipart part `tep`, bắt buộc
+  header `Idempotency-Key` dài tối đa 100 ký tự và chỉ gồm chữ, số, `.`, `_`, `-`
+- Gửi lại cùng review, cùng key và cùng nội dung trả ảnh đã lưu, không upload hoặc
+  tăng hạn ngạch lần nữa; dùng lại key cho nội dung khác trả `409 CONFLICT`
+- Response công khai chỉ có mã ảnh và URL, không trả Cloudinary public ID
+- Gỡ ảnh: `POST /api/danh-gia/hinh-anh/{maHinhAnh}/xoa`
+- Chỉ chủ đánh giá được upload; chủ đánh giá hoặc ADMIN được gỡ ảnh
+- Rate limit: 20 lượt upload/10 phút/người dùng; hạn ngạch trọn đời: 50 ảnh/người.
+  Replay vẫn tính vào rate limit nhưng không tính lại hạn ngạch trọn đời
+- Thiếu `CLOUDINARY_URL` trả `503 STORAGE_NOT_CONFIGURED`; không lưu tạm local
+- Xóa gọi Cloudinary trước DB để giữ public ID khi dịch vụ ngoài lỗi. Hai hệ thống
+  không có transaction nguyên tử và hiện chưa có background retry worker.
 
 ## API Chính
 

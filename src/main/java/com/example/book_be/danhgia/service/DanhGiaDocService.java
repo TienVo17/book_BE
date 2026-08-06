@@ -3,7 +3,9 @@ package com.example.book_be.danhgia.service;
 import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
 import com.example.book_be.danhgia.dto.DanhGiaCongKhaiResponse;
+import com.example.book_be.danhgia.dto.DanhGiaHinhAnhCongKhaiResponse;
 import com.example.book_be.danhgia.dto.DanhGiaTrangResponse;
+import com.example.book_be.danhgia.repository.DanhGiaHinhAnhRepository;
 import com.example.book_be.danhgia.repository.DanhGiaHuuIchRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import org.springframework.data.domain.Page;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,11 +38,14 @@ public class DanhGiaDocService {
 
     private final SuDanhGiaRepository suDanhGiaRepository;
     private final DanhGiaHuuIchRepository danhGiaHuuIchRepository;
+    private final DanhGiaHinhAnhRepository danhGiaHinhAnhRepository;
 
     public DanhGiaDocService(SuDanhGiaRepository suDanhGiaRepository,
-                             DanhGiaHuuIchRepository danhGiaHuuIchRepository) {
+                             DanhGiaHuuIchRepository danhGiaHuuIchRepository,
+                             DanhGiaHinhAnhRepository danhGiaHinhAnhRepository) {
         this.suDanhGiaRepository = suDanhGiaRepository;
         this.danhGiaHuuIchRepository = danhGiaHuuIchRepository;
+        this.danhGiaHinhAnhRepository = danhGiaHinhAnhRepository;
     }
 
     @Transactional(readOnly = true)
@@ -108,9 +114,17 @@ public class DanhGiaDocService {
                 ? Set.of()
                 : Set.copyOf(danhGiaHuuIchRepository.timDaBinhChon(maNguoiDungDangXem, danhSachMa));
 
+        // Anh cung nap cho ca trang bang mot truy van, cung mot ly do.
+        Map<Long, List<DanhGiaHinhAnhCongKhaiResponse>> anhTheoDanhGia = new HashMap<>();
+        for (var anh : danhGiaHinhAnhRepository.findByMaDanhGiaInOrderByThuTuAsc(danhSachMa)) {
+            anhTheoDanhGia.computeIfAbsent(anh.getMaDanhGia(), k -> new ArrayList<>())
+                    .add(DanhGiaHinhAnhCongKhaiResponse.from(anh));
+        }
+
         for (DanhGiaCongKhaiResponse dong : trang) {
             dong.setSoLuotHuuIch(soLuot.getOrDefault(dong.getMaDanhGia(), 0L));
             dong.setToiDaBinhChon(daBinhChon.contains(dong.getMaDanhGia()));
+            dong.setAnhDinhKem(anhTheoDanhGia.getOrDefault(dong.getMaDanhGia(), List.of()));
         }
         return trang;
     }

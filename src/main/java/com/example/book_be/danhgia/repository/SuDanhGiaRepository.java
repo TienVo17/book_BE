@@ -4,8 +4,10 @@ import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -105,6 +107,25 @@ public interface SuDanhGiaRepository extends JpaRepository<SuDanhGia, Long>, Jpa
     @EntityGraph(attributePaths = {"nguoiDung", "sach"})
     @Query("SELECT d FROM SuDanhGia d WHERE d.maDanhGia = :maDanhGia")
     Optional<SuDanhGia> timKemNguoiDung(@Param("maDanhGia") Long maDanhGia);
+
+    /**
+     * Khoa dong review trong luc them anh. Neu hai request cung thay 4 anh roi cung upload,
+     * ca hai se chen thanh 6 anh neu khong co khoa — bang anh khong co cach dien dat
+     * "toi da 5 dong moi review" bang mot UNIQUE constraint.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM SuDanhGia d WHERE d.maDanhGia = :maDanhGia")
+    Optional<SuDanhGia> khoaDeThemAnh(@Param("maDanhGia") Long maDanhGia);
+
+    /**
+     * Dung cung khoa voi upload de xoa review khong doc danh sach anh truoc khi mot upload
+     * dang do commit. Neu hai duong dung khoa khac nhau, DB cascade co the xoa dong anh moi
+     * ma duong xoa chua tung goi Cloudinary, de lai asset mo coi.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"nguoiDung", "sach"})
+    @Query("SELECT d FROM SuDanhGia d WHERE d.maDanhGia = :maDanhGia")
+    Optional<SuDanhGia> khoaDeXoaKemNguoiDung(@Param("maDanhGia") Long maDanhGia);
 
     /**
      * Tinh lai diem trung binh va so luot danh gia cua mot cuon sach tu cac danh gia

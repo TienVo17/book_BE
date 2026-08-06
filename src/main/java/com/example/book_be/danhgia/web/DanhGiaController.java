@@ -6,17 +6,21 @@ import com.example.book_be.danhgia.dto.DanhGiaCongKhaiResponse;
 import com.example.book_be.danhgia.dto.DanhGiaTrangResponse;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.danhgia.domain.DanhGiaHinhAnh;
 import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.service.DanhGiaDocService;
+import com.example.book_be.danhgia.service.DanhGiaHinhAnhService;
 import com.example.book_be.danhgia.service.DanhGiaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.util.Map;
 
 @RestController
@@ -27,6 +31,9 @@ public class DanhGiaController {
 
     @Autowired
     private DanhGiaDocService danhGiaDocService;
+
+    @Autowired
+    private DanhGiaHinhAnhService danhGiaHinhAnhService;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -81,6 +88,34 @@ public class DanhGiaController {
         NguoiDung nguoiDung = nguoiDungHienTai();
         long soLuot = danhGiaService.doiBinhChonHuuIch(maDanhGia, nguoiDung.getMaNguoiDung());
         return Map.of("maDanhGia", maDanhGia, "soLuotHuuIch", soLuot);
+    }
+
+    /**
+     * Dinh kem mot anh vao danh gia cua chinh minh.
+     *
+     * <p>Moi rang buoc (so luong, kich thuoc, dinh dang, han ngach, tan suat) deu cuong
+     * che o service — endpoint nay khong tu kiem tra gi de khoi co hai ban quy tac.
+     */
+    @PostMapping("/{maDanhGia}/hinh-anh")
+    public Map<String, Object> themAnh(@PathVariable Long maDanhGia,
+                                       @RequestHeader(value = "Idempotency-Key", required = false)
+                                       String idempotencyKey,
+                                       @RequestParam("tep") MultipartFile tep) throws IOException {
+        NguoiDung nguoiDung = nguoiDungHienTai();
+        DanhGiaHinhAnh anh = danhGiaHinhAnhService.themAnh(
+                maDanhGia, nguoiDung.getMaNguoiDung(), idempotencyKey, tep);
+        return Map.of("maHinhAnh", anh.getMaHinhAnh(), "urlHinh", anh.getUrlHinh());
+    }
+
+    /** Chu so huu go anh cua minh; ADMIN go anh vi pham. */
+    @PostMapping("/hinh-anh/{maHinhAnh}/xoa")
+    public Map<String, Object> xoaAnh(@PathVariable Long maHinhAnh) throws IOException {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        NguoiDung nguoiDung = nguoiDungHienTai();
+        boolean laQuanTri = authentication.getAuthorities().stream()
+                .anyMatch(quyen -> "ADMIN".equals(quyen.getAuthority()));
+        danhGiaHinhAnhService.xoaAnh(maHinhAnh, nguoiDung.getMaNguoiDung(), laQuanTri);
+        return Map.of("maHinhAnh", maHinhAnh, "daXoa", true);
     }
 
     @PostMapping("/them-danh-gia-v1")

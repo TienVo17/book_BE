@@ -111,6 +111,10 @@ public class SecurityConfiguration {
                 // Binh chon huu ich: phai dang nhap de rang buoc mot nguoi mot luot
                 // co y nghia. Chan tu binh chon nam o service, khong phai o day.
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/*/huu-ich").authenticated()
+                // Anh dinh kem: moi rang buoc (so luong, kich thuoc, dinh dang,
+                // han ngach, tan suat) cuong che o service; o day chi doi dang nhap.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/*/hinh-anh").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/hinh-anh/*/xoa").authenticated()
                 // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/xoa-danh-gia/**").authenticated()
