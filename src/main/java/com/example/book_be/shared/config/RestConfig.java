@@ -49,7 +49,7 @@ public class RestConfig implements RepositoryRestConfigurer {
         // Ly do cu ("KHONG dong association exposure de /sach/{id}/listDanhGia van hoat dong
         // vi FE dang dung") da sai tren hai mat. Thu nhat, ham FE goi no —
         // getOneReviewOfOneBook — khong duoc import o dau ca. Thu hai, de ngo association
-        // co nghia la danh gia bi admin an van doc duoc cong khai kem nguyen "isActive": 0,
+        // co nghia la danh gia bi admin an van doc duoc cong khai kem co trang thai cu,
         // tuc la thao tac kiem duyet khong co tac dung.
         //
         // Chan collection/item o day cung khong du: /sach/{id}/listDanhGia la association cua

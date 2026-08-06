@@ -29,6 +29,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * khi mot lan deploy dut o giua, nguoi van hanh chi con cach chay lai. Neu lan chay thu hai
  * lam hong du lieu — bo ban luu {@code trung_binh_xep_hang_truoc_v11}, xoa nham dong, hay
  * danh dau thua {@code tung_bi_an} — thi buoc khoi phuc lai la buoc pha hoai.
+ *
+ * <p>Luoc do duoc migrate den DUNG V11, khong phai den ban moi nhat. Chay lai V11 chi la
+ * thao tac co that trong cua so truoc khi V15 chay: V11 doc {@code danhgia.is_active} de
+ * suy ra {@code trang_thai}, va V15 da xoa han cot do. Sau V15, chay lai V11 that bai voi
+ * "Unknown column 'is_active'" — dung nhu no phai vay, va do khong phai tinh huong ma test
+ * nay mo ta.
  */
 @Testcontainers
 class V11ReviewSchemaIdempotencyTest {
@@ -48,11 +54,7 @@ class V11ReviewSchemaIdempotencyTest {
 
     @Test
     void chay_lai_v11_khong_doi_du_lieu() throws Exception {
-        Flyway.configure()
-                .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        migrateDenV11();
 
         try (Connection ket = ketNoi()) {
             Map<String, Object> truoc = chupAnh(ket);
@@ -75,11 +77,7 @@ class V11ReviewSchemaIdempotencyTest {
      */
     @Test
     void chay_lai_v11_khong_ghi_de_ban_luu_diem_cu() throws Exception {
-        Flyway.configure()
-                .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
-                .locations("classpath:db/migration")
-                .load()
-                .migrate();
+        migrateDenV11();
 
         try (Connection ket = ketNoi()) {
             String maSach = String.valueOf(motSo(ket, "SELECT MIN(`ma_sach`) FROM `sach`"));
@@ -103,6 +101,15 @@ class V11ReviewSchemaIdempotencyTest {
                     .as("ban luu da bi xoa thi phai giu nguyen NULL, khong duoc dien lai bang gia tri hien tai")
                     .isEqualTo("0");
         }
+    }
+
+    private void migrateDenV11() {
+        Flyway.configure()
+                .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
+                .locations("classpath:db/migration")
+                .target("11")
+                .load()
+                .migrate();
     }
 
     private Connection ketNoi() throws SQLException {

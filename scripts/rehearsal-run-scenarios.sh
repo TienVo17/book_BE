@@ -6,6 +6,10 @@
 # Every run re-seeds fixtures through the guarded reset script and clears browser
 # localStorage first, so runs are independent. Never prints a JWT or password.
 #
+# Exit status is 0 only when every scenario row says PASS and the closing fixture
+# reset verified zero residue. A run that emits a FAIL row and still exits 0 lets
+# a scripted "10/10 runs succeeded" claim be built on top of failures.
+#
 # Usage: ./scripts/rehearsal-run-scenarios.sh <RUN_NUMBER> [FE_URL] [BE_URL]
 set -u
 
@@ -16,13 +20,28 @@ DB_CONT="rehearsal_ban_sach_db"
 DB_NAME="rehearsal_ban_sach"
 PASS_WORD='Rehearsal@12345'
 
-sql() { docker exec "$DB_CONT" mysql -uroot "$DB_NAME" -N -e "$1" 2>/dev/null | tr -d '\r'; }
+FAILS=0
+# Header dump goes to a per-run temp file: a fixed /tmp path makes two rehearsals
+# on one machine read each other's headers.
+HDR_FILE="$(mktemp)"
+trap 'rm -f "$HDR_FILE"' EXIT
+
+# stderr khong bi chan: mot cau truy van hong o day tra ve chuoi rong, va chuoi
+# rong se lam phep so sanh cua kich ban that bai -- nhung khong noi vi sao. Cac
+# cau o runner khong chua hash hay token nao nen loi cua mysql in ra an toan.
+sql() { docker exec "$DB_CONT" mysql -uroot "$DB_NAME" -N -e "$1" | tr -d '\r'; }
 now_ms() { date +%s%3N; }
-row() { printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$RUN" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "${4:--}" "${5:--}"; }
+row() {
+  [ "$2" = "FAIL" ] && FAILS=$((FAILS + 1))
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$RUN" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "${4:--}" "${5:--}"
+}
 ab() { timeout 90 agent-browser "$@" >/dev/null 2>&1; }
 
 # --- Fixture reset (guarded) ---------------------------------------------
-FIX="$(KEEP_FIXTURES=1 ./scripts/rehearsal-fixture-reset.sh 2>/dev/null)"
+# The reset script needs the same backend this run targets; without the argument
+# it health-checks its own default and can seed against a different stack.
+# Its stderr is left attached on purpose -- that is where statement failures go.
+FIX="$(KEEP_FIXTURES=1 ./scripts/rehearsal-fixture-reset.sh "$BE")"
 BOOK_ID="$(echo "$FIX" | grep '^REHEARSAL_BOOK_ID=' | cut -d= -f2)"
 ADDR_ID="$(echo "$FIX" | grep '^REHEARSAL_ADDRESS_ID=' | cut -d= -f2)"
 CUSTOMER="$(echo "$FIX" | grep '^REHEARSAL_USERNAME=' | cut -d= -f2)"
@@ -92,13 +111,21 @@ VRESP="$(curl -s -X POST "$BE/api/don-hang/them" -H "Authorization: Bearer $JWT_
   -d "{\"items\":[{\"maSach\":$BOOK_ID,\"soLuong\":1}],\"maDiaChiGiaoHang\":$ADDR_ID,\"phuongThucThanhToan\":\"VNPAY\"}")"
 VORDER="$(echo "$VRESP" | grep -oE '"maDonHang":[0-9]+' | grep -oE '[0-9]+')"
 PAY="$(curl -s "$BE/api/don-hang/submitOrder?maDonHang=$VORDER" -H "Authorization: Bearer $JWT_CUSTOMER")"
-# Sandbox credentials are absent in this environment, so the contract-level
-# assertion is that a VNPAY order is created and the URL endpoint answers
-# without leaking a server defect. Live callback is explicitly not demonstrated.
-if [ -n "$VORDER" ] && echo "$PAY" | grep -qE 'paymentUrl|"status":(4|5)[0-9][0-9]'; then
-  row 4-vnpay-contract PASS $(( $(now_ms) - T0 )) "$(trace_of "$PAY")" "order=$VORDER contract-only (no sandbox creds)"
+# Exactly two answers are a passing contract, and the row records which one:
+#   (a) credentials present  -> a paymentUrl comes back;
+#   (b) credentials absent   -> the common error envelope (code + traceId).
+# Anything else -- empty body, HTML error page, a 500 with no envelope -- is a
+# real defect. The earlier check accepted any body containing a 4xx/5xx-shaped
+# number, which passed on responses nobody had looked at.
+# A live VNPay callback is not demonstrated by either branch.
+if [ -z "$VORDER" ]; then
+  row 4-vnpay-contract FAIL $(( $(now_ms) - T0 )) "$(trace_of "$PAY")" "VNPAY order was not created"
+elif echo "$PAY" | grep -q '"paymentUrl"'; then
+  row 4-vnpay-contract PASS $(( $(now_ms) - T0 )) - "order=$VORDER contract=paymentUrl (callback not exercised)"
+elif echo "$PAY" | grep -q '"code":"' && echo "$PAY" | grep -q '"traceId":"'; then
+  row 4-vnpay-contract PASS $(( $(now_ms) - T0 )) "$(trace_of "$PAY")" "order=$VORDER contract=structured-error (no sandbox creds)"
 else
-  row 4-vnpay-contract FAIL $(( $(now_ms) - T0 )) "$(trace_of "$PAY")" "order=$VORDER unexpected payment response"
+  row 4-vnpay-contract FAIL $(( $(now_ms) - T0 )) "$(trace_of "$PAY")" "order=$VORDER payment response matched neither contract"
 fi
 
 # --- Scenario 5: admin stock delta + order state --------------------------
@@ -119,9 +146,9 @@ fi
 # --- Scenario 6: failure / recovery --------------------------------------
 T0=$(now_ms)
 # (a) invalid JWT fails closed with the common schema + trace header
-UNAUTH_BODY="$(curl -s -D /tmp/rehearsal-h.txt "$BE/api/dia-chi" -H 'Authorization: Bearer not-a-valid-jwt')"
+UNAUTH_BODY="$(curl -s -D "$HDR_FILE" "$BE/api/dia-chi" -H 'Authorization: Bearer not-a-valid-jwt')"
 UNAUTH_CODE="$(echo "$UNAUTH_BODY" | grep -oE '"status":[0-9]+' | grep -oE '[0-9]+')"
-HDR_TRACE="$(grep -i '^x-trace-id:' /tmp/rehearsal-h.txt | tr -d '\r' | awk '{print $2}')"
+HDR_TRACE="$(grep -i '^x-trace-id:' "$HDR_FILE" | tr -d '\r' | awk '{print $2}')"
 BODY_TRACE="$(trace_of "$UNAUTH_BODY")"
 # (b) response-loss retry with one key creates exactly one order
 RKEY="run${RUN}-retry-$(date +%s%N)"
@@ -144,14 +171,20 @@ else
 fi
 
 # --- Scenario 7: review helpful vote toggles and never self-votes ---------
-# The fixture customer's order was advanced to DA_GIAO by scenario 5, so they are
-# eligible to review. The admin votes on it; the author must not be able to.
+# Reviewing requires a DELIVERED order, i.e. trang_thai_giao_hang = 2. Scenario 5
+# advances the order by ONE step, which only reaches DANG_GIAO (1) -- the earlier
+# comment here claimed it reached DA_GIAO and the review call simply 403'd every
+# run. Advance once more and assert the state before posting.
 T0=$(now_ms)
+curl -s -o /dev/null -X POST "$BE/api/don-hang/cap-nhat-trang-thai-giao-hang/$ORDER_ID" -H "Authorization: Bearer $JWT_ADMIN"
+DELIVERED="$(sql "SELECT trang_thai_giao_hang FROM don_hang WHERE ma_don_hang=$ORDER_ID;")"
 REVIEW_BODY="{\"maSach\":$BOOK_ID,\"diemXepHang\":5,\"nhanXet\":\"Rehearsal review run $RUN\"}"
 POST_REVIEW="$(curl -s -X POST "$BE/api/danh-gia/them-danh-gia-v1" -H "Authorization: Bearer $JWT_CUSTOMER" \
   -H 'Content-Type: application/json' -d "$REVIEW_BODY")"
 REVIEW_ID="$(sql "SELECT ma_danh_gia FROM danhgia WHERE ma_sach=$BOOK_ID ORDER BY ma_danh_gia DESC LIMIT 1;")"
-if [ -z "$REVIEW_ID" ]; then
+if [ "$DELIVERED" != "2" ]; then
+  row 7-review-helpful FAIL $(( $(now_ms) - T0 )) - "order $ORDER_ID is at delivery state $DELIVERED, not DA_GIAO"
+elif [ -z "$REVIEW_ID" ]; then
   row 7-review-helpful FAIL $(( $(now_ms) - T0 )) "$(trace_of "$POST_REVIEW")" "review not created"
 else
   VOTE1="$(curl -s -X POST "$BE/api/danh-gia/$REVIEW_ID/huu-ich" -H "Authorization: Bearer $JWT_ADMIN")"
@@ -173,5 +206,14 @@ else
   fi
 fi
 
-# Leave the database clean for the next run.
-./scripts/rehearsal-fixture-reset.sh >/dev/null 2>&1
+# Leave the database clean for the next run, and prove it. The reset script
+# verifies residue itself and exits non-zero when anything is left behind or a
+# delete failed; discarding that status would turn a dirty database into a
+# silently green run, and the next run would inherit the leftovers as baseline.
+if ./scripts/rehearsal-fixture-reset.sh "$BE" >/dev/null; then
+  row cleanup PASS 0 - "fixture reset verified residue=0"
+else
+  row cleanup FAIL 0 - "fixture reset reported leftover fixtures or a failed statement"
+fi
+
+exit $(( FAILS > 0 ? 1 : 0 ))

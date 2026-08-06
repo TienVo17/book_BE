@@ -43,18 +43,7 @@ public class SuDanhGia  {
     @JoinColumn(name="ma_sach",nullable = false)
     private Sach sach;
 
-    /**
-     * Mac dinh 1 de khop voi mac dinh HIEN_THI ben duoi. Neu de NULL, mot dong
-     * moi se vua la HIEN_THI vua bi duong doc cu loc `is_active = 1` bo qua.
-     */
-    @Setter(AccessLevel.NONE)
-    @Column(name = "is_active")
-    private Integer isActive = 1;
-
-    /**
-     * Trang thai kiem duyet. Da thay the hoan toan {@link #isActive} tren moi duong doc;
-     * cot cu chi con duoc GHI de tuong thich nguoc, va V13 se go no.
-     */
+    /** Trang thai kiem duyet duy nhat cua danh gia. */
     @Setter(AccessLevel.NONE)
     @Enumerated(EnumType.STRING)
     @Column(name = "trang_thai", nullable = false)
@@ -85,14 +74,9 @@ public class SuDanhGia  {
     @Column(name = "phan_hoi_shop_boi")
     private Integer phanHoiShopBoi;
 
-    /**
-     * Duong ghi DUY NHAT cho trang thai — setter cua ca hai truong da bi go.
-     * Neu de Lombok sinh setTrangThai/setIsActive, moi noi goi mot trong hai se
-     * lam cot cu va cot moi lech nhau ma khong co gi chan lai.
-     */
+    /** Duong ghi duy nhat cho trang thai; Lombok khong sinh setter truc tiep. */
     public void datTrangThai(TrangThaiDanhGia trangThaiMoi) {
         this.trangThai = trangThaiMoi;
-        this.isActive = trangThaiMoi == TrangThaiDanhGia.HIEN_THI ? 1 : 0;
         if (trangThaiMoi == TrangThaiDanhGia.DA_AN) {
             this.tungBiAn = true;
         }

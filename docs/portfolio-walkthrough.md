@@ -1,4 +1,4 @@
-# Walkthrough Script (5–7 minutes)
+# Walkthrough Script (6–7 minutes)
 
 A demo order for showing the project. Timings are targets, not measurements.
 Run against the local Docker stack so nothing depends on free-tier cold starts.
@@ -8,6 +8,11 @@ Run against the local Docker stack so nothing depends on free-tier cold starts.
 - Clear browser `localStorage` so the cart starts empty.
 - Use test accounts only. Never show a real address, phone number or payment detail.
 - Keep DevTools closed except where the script calls for it.
+- Section 7 needs an account with a **delivered** order: place one, then advance
+  it twice from the admin screen (`CHO_XU_LY` → `DANG_GIAO` → `DA_GIAO`). One
+  advance is not enough and the review form will stay hidden.
+
+Budget: 30 s framing, ~6 min of the eight sections, 30 s close.
 
 ---
 
@@ -78,7 +83,27 @@ This is the core of the demo — do not rush it.
 > "The frontend guard is UX only. The backend authorizes every request
 > independently — that `403` comes from the server, not the router."
 
-## 7. Traceability (~45 s)
+## 7. Reviews: only real buyers, and moderation that sticks (~60 s)
+
+Use the customer whose order was just advanced to delivered.
+
+- On a product the account has **not** received, show the review form is absent
+  and the reason the API gives (`CHUA_MUA` / `CHUA_NHAN_HANG`).
+- On the delivered product, post a rating and a comment; show the star average
+  and the count change on the product page.
+- Attach an image, then remove it.
+- As `ADMIN`, hide the review. Reload the product page signed out: it is gone
+  from the list, from the average and from the total.
+- Back as the author, delete the hidden review and try to post again.
+
+> "Two things are worth watching here. The average isn't a seed value any more —
+> it's recomputed from the visible reviews on every write path, including the
+> admin hide. And hiding survives deletion: the author can delete their own
+> post, but a tombstone on (user, book) means the moderated pair can't come back
+> by deleting and reposting. The reviewer name is masked server-side, and no
+> stable user id is in the public payload."
+
+## 8. Traceability (~45 s)
 
 - Trigger any error, copy the trace ID from the message.
 - `docker compose logs backend | grep <traceId>` → the matching event.
@@ -87,13 +112,17 @@ This is the core of the demo — do not rush it.
 > one structured event. No tokens, no request bodies, no stack traces in the
 > logs — just enough to find the request."
 
-## 8. Close (~30 s)
+## 9. Close (~30 s)
 
-> "Verified by 35 backend unit tests, 134 integration tests against real MySQL,
-> 173 frontend tests, and six browser scenarios run ten times for sixty evidence
-> rows. The known limitations — the token in `localStorage`, VNPay being sandbox
-> contract only, and Lighthouse not being measured — are written down in
-> `portfolio-evidence.md` rather than left for someone to discover."
+> "Verified by the backend unit and integration suites against real MySQL, the
+> frontend suite, and seven scenarios run ten times for eighty evidence rows —
+> every row PASS, and the run exits non-zero if any row fails. The known
+> limitations — the token in `localStorage`, VNPay being sandbox contract only,
+> and Cloudinary never being exercised with real credentials — are written down
+> in `portfolio-evidence.md` rather than left for someone to discover."
+
+Exact counts move with every run; read them from `portfolio-evidence.md` on the
+day you record rather than repeating a number from this script.
 
 ---
 
@@ -101,5 +130,8 @@ This is the core of the demo — do not rush it.
 
 - That it is production-ready, secure, or has an SLA.
 - That VNPay works end to end — the live callback was never demonstrated.
-- Any Lighthouse or Core Web Vitals score; none was measured.
+- Any **field** Core Web Vitals. The Lighthouse numbers in
+  `portfolio-evidence.md` are lab runs under mobile emulation, nothing more.
+- That review images reach Cloudinary; no `CLOUDINARY_URL` was ever supplied,
+  so that path is mocked in tests and unproven in production.
 - That the free-tier deployment is reliable; it can cold start.

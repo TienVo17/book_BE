@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Mot danh gia da bi admin an phai bien mat khoi MOI duong cong khai.
  *
  * <p>Truoc ban va nay, `/sach/{id}/listDanhGia` (association cua Spring Data REST)
- * van tra ve danh gia da an kem nguyen `"isActive": 0` cho khach an danh, nen thao tac
+ * van tra ve danh gia da an kem nguyen co trang thai cu cho khach an danh, nen thao tac
  * kiem duyet cua admin khong co tac dung that. Test nay khoa ca hai duong lai.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

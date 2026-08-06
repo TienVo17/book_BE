@@ -197,7 +197,7 @@ class AdminAndRepositoryExposureIT {
      *
      * <p>Truoc day test ten {@code quan_he_danh_gia_cua_sach_van_doc_duoc_cong_khai} khang dinh
      * endpoint nay tra HTTP 200 cho khach an danh. Bang chung moi ngay 2026-08-05: no tra ve ca
-     * danh gia da bi admin an, kem nguyen {@code "isActive": 0}, nen thao tac kiem duyet khong
+     * danh gia da bi admin an, kem nguyen co trang thai cu, nen thao tac kiem duyet khong
      * co tac dung that. Vi vay association nay bi dong lai
      * ({@code @RepositoryRestResource(exported = false)} tren SuDanhGiaRepository).
      *

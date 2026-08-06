@@ -16,7 +16,7 @@ import java.util.List;
  * nguoi cu the, va lam viec do trong bong toi thi te hon. Test PII cua duong cong khai
  * KHONG duoc ap len DTO nay — xem {@link DanhGiaCongKhaiResponse}.
  *
- * <p>{@code trangThai} thay cho {@code isActive} cu. Man quan tri truoc day doc mot truong
+ * <p>{@code trangThai} la nguon su that duy nhat. Man quan tri truoc day doc mot truong
  * kieu {@code any} nen gia tri thieu tro thanh {@code undefined} im lang: moi danh gia hien
  * nhan "Da an" bat ke trang thai that, va nut "an" goi {@code !undefined} nen luon gui
  * lenh "hien" — cong cu kiem duyet dao nguoc y nghia ma khong he bao loi.
