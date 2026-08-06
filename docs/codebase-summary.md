@@ -133,7 +133,7 @@ Frontend ở repo sibling `../../book_FE` (tính từ file tài liệu này) ph�
 
 ## Spring Data REST cho `Sach`
 
-`RestConfig` tắt `POST`, `PUT`, `PATCH`, `DELETE` cho `Sach` tại collection, item và association. GET repository/relationship vẫn còn, đặc biệt `/sach/{id}/listDanhGia`; raw repository writes không được coi là một con đường hợp lệ để cập nhật stock.
+`RestConfig` tắt `POST`, `PUT`, `PATCH`, `DELETE` cho `Sach` tại collection, item và association; GET repository/relationship vẫn còn. Raw repository writes không được coi là một con đường hợp lệ để cập nhật stock. `SuDanhGiaRepository` là `exported = false`, nên `/su-danh-gia/**` và `/sach/{id}/listDanhGia` trả 404 — đánh giá chỉ đọc qua `GET /api/danh-gia?maSach=` (đã lọc `trangThai = HIEN_THI`), có phân trang và kèm phân bố sao.
 
 ## Kiểm Thử Inventory
 

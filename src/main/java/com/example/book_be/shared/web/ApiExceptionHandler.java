@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import com.example.book_be.danhgia.web.ReviewImageValidationException;
 import com.example.book_be.sach.service.SachNotFoundException;
 import com.example.book_be.sach.service.StockAdjustmentConflictException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +17,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,16 +48,57 @@ public class ApiExceptionHandler {
             BindException.class,
             MissingRequestValueException.class,
             MethodArgumentTypeMismatchException.class,
+            MissingServletRequestPartException.class,
             IllegalArgumentException.class
     })
     public ResponseEntity<ApiError> handleBadRequest(Exception exception, HttpServletRequest request) {
         return response(request, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Yêu cầu không hợp lệ.");
     }
 
+    /** Multipart hong cu phap la loi request; vuot dung luong co handler 413 rieng ben duoi. */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMultipart(MultipartException exception,
+                                                    HttpServletRequest request) {
+        return response(request, HttpStatus.BAD_REQUEST,
+                "INVALID_MULTIPART", "Dữ liệu tải lên không hợp lệ.");
+    }
+
     @ExceptionHandler(SachNotFoundException.class)
     public ResponseEntity<ApiError> handleBookNotFound(SachNotFoundException exception,
                                                         HttpServletRequest request) {
         return response(request, HttpStatus.NOT_FOUND, "BOOK_NOT_FOUND", exception.getMessage());
+    }
+
+    /**
+     * Thieu cau hinh luu tru la loi VAN HANH, va nguoi van hanh can biet thieu bien nao.
+     * Nhanh {@code IllegalStateException} ben duoi vut bo message, nen phai co kieu rieng.
+     */
+    @ExceptionHandler(StorageNotConfiguredException.class)
+    public ResponseEntity<ApiError> handleStorageNotConfigured(StorageNotConfiguredException exception,
+                                                                HttpServletRequest request) {
+        log.error("event=storage_not_configured traceId={} path={}",
+                RequestTraceFilter.currentTraceId(request), request.getRequestURI());
+        return response(request, HttpStatus.SERVICE_UNAVAILABLE,
+                "STORAGE_NOT_CONFIGURED", exception.getMessage());
+    }
+
+    /** Moi nguyen nhan mot ma rieng, de giao dien noi dung cai nguoi dung can sua. */
+    @ExceptionHandler(ReviewImageValidationException.class)
+    public ResponseEntity<ApiError> handleReviewImage(ReviewImageValidationException exception,
+                                                       HttpServletRequest request) {
+        return response(request, HttpStatus.BAD_REQUEST,
+                exception.getMa().name(), exception.getMessage());
+    }
+
+    /**
+     * Tep vuot nguong cua container. Khong co handler thi no roi vao handleUnexpected va
+     * tra 500 kem mot dong log moi request — vua sai hop dong vua la moi lam ngap log.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException exception,
+                                                          HttpServletRequest request) {
+        return response(request, HttpStatus.PAYLOAD_TOO_LARGE,
+                "FILE_TOO_LARGE", "Tệp tải lên vượt quá dung lượng cho phép.");
     }
 
     @ExceptionHandler(IllegalStateException.class)
@@ -81,6 +126,21 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException exception,
                                                     HttpServletRequest request) {
         return response(request, HttpStatus.CONFLICT, "DATA_CONFLICT", "Dữ liệu đang xung đột.");
+    }
+
+    /**
+     * Spring Data REST nem exception nay khi mot repository resource khong duoc expose.
+     * Khong co handler thi no roi vao handleUnexpected va tra ve 500 INTERNAL_ERROR — sai
+     * ca ma lan y nghia: tai nguyen khong ton tai la 404, khong phai loi may chu.
+     *
+     * <p>Lo hong nay co san tu truoc (vi du /sach/{id}/listHinhAnh, do HinhAnhRepository
+     * da la exported = false), chi lo ra khi dong not association cua danh gia.
+     */
+    @ExceptionHandler(org.springframework.data.rest.webmvc.ResourceNotFoundException.class)
+    public ResponseEntity<ApiError> handleRestResourceNotFound(
+            org.springframework.data.rest.webmvc.ResourceNotFoundException exception,
+            HttpServletRequest request) {
+        return response(request, HttpStatus.NOT_FOUND, "NOT_FOUND", "Không tìm thấy tài nguyên.");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -122,6 +182,7 @@ public class ApiExceptionHandler {
             // defect, and clients retry the two differently.
             case SERVICE_UNAVAILABLE -> "SERVICE_UNAVAILABLE";
             case METHOD_NOT_ALLOWED -> "METHOD_NOT_ALLOWED";
+            case PAYLOAD_TOO_LARGE -> "FILE_TOO_LARGE";
             default -> status.is5xxServerError() ? "INTERNAL_ERROR" : "REQUEST_FAILED";
         };
     }

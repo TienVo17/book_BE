@@ -88,6 +88,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/admin/danh-gia/findAll**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/active/**").hasAuthority("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/unactive/**").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/tinh-lai-tat-ca").hasAuthority("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/admin/danh-gia/*/phan-hoi").hasAuthority("ADMIN")
                 .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
                 .requestMatchers(HttpMethod.GET, Endpoints.AUTH_GET_ENDPOINTS).authenticated()
@@ -98,8 +100,21 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/submitOrder**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
+                // Duong doc cong khai duy nhat cua danh gia. Matcher chinh xac (khong **)
+                // de no khong nuot cac route con phia duoi, nhat la co-the-danh-gia.
+                .requestMatchers(HttpMethod.GET, "/api/danh-gia").permitAll()
+                // Ket qua phu thuoc lich su mua hang cua chinh nguoi goi, nen khong the
+                // mo cong khai; thieu dong nay thi endpoint ship ra ma chet cam vi
+                // anyRequest().denyAll() ben duoi.
+                .requestMatchers(HttpMethod.GET, "/api/danh-gia/co-the-danh-gia**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
+                // Binh chon huu ich: phai dang nhap de rang buoc mot nguoi mot luot
+                // co y nghia. Chan tu binh chon nam o service, khong phai o day.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/*/huu-ich").authenticated()
+                // Anh dinh kem: moi rang buoc (so luong, kich thuoc, dinh dang,
+                // han ngach, tan suat) cuong che o service; o day chi doi dang nhap.
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/*/hinh-anh").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/danh-gia/hinh-anh/*/xoa").authenticated()
                 // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/xoa-danh-gia/**").authenticated()

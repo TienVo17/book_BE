@@ -20,6 +20,14 @@ public class NguoiDung {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ma_nguoi_dung")
     private int maNguoiDung;
+    /**
+     * Bo dem han ngach anh danh gia TRON DOI. Chi cong len; xoa anh khong lam no giam,
+     * neu khong thi vong "tai 5 anh - xoa - tai 5 anh" se lach duoc gioi han. Xem V13.
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "so_anh_danh_gia_da_dung", nullable = false)
+    private int soAnhDanhGiaDaDung;
+
     @Column(name = "ho_dem", length = 256)
     private String hoDem;
     @Column(name = "ten", length = 256)

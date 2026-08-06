@@ -13,6 +13,11 @@
 #   4. Registers the cleanup trap before the first mutation and removes only the
 #      exact IDs it created.
 #   5. Never prints a password, hash, JWT or raw SQL result set.
+#   6. Never reports success over a failed statement. Every mysql invocation is
+#      checked; a failure during provisioning aborts, and a failure during
+#      cleanup makes the script exit non-zero after attempting the rest of the
+#      deletes. Evidence that says "residue 0" must mean the deletes actually
+#      ran, not that their errors went to /dev/null.
 #
 # Usage: ./scripts/rehearsal-fixture-reset.sh [BASE_URL]
 set -u
@@ -35,7 +40,31 @@ docker inspect "$DB_CONT" >/dev/null 2>&1 \
 [ "$DB_NAME" = "$FORBIDDEN_DB" ] \
   && fail "refusing to operate on the development database '$FORBIDDEN_DB'"
 
-sql() { docker exec "$DB_CONT" mysql -uroot "$DB_NAME" -N -e "$1" 2>/dev/null; }
+# Statement errors are surfaced, not swallowed. Only the mysql diagnostic is
+# printed, with anything hash- or token-shaped redacted, because a syntax error
+# echoes back a fragment of the failing statement -- and one of those statements
+# carries the fixture BCrypt hash.
+SQL_ERR_FILE="$(mktemp)"
+SQL_STRICT=1
+SQL_FAILURES=0
+trap 'rm -f "$SQL_ERR_FILE"' EXIT
+
+redact() {
+  sed -E 's/\$2[aby]\$[0-9]{2}\$[A-Za-z0-9./]{20,}/[REDACTED-HASH]/g; s/eyJ[A-Za-z0-9_.-]{20,}/[REDACTED-TOKEN]/g'
+}
+
+sql() {
+  local out rc
+  out="$(docker exec "$DB_CONT" mysql -uroot "$DB_NAME" -N -e "$1" 2>"$SQL_ERR_FILE")"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    SQL_FAILURES=$((SQL_FAILURES + 1))
+    echo "  [SQL-FAIL] $(head -2 "$SQL_ERR_FILE" | redact | tr '\n' ' ')" >&2
+    [ "$SQL_STRICT" = "1" ] && fail "aborting on a failed statement; nothing further was attempted"
+    return "$rc"
+  fi
+  printf '%s' "$out"
+}
 
 ACTUAL_DB="$(docker exec "$DB_CONT" mysql -uroot -N -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$DB_NAME';" 2>/dev/null | tr -d '\r')"
 [ "$ACTUAL_DB" = "$DB_NAME" ] \
@@ -54,10 +83,37 @@ info "identity verified: container=$DB_CONT database=$DB_NAME base=$BASE"
 # --- Snapshot BEFORE the first mutation, and arm cleanup immediately ------
 BASELINE_ORDER="$(sql "SELECT COALESCE(MAX(ma_don_hang),0) FROM don_hang;" | tr -d '\r')"
 BASELINE_BOOK="$(sql "SELECT COALESCE(MAX(ma_sach),0) FROM sach;" | tr -d '\r')"
+# A value-returning statement runs in a subshell, so its abort cannot stop this
+# one. Check the values instead: an empty baseline would make every cleanup
+# predicate below a syntax error, i.e. no cleanup at all.
+case "$BASELINE_ORDER" in ''|*[!0-9]*) fail "could not read the order id baseline" ;; esac
+case "$BASELINE_BOOK" in ''|*[!0-9]*) fail "could not read the book id baseline" ;; esac
 USER_PREFIX="rehearsal-${RUN_ID}"
 COUPON_CODE="REHEARSAL${RUN_ID##*-}"
 
+# Residue is counted from the same table set the cleanup deletes from. A run that
+# reports zero here has proven the deletes ran; a run that cannot even count has
+# proven nothing and says so.
+dem_residue() {
+  sql "SELECT (SELECT COUNT(*) FROM sach WHERE ten_sach LIKE 'Rehearsal Book %')
+            + (SELECT COUNT(*) FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%')
+            + (SELECT COUNT(*) FROM coupon WHERE ma LIKE 'REHEARSAL%')
+            + (SELECT COUNT(*) FROM don_hang WHERE ma_don_hang > $BASELINE_ORDER)
+            + (SELECT COUNT(*) FROM danhgia WHERE ma_don_hang > $BASELINE_ORDER);" | tr -d '\r'
+}
+
 cleanup() {
+  # Best-effort from here: keep deleting even after a statement fails, then
+  # report. Exiting at the first error would leave MORE residue behind.
+  SQL_STRICT=0
+
+  # Reviews first, and this ordering is now mandatory rather than tidy:
+  # V15 gave danhgia.ma_don_hang a foreign key to don_hang, so deleting the order
+  # first fails outright instead of leaving a dangling reference.
+  # danhgia_an_tombstone needs no clause here: it cascades from nguoi_dung and sach.
+  sql "DELETE FROM danhgia WHERE ma_don_hang > $BASELINE_ORDER;"
+  sql "DELETE FROM danhgia WHERE ma_sach > $BASELINE_BOOK;"
+  sql "DELETE FROM danhgia WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE '${USER_PREFIX}-%');"
   sql "DELETE FROM lich_su_trang_thai_don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
   sql "DELETE FROM chi_tiet_don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
   sql "DELETE FROM don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
@@ -66,13 +122,27 @@ cleanup() {
   sql "DELETE FROM nguoidung_quyen WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE '${USER_PREFIX}-%');"
   sql "DELETE FROM nguoi_dung WHERE ten_dang_nhap LIKE '${USER_PREFIX}-%';"
   sql "DELETE FROM hinh_anh WHERE ma_sach > $BASELINE_BOOK;"
-  sql "DELETE FROM sach_the_loai WHERE ma_sach > $BASELINE_BOOK;"
+  sql "DELETE FROM sach_theloai WHERE ma_sach > $BASELINE_BOOK;"
   sql "DELETE FROM sach WHERE ma_sach > $BASELINE_BOOK;"
+
+  local residue
+  residue="$(dem_residue)"
+  if [ -z "$residue" ]; then
+    echo "  [ABORT] cleanup could not verify residue; treat this run as dirty" >&2
+    exit 1
+  fi
+  if [ "$residue" != "0" ] || [ "$SQL_FAILURES" -ne 0 ]; then
+    echo "  [ABORT] cleanup incomplete: residue=$residue failed_statements=$SQL_FAILURES" >&2
+    exit 1
+  fi
+  info "cleanup verified: residue=0"
 }
 
 # Clean anything a previous aborted run left behind, then arm the trap so this
 # run's own fixtures are removed even on failure.
 purge_stale() {
+  sql "DELETE FROM danhgia WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%');"
+  sql "DELETE FROM danhgia WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
   sql "DELETE FROM lich_su_trang_thai_don_hang WHERE ma_don_hang IN (SELECT ma_don_hang FROM (SELECT ma_don_hang FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%')) t);"
   sql "DELETE FROM chi_tiet_don_hang WHERE ma_don_hang IN (SELECT ma_don_hang FROM (SELECT ma_don_hang FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%')) t);"
   sql "DELETE FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%');"
@@ -84,7 +154,7 @@ purge_stale() {
   # rows behind that the next run's MAX(ma_sach) baseline would otherwise adopt
   # as pre-existing data and never clean up.
   sql "DELETE FROM hinh_anh WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
-  sql "DELETE FROM sach_the_loai WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
+  sql "DELETE FROM sach_theloai WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
   sql "DELETE FROM chi_tiet_don_hang WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
   sql "DELETE FROM sach WHERE ten_sach LIKE 'Rehearsal Book %';"
 }
@@ -93,7 +163,7 @@ info "stale rehearsal fixtures purged"
 
 # From here on, this run owns cleanup of what it creates.
 if [ "${KEEP_FIXTURES:-0}" != "1" ]; then
-  trap cleanup EXIT
+  trap 'cleanup; rm -f "$SQL_ERR_FILE"' EXIT
 fi
 
 login() {

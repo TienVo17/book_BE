@@ -4,7 +4,7 @@ What this demo actually does, how it was verified, and where the limits are.
 Every number below came from a command run on the date shown — nothing here is
 estimated.
 
-**Verified on:** 2026-08-03
+**Verified on:** 2026-08-06 (review work); earlier sections carry their own dates
 **Environment:** Windows 11, Docker Engine 29.5.3, Java 17 (Temurin), Node 18,
 Testcontainers pinned to Docker client API `1.44`, `agent-browser` 0.31.1
 (bundled Chromium).
@@ -24,48 +24,55 @@ Testcontainers pinned to Docker client API `1.44`, `agent-browser` 0.31.1
 Both repositories are separate Git repositories, reviewed and tested
 independently.
 
-| Repo | Branch | Baseline commit | Head after this work |
+| Repo | Branch | Baseline commit | This work |
 |---|---|---|---|
-| `book_BE` | `fix/flyway-auto-repair` | `7ce5689` | `4759266` (6 commits) |
-| `book_FE` | `fix/vercel-api-base-url` | `fb6441c` | `93b7c62` (6 commits) |
+| `book_BE` | `feat/danh-gia-nen-tang` | `6225aee` | 7 commits, one per phase |
+| `book_FE` | `feat/danh-gia-nen-tang` | `86d6cc6` | 7 commits, one per phase |
 
 One commit per phase in each repository, in the order the phases ran. The two
-repositories must be reviewed and released together for the paired changes: the
-error-schema commits (`cc61f4b` / `a3e87d0`) change a shared contract, so
-shipping the frontend parser before the backend schema would break error
-handling.
+repositories must be reviewed and released together: the public review payload,
+the moderation state name and the review-image endpoints are a shared contract,
+so shipping either side alone breaks the other. Earlier work on the same pair of
+repositories (error schema, API base URL) shipped the same way.
 
 Verified against the committed state, not just a working tree.
 
 ## Verification results
 
+Last full run 2026-08-06.
+
 | Gate | Command | Result |
 |---|---|---|
-| Backend unit | `mvnw -B -Dapi.version=1.44 verify` | PASS — 35/35 (Surefire) |
-| Backend integration | same run (MySQL Testcontainers) | PASS — 134/134 (Failsafe) |
-| Frontend suite | `npm test -- --watchAll=false --runInBand` | PASS — 25 suites, 180 tests |
+| Backend unit | `mvnw -B -Dapi.version=1.44 verify` | PASS — 84/84 (Surefire) |
+| Backend integration | same run (MySQL Testcontainers) | PASS — 220/220 (Failsafe), 7 min 27 s |
+| Frontend suite | `npm test -- --watchAll=false --runInBand` | PASS — 34 suites, 231 tests |
 | Frontend typecheck | `npx tsc --noEmit` | PASS |
 | Frontend build | `npm run build` | PASS (rewrites the robots `Sitemap:` URL) |
-| Browser rehearsal | `scripts/rehearsal-run-scenarios.sh` ×10 | PASS — 60/60 rows |
+| Browser rehearsal | `scripts/rehearsal-run-scenarios.sh` ×10 | PASS — 80/80 rows (see the Phase 7 section) |
 
 Integration tests run against real MySQL via Testcontainers, not H2, because the
 Flyway migrations and the atomic stock UPDATEs are MySQL-specific.
 
 ## Scenarios covered
 
-Six browser scenarios, each executed 10 consecutive times against a freshly
-reset fixture set. Structured rows (`run`, `timestamp`, `scenario`, `status`,
-`elapsed_ms`, `traceId`, `note`) are in
-[`../../plans/260803-0841-proof-first-ecommerce-portfolio/reports/browser-rehearsal-evidence-260803.tsv`](../../plans/260803-0841-proof-first-ecommerce-portfolio/reports/browser-rehearsal-evidence-260803.tsv).
+Seven browser/API scenarios plus a cleanup row, each executed 10 consecutive
+times against a freshly reset fixture set — 8 rows per run, 80 rows total.
+Structured rows (`run`, `timestamp`, `scenario`, `status`, `elapsed_ms`,
+`traceId`, `note`) are in
+[`../../plans/260805-1039-danh-gia-san-pham-chuan-ecommerce/reports/browser-rehearsal-evidence-260806.tsv`](../../plans/260805-1039-danh-gia-san-pham-chuan-ecommerce/reports/browser-rehearsal-evidence-260806.tsv).
+
+Worst case is the slowest of the 10 runs on 2026-08-06.
 
 | # | Scenario | What it proves | Worst case |
 |---|---|---|---|
-| 1 | Discovery | Catalog renders, 0 console errors | 2.1 s |
-| 2 | Cart / two-tab | A second tab's write is reconciled; no line is silently lost | 4.4 s |
-| 3 | Address + COD | Coupon applied, order committed, stock decremented exactly once, cart cleared only after the committed response | 0.6 s |
-| 4 | VNPay | Order + payment-URL contract (contract-only, see boundary above) | 0.3 s |
-| 5 | Admin | Atomic stock delta, order state advance, and the same call denied `403` for a customer token | 0.7 s |
-| 6 | Failure / recovery | Traced `401`, response-loss retry produces exactly one order, forced stock conflict changes nothing | 1.0 s |
+| 1 | Discovery | Catalog renders, 0 console errors | 2.05 s |
+| 2 | Cart / two-tab | A second tab's write is reconciled; no line is silently lost | 4.06 s |
+| 3 | Address + COD | Coupon applied, order committed, stock decremented exactly once, cart cleared only after the committed response | 0.51 s |
+| 4 | VNPay | Order + payment-URL contract (contract-only, see boundary above) | 0.34 s |
+| 5 | Admin | Atomic stock delta, order state advance, and the same call denied `403` for a customer token | 0.57 s |
+| 6 | Failure / recovery | Traced `401`, response-loss retry produces exactly one order, forced stock conflict changes nothing | 0.93 s |
+| 7 | Review helpful vote | A delivered order makes the buyer eligible; a vote toggles off on the second press, the author is denied `403` on their own review, and deleting the review takes its votes with it | 1.27 s |
+| — | Cleanup | The closing fixture reset verified residue = 0 and exited 0 | — |
 
 Two further scenarios are covered by integration tests rather than the browser
 runner: checkout idempotency edge cases (`CheckoutIdempotencyIT`, 9 tests) and
@@ -187,14 +194,221 @@ stack, so it can be reset destructively without touching development data.
 cd book_BE
 export JWT_SECRET='<base64-signing-key>'
 docker compose -f docker-compose.rehearsal.yml -p rehearsal up --build -d
-./scripts/rehearsal-run-scenarios.sh 1     # one run, six evidence rows
+./scripts/rehearsal-allow-frontend-csp.sh  # see the CSP note in the Phase 7 section
+./scripts/rehearsal-run-scenarios.sh 1     # one run, eight evidence rows
 ```
+
+The runner exits non-zero if any row says `FAIL`, so `for i in $(seq 1 10); do
+./scripts/rehearsal-run-scenarios.sh "$i" || echo "run $i failed"; done` is a
+real gate rather than a transcript.
 
 `scripts/rehearsal-fixture-reset.sh` refuses to run unless it finds the exact
 rehearsal container **and** database, and explicitly refuses the development
 database even if pointed at it. Both refusals were exercised. It arms its
 cleanup trap before the first mutation and removes only the IDs it created; after
 10 runs the database held zero leftover rehearsal rows.
+
+## Review images — Phase 6 verification (2026-08-06)
+
+Customer reviews can carry up to five JPEG, PNG or WebP images, each limited to
+5 MB. Review assets use the separate Cloudinary folder `web-ban-sach/reviews`;
+the backend validates signatures from file bytes rather than trusting the
+client-provided media type. Upload is authenticated, rate-limited to 20 attempts
+per 10 minutes per user, and capped by a lifetime quota of 50 accepted images.
+Only the review owner or an ADMIN can remove an attached image.
+
+| Gate | Result |
+|---|---|
+| Backend full verification | PASS — 81 Surefire + 219 Failsafe tests (MySQL Testcontainers) |
+| Backend focused image/admin/error/MVC tests | PASS; lock-race suite 10/10 and V14 migration suite 2/2 |
+| Frontend full suite | PASS — 33 suites, 227 tests |
+| Frontend typecheck | PASS — `tsc --noEmit` |
+| Frontend production build | PASS |
+| Real Cloudinary upload/delete | **Not verified** — no `CLOUDINARY_URL` was supplied to this environment |
+
+Each upload requires an `Idempotency-Key`. Replaying the same review/key/file
+returns the stored image without a second Cloudinary upload or lifetime-quota
+increment; reusing the key for different bytes returns `409`. The public response
+contains only the image ID and URL, never the Cloudinary public ID. Replays still
+count toward the 20-per-10-minute rate limit.
+
+The review service reads each accepted payload once, reuses those bytes for SHA-256,
+magic-byte validation and Cloudinary upload, avoiding a second full-size byte array.
+Upload and review deletion acquire the same pessimistic review-row lock, which
+prevents a concurrent delete from committing between the Cloudinary upload and
+its database row. A deterministic two-worker MySQL integration test confirms the
+delete reaches that lock and waits until upload commits. A database failure after
+upload triggers deletion of the new asset. Deletion calls Cloudinary before
+deleting the database row; if Cloudinary fails, the row and public ID remain
+available for a manual retry.
+
+This is not an atomic transaction across MySQL and Cloudinary. There is no
+durable outbox or background retry worker. If both a database insert and the
+immediate compensating Cloudinary delete fail, the new asset can remain without a
+durable retry record. During a multi-image deletion, an external failure after
+one asset has already been deleted can leave retained DB rows temporarily
+inconsistent with Cloudinary until an operator retries or reconciles them.
+`RateLimiter` is per JVM; 20 uploads/10 minutes is accurate for the current
+single-instance Render topology, but a multi-replica deployment needs a shared
+DB/Redis counter. Signature checks are a format filter, not malware scanning.
+`CLOUDINARY_URL` is mandatory; there is no local-storage fallback.
+
+The ADMIN catalog-image upload now benefits from the same byte-signature checks
+inside `CloudinaryService`; it does not rely solely on a browser `Content-Type`.
+
+## Reviews — Phase 7 verification (2026-08-06)
+
+Reviews are now restricted to buyers who actually received the goods, the star
+average is derived from visible reviews on every write path, and moderation
+survives a delete-and-repost attempt.
+
+### Schema cleanup and a startup defect it exposed
+
+`V15` raises `danhgia.ma_don_hang` to `NOT NULL`, adds the foreign key to
+`don_hang`, and drops the legacy `is_active` column. It refuses to touch the
+schema unless `SELECT COUNT(*) FROM danhgia WHERE ma_don_hang IS NULL` is 0 —
+the guard runs before the first `ALTER` and raises `SQLSTATE 45000` otherwise.
+`V15ReviewSchemaCleanupTest` proves the gate, the post-conditions, and that
+re-running the file changes neither schema nor data.
+
+Standing the isolated rehearsal stack up on the migrated schema found a defect
+no integration test had caught: `V14` created `danhgia_hinh_anh.noi_dung_sha256`
+as `CHAR(64)` while the entity maps `VARCHAR(64)`, so with the real
+`ddl-auto=validate` setting Hibernate refused to build the
+`entityManagerFactory` and **the application did not boot**. `V16` converts the
+column; `V16ReviewImageHashTypeTest` locks the type, and the rehearsal backend
+now boots and answers `{"status":"UP"}` at Flyway version 16.
+
+| Gate | Command | Result |
+|---|---|---|
+| Review domain free of the legacy flag | `grep -rn "isActive" book_BE/src book_FE/src` | PASS — remaining hits are the book/coupon `isActive` fields and one regression assertion that the public review DTO must **not** contain it |
+| Order-link data gate | `SELECT COUNT(*) FROM danhgia WHERE ma_don_hang IS NULL` | 0 on the fully migrated stack |
+| Migrated schema | `SELECT version … ORDER BY installed_rank DESC LIMIT 1` | `16`; `noi_dung_sha256` is `varchar`; `danhgia.is_active` is gone |
+| Backend boot under `ddl-auto=validate` | `GET /health` on the rehearsal stack | `{"status":"UP"}` |
+
+`ReviewInvariantIT` runs one mixed sequence — post, edit, vote, attach image,
+admin hide, admin show, unvote, delete image, delete review, repost — and
+asserts the aggregate, public exposure and moderation invariants after *each*
+step. It is the net for interactions that per-phase tests miss: helpful votes
+and image attachments must not move the rating, hiding must remove the review
+from the list, the total and the average at once, and the tombstone must still
+block the repost at the end of the whole chain.
+
+### Admin dashboard, and the demo orders it must ignore
+
+Phase 2 seeded delivered orders so legacy reviews have proof of purchase. Those
+orders carry `la_don_demo = 1` and every dashboard aggregate excludes them.
+Measured against the rehearsal stack on 2026-08-06:
+
+| Number | API `GET /api/admin/thong-ke` | Direct SQL |
+|---|---|---|
+| Orders | `totalOrders` = 3 | 11 rows total, 8 of them demo → 3 real |
+| Revenue | `totalRevenue` = 356 000 | 356 000 excluding demo |
+| Top sellers | 4 titles, 5 units | 8 demo order lines excluded from the `GROUP BY` |
+| Reviews resting on demo orders | — | 8 |
+
+Honest reading: the **count** difference (11 → 3) demonstrates the exclusion
+directly. The **revenue** figure is identical either way, because the seeded
+demo orders are unpaid (`trang_thai_thanh_toan = 0`) and would not have been
+counted regardless. The revenue exclusion is enforced by the query
+(`DonHangRepository.sumDoanhThu`) and covered by `ThongKeSeedExclusionIT`, not
+by this measurement.
+
+Reading those numbers in the browser required a fix: the dashboard model
+declared `tongDoanhThu` / `topSachBanChay` while the API returns
+`totalRevenue` / `topBanChay`, and `authRequest<T>` only casts. Every tile
+rendered `0đ` with an empty best-seller table while the API had data.
+`AdminApi.getThongKe` now maps the fields explicitly and is covered by
+`AdminApi.thongke.test.ts`. The "reviews awaiting moderation" banner was
+removed rather than wired up: there is no such queue — moderation states are
+`HIEN_THI` and `DA_AN` only — and the field it read never existed.
+
+### Accessibility and Lighthouse
+
+Measured in Chrome against the rehearsal stack on 2026-08-06, on a product page
+including the review block, and again while signed in as a buyer with a
+delivered order so the review form and its image picker were present:
+
+| Width | Signed in with a delivered order | Review form + image picker rendered | Horizontal overflow |
+|---|---|---|---|
+| 320 CSS px | no | no (review list only) | none (`scrollWidth` == `clientWidth`) |
+| 640 CSS px (200 % zoom equivalent) | no | no (review list only) | none |
+| 1280 CSS px | no | no (review list only) | none |
+| 320 CSS px | yes | yes | none |
+| 640 CSS px (200 % zoom equivalent) | yes | yes | none |
+
+55 focusable controls on the anonymous product page, none with a negative
+`tabindex`.
+
+Lighthouse 12.8.2, headless Chrome, default mobile emulation, product page
+`/sach/1`:
+
+| Run | Performance | Accessibility | Best Practices | SEO | CLS | LCP |
+|---|---|---|---|---|---|---|
+| Before | 50 | **100** | 96 | **100** | 0.881 | 8.0 s |
+| After sizing the product image | 63 | **100** | 96 | **100** | **0** | 9.1 s |
+
+The product-image carousel replaced a short loading heading with a 250 px image
+frame and rendered the image without dimensions, so the whole page below it
+jumped when the image arrived. Reserving the frame and passing explicit
+`width`/`height` took CLS to 0. LCP stays around 9 s for the reason already
+recorded for the catalog page: render-blocking third-party CSS from CDNs, which
+is a build-pipeline change outside this scope. It is reported, not tuned.
+
+### Rehearsal evidence is now falsifiable
+
+Three defects made the previous "10 independent runs" claim unprovable, and all
+three are fixed:
+
+- `rehearsal-fixture-reset.sh` sent every `mysql` invocation's stderr to
+  `/dev/null`. Two cleanup statements named a table that does not exist
+  (`sach_the_loai`; the real name is `sach_theloai`), so those deletes had never
+  run and nobody could have known. `sql()` now reports failures, aborts during
+  provisioning, and — after the cleanup pass — counts the residue itself and
+  exits non-zero if anything is left or any statement failed.
+- `rehearsal-run-scenarios.sh` exited 0 even when a row said `FAIL`. It now
+  exits non-zero if any row fails, and the closing fixture reset's status is
+  itself an evidence row.
+- Scenario 7 assumed the order was already delivered, but the admin step
+  advances delivery by one state and only reached `DANG_GIAO`. Every run had
+  been failing the review POST with `403`. It now advances to `DA_GIAO` and
+  asserts the state before posting.
+
+The VNPay row also stopped accepting any body that merely contained a
+4xx/5xx-shaped number. It now passes only on a `paymentUrl` or on the common
+error envelope (`code` + `traceId`), and records which of the two it saw.
+
+After the 10 runs: 80 PASS rows, 0 FAIL rows, and zero leftover rehearsal
+books, users, coupons or orders.
+
+### Full suite after the Phase 7 changes
+
+| Gate | Result |
+|---|---|
+| Backend `mvnw -B verify` | PASS — 84 Surefire + 220 Failsafe, 7 min 27 s |
+| Frontend suite | PASS — 34 suites, 231 tests |
+| Frontend typecheck / build | PASS |
+
+The first full run failed, and the failure was informative:
+`V11ReviewSchemaIdempotencyTest` migrated to the newest version and then replayed
+`V11`, which reads `danhgia.is_active` — a column `V15` had just dropped. The
+test is now pinned to version 11, the only state in which replaying `V11` is a
+real recovery step. That is a behaviour change worth naming rather than a test
+tweak: see the note in Known limitations.
+
+### Limits of this evidence
+
+- The browser scenarios ran with **one** CSP directive relaxed. The production
+  `connect-src` allows only `http://localhost:8080` and the Render origin, so
+  the rehearsal backend on `:8081` was blocked in the browser while `curl`
+  succeeded — CSP is not applied by curl, which is exactly why API-level checks
+  never surfaced it. `scripts/rehearsal-allow-frontend-csp.sh` patches the
+  running rehearsal container only; `nginx.conf` is untouched, and every other
+  directive was in force.
+- Real Cloudinary upload and delete are still **not verified**: no
+  `CLOUDINARY_URL` was supplied to this environment. The image tests mock
+  `CloudinaryService`, which proves the application's contract with the client
+  and its own database, not the storage provider's behaviour.
 
 ## Known limitations
 
@@ -218,6 +432,19 @@ cleanup trap before the first mutation and removes only the IDs it created; afte
   than creating an unactivatable account), but a later SMTP outage during
   password reset is not surfaced to the caller, by design, to avoid account
   enumeration.
-- **Lighthouse Performance is below target** (catalog 79, checkout 67) because
-  of render-blocking CDN CSS, and checkout CLS is 0.367 from unsized images. See
-  the Accessibility section for the full numbers and reasoning.
+- **Lighthouse Performance is below target** (catalog 79, checkout 67, product
+  63) because of render-blocking CDN CSS. Checkout CLS is still 0.367 from
+  unsized images in the cart list; the product page was fixed to CLS 0 on
+  2026-08-06 and the cart list has not had the same treatment. Catalog and
+  checkout were last measured 2026-08-04 and have not been re-run since.
+- **The frontend CSP hardcodes backend origins.** `connect-src` lists
+  `http://localhost:8080` and one Render URL, so deploying the API anywhere else
+  breaks every browser request while server-side checks keep passing. This cost
+  a debugging cycle when the rehearsal backend moved to `:8081`. Making the
+  allowed origin follow `REACT_APP_API_BASE_URL` at build time is the fix; it
+  touches deployment config outside this scope and is recorded, not done.
+- **Re-running `V11` is only possible before `V15`.** `V11` reads
+  `danhgia.is_active` to derive `trang_thai`, and `V15` drops that column. The
+  replay-safety test pins itself to version 11 for that reason. An operator
+  recovering from a half-applied `V11` after `V15` has run must use the rollback
+  runbook, not a re-run.

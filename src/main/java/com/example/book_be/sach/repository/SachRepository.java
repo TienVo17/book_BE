@@ -1,7 +1,9 @@
 package com.example.book_be.sach.repository;
 
 import com.example.book_be.sach.domain.Sach;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -12,6 +14,7 @@ import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
+import java.util.Optional;
 
 @RepositoryRestResource(path = "sach")
 public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificationExecutor {
@@ -73,4 +76,19 @@ public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificat
 
     @Query("SELECT s.soLuong FROM Sach s WHERE s.maSach = :maSach")
     Integer findSoLuongByMaSach(@Param("maSach") int maSach);
+
+    /**
+     * Chiem khoa ghi tren dong sach truoc khi doi danh gia cua no.
+     *
+     * <p>Cau tinh lai tong hop la {@code UPDATE sach SET ... = (SELECT ... FROM danhgia)}:
+     * no ghi dong sach dong thoi doc cac dong danhgia. Hai transaction cung them danh gia cho
+     * mot cuon sach se moi ben giu khoa INSERT tren danhgia roi cung doi khoa doc cheo nhau —
+     * deadlock, da tai hien duoc bang DanhGiaAggregateIT.
+     *
+     * <p>Chiem khoa dong sach TRUOC moi thao tac danh gia tao ra mot thu tu khoa nhat quan,
+     * nen khong con chu trinh cho doi. Caller phai @Transactional.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Sach s WHERE s.maSach = :maSach")
+    Optional<Sach> khoaSachDeCapNhat(@Param("maSach") int maSach);
 }

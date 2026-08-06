@@ -63,6 +63,11 @@ class FlywayAutoRepairTest {
 
         new FlywayConfig(true).migrationStrategy().migrate(realFlyway);
 
-        assertThat(realFlyway.info().current().getVersion().toString()).isEqualTo("10");
+        // Khang dinh theo bat bien chu khong theo mot so cu the: sau khi repair va migrate,
+        // khong con migration nao dang cho. Ban truoc hardcode "10", nghia la moi migration
+        // moi them vao deu lam test nay do — mot con so chep tay thay vi hoi he thong.
+        assertThat(realFlyway.info().pending())
+                .as("sau repair + migrate thi khong con migration nao pending")
+                .isEmpty();
     }
 }

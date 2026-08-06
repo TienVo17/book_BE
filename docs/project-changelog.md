@@ -1,5 +1,55 @@
 # Project Changelog
 
+## 2026-08-06 (5) — Helpful votes and shop replies (plan phase 5)
+
+- `POST /api/danh-gia/{id}/huu-ich` toggles a helpful vote — pressing it a second time removes the vote, like a like button anywhere else — and returns the resulting count so the page does not reload to update one number.
+- **No `so_luot_huu_ich` column was added.** Unlike `trung_binh_xep_hang`, which already existed in the contract and whose missing writer was a real bug, a count column here would be brand-new denormalisation: a second source of truth to keep honest, for a shop with ten books. The count comes from one `GROUP BY` over the current page's ids, so cost is constant per page and there is no invariant to police.
+- **Self-voting is blocked in the service, not the UI.** Hiding the button only stops ordinary users; the test calls the API directly. Anonymous callers get 401, and the `UNIQUE (ma_danh_gia, ma_nguoi_dung)` constraint from V11 — not a service check — is what makes concurrent double-votes impossible.
+- Deleting a review takes its votes with it via the V11 cascade; orphaned votes would inflate the count permanently, so there is a test for it.
+- `sort=huu-ich` now orders by a real `LEFT JOIN … GROUP BY … ORDER BY COUNT(h)` instead of standing in for `moi-nhat`. `LEFT` so unvoted reviews still appear, just last, and with a separate `countQuery` because counting over the grouped query would return one row per group.
+- `POST /api/admin/danh-gia/{id}/phan-hoi` (ADMIN) lets the shop reply publicly. The reply lives on the review row itself, so "at most one reply per review" is structurally impossible to violate rather than a rule to enforce; calling it again edits. The public response carries the reply text and time but not who wrote it.
+- Added a helpful-vote scenario to `scripts/rehearsal-run-scenarios.sh` — vote, unvote, self-vote denied, cascade on delete — rather than creating a second script.
+
+## 2026-08-06 (4) — Reviewer identity and the review form (plan phase 4)
+
+- **Reviews show a masked real name instead of the literal string "Khách hàng".** `TenHienThiUtil` keeps the family name and abbreviates the rest — "Nguyễn Văn An" → "Nguyễn V. A." — and it runs on the **backend**. Masking in the frontend would leave the full name sitting in the response for anyone who opens DevTools; that is decoration, not protection.
+- **The public response carries no `maNguoiDung`.** This is not cosmetic. Since only customers with a delivered order can review, every review is now evidence of a completed purchase; a stable id alongside it would let an anonymous caller sweep the catalogue — which pagination makes cheap — group by id, and reconstruct individual purchase histories. Ownership travels as the boolean `laCuaToi` instead. `DanhGiaPiiIT` asserts the id is *absent*, and a companion test asserts the admin path still carries real identity so nobody tightens this into blinding the moderation screen.
+- The submit handler moved from the button's `onClick` to the form's `onSubmit`, and guards re-entry in the handler rather than relying on the disabled attribute — a fast double-click can land before React repaints, and the second request would return 409: an error message for an action that succeeded.
+- The star `<select>` is now a real radio group with an accessible name, so it has keyboard navigation, a screen-reader-visible selected state, and adequate hit targets without reimplementing any of it.
+- The form clears after a successful submit, errors render in a `role="alert"` region, and outcomes are announced through a permanently mounted `role="status"` live region. Owners get a delete button on their own review; ownership is still enforced server-side.
+
+## 2026-08-06 (3) — Paged review reads (plan phase 3)
+
+- **`GET /api/danh-gia?maSach=&page=&size=&sort=&loc=` replaces `GET /api/danh-gia/findAll`.** The old endpoint returned every review of a book in one unbounded array; a popular book turned its own product page into a megabyte response. One request now carries the page, `tongSo`, `diemTrungBinh`, and the star distribution. Page size is capped server-side at 50.
+- The star distribution and totals are always computed over **all** visible reviews, never over the current filter. Filtering to 4 stars must not zero out the other four bars — that would destroy the very thing the distribution is for. There is a test for exactly that trap.
+- Sorting: `moi-nhat`, `cu-nhat`, `diem-cao`, `diem-thap`, and `huu-ich`. `huu-ich` is accepted now and behaves as `moi-nhat` until helpful votes exist, so shared URLs do not break later. Every sort has an explicit id tiebreaker; without one, rows with equal timestamps can appear on two consecutive pages or on none.
+- **Split `DanhGiaResponse` into `DanhGiaCongKhaiResponse` and `DanhGiaQuanTriResponse`.** One DTO serving both the shop and the moderation screen is a trap: masking identity for the public path would simultaneously blind the moderator, whose whole job is deciding whether a specific person's post comes down. The public DTO carries no `maNguoiDung` and no `isActive`; the admin DTO keeps real identity plus `trangThai`, `tungBiAn`, and `maDonHang`.
+- **Fixed a 500 in admin hide/show.** `SuDanhGia.nguoiDung` is lazy and the entity leaves the transaction before the response is built, so reading the username threw. The admin paths now load through an `@EntityGraph` finder, which also removes an N+1 on the moderation list (21 queries for a 10-row page).
+- Nothing in the review domain reads `is_active` any more. The admin list previously declared `useState<any[]>` and read `item.isActive`: with the field gone the value was silently `undefined`, so every row displayed "Đã ẩn" and the button sent `!undefined` — always "show". The moderation tool had inverted itself with no compile error and no failing test. It is now typed `DanhGiaQuanTri[]`, which is what makes `tsc --noEmit` an actual gate. The column itself is still written for compatibility and is dropped in phase 7.
+
+## 2026-08-06 (2) — Verified purchase (plan phase 2)
+
+- **Only customers with a delivered order can review a book.** `POST /api/danh-gia/them-danh-gia-v1` now requires a `don_hang` of the caller, containing that book, with `trang_thai_giao_hang = DA_GIAO (2)`. The review stores that order in `danhgia.ma_don_hang` as its evidence. Cancelled and in-flight orders do not qualify, and another customer's order never unlocks the book for you.
+- Added `GET /api/danh-gia/co-the-danh-gia?maSach=` (authenticated) returning `{coThe, maDonHang, lyDo}` with `lyDo ∈ {CHUA_MUA, CHUA_NHAN_HANG, DA_DANH_GIA, DA_BI_AN}`. It is a display aid only — `addReview` re-checks server-side, so a modified client gains nothing. The matching security rule is explicit; without it `anyRequest().denyAll()` would have shipped the endpoint dead.
+- **Closed the hide → self-delete → repost loop.** Hiding a review now writes a row in `danhgia_an_tombstone` keyed on `(ma_nguoi_dung, ma_sach)`. The tombstone outlives the review row, so an author who deletes their own hidden review — still their right — cannot post a replacement. `danhgia.tung_bi_an` could not do this job: it dies with the row it lives on.
+- Editing a review no longer touches its moderation state, so "edit" is not a cheaper way to unhide than delete-and-repost.
+- **Demo orders never reach the admin dashboard.** V12 seeds a `DA_GIAO` order for every legacy review that had no purchase evidence; those rows carry `don_hang.la_don_demo = 1` and are excluded from revenue, today's revenue, total orders, pending orders, and the best-seller table. They also carry `trang_thai_thanh_toan = 0`, so they cannot inflate revenue even if the flag were ignored somewhere.
+- `V12__review_verified_purchase.sql` is additive plus DML, re-runnable, and adds `idx_don_hang_nguoi_trang_thai` so the eligibility check is one indexed query per product page.
+- `scripts/rehearsal-fixture-reset.sh` now deletes rehearsal reviews before the orders they reference; otherwise the phase-7 foreign key on `ma_don_hang` would fail to create.
+
+## 2026-08-06
+
+### Review foundation (plan phase 1)
+- **Reversed the 2026-07-13 decision to keep `GET /sach/{id}/listDanhGia` open.** `SuDanhGiaRepository` is now `@RepositoryRestResource(exported = false)`, so that relation and `/su-danh-gia/**` return 404. Evidence for the reversal: the relation bypasses `DanhGiaController` and therefore every status filter, and was serving admin-hidden reviews — including a literal `"isActive": 0` — to anonymous callers, which made moderation cosmetic. The only public read path for reviews is `GET /api/danh-gia/findAll?maSach=`. `/sach/{id}/listTheLoai` is unaffected.
+- Book rating aggregates are now written. `sach.trung_binh_xep_hang` had no writer anywhere in the codebase and only ever held a static seed number; added `sach.so_luot_danh_gia` beside it, and all six write paths (add, update, delete, admin hide, admin show, backfill) recompute inside `@Transactional(rollbackFor = Exception.class)` with `@Modifying(flushAutomatically = true, clearAutomatically = true)`.
+- Added `POST /api/admin/danh-gia/tinh-lai-tat-ca` (ADMIN) to recompute every book's aggregate; idempotent.
+- Admin hide/show now route through the service instead of writing the repository directly, so moderation recomputes the rating. A non-existent id returns `404 NOT_FOUND` in the unified error schema instead of the previous `500` from an `orElse(null)` NPE.
+- One review per user per book, enforced by `uk_danhgia_nguoi_sach`; a duplicate returns `409 CONFLICT` and writes no row. The catch is narrowed to that constraint name so unrelated integrity violations are not mislabelled.
+- Fixed a real deadlock between two concurrent reviews of the same book: every mutating path now takes `SachRepository.khoaSachDeCapNhat` (`PESSIMISTIC_WRITE`) before touching `danhgia`, giving a consistent lock order.
+- Added a handler for Spring Data REST `ResourceNotFoundException`, which had no handler and returned `500 INTERNAL_ERROR`. Pre-existing: `/sach/{id}/listHinhAnh` had behaved this way since `HinhAnhRepository` became `exported = false`.
+- `V11__review_schema_additive.sql`: additive and re-runnable — `trang_thai`, `ma_don_hang`, shop-reply columns, `tung_bi_an`, `sach.so_luot_danh_gia`, a `trung_binh_xep_hang_truoc_v11` rollback column, the `danhgia_huu_ich` and `danhgia_hinh_anh` tables, the unique constraint, and the aggregate backfill. Its one destructive step is documented in the file header: to add the unique constraint it keeps the highest `ma_danh_gia` per `(người, sách)` pair and deletes the rest, unrecoverably. That step is a no-op on current data.
+- `FlywayAutoRepairTest` asserted a hardcoded latest version `"10"`, so every new migration would have broken it; it now asserts the invariant that no migration is pending.
+
 ## 2026-07-24
 
 ### Production connectivity
