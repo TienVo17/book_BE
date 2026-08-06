@@ -1,5 +1,13 @@
 # Project Changelog
 
+## 2026-08-06 (4) — Reviewer identity and the review form (plan phase 4)
+
+- **Reviews show a masked real name instead of the literal string "Khách hàng".** `TenHienThiUtil` keeps the family name and abbreviates the rest — "Nguyễn Văn An" → "Nguyễn V. A." — and it runs on the **backend**. Masking in the frontend would leave the full name sitting in the response for anyone who opens DevTools; that is decoration, not protection.
+- **The public response carries no `maNguoiDung`.** This is not cosmetic. Since only customers with a delivered order can review, every review is now evidence of a completed purchase; a stable id alongside it would let an anonymous caller sweep the catalogue — which pagination makes cheap — group by id, and reconstruct individual purchase histories. Ownership travels as the boolean `laCuaToi` instead. `DanhGiaPiiIT` asserts the id is *absent*, and a companion test asserts the admin path still carries real identity so nobody tightens this into blinding the moderation screen.
+- The submit handler moved from the button's `onClick` to the form's `onSubmit`, and guards re-entry in the handler rather than relying on the disabled attribute — a fast double-click can land before React repaints, and the second request would return 409: an error message for an action that succeeded.
+- The star `<select>` is now a real radio group with an accessible name, so it has keyboard navigation, a screen-reader-visible selected state, and adequate hit targets without reimplementing any of it.
+- The form clears after a successful submit, errors render in a `role="alert"` region, and outcomes are announced through a permanently mounted `role="status"` live region. Owners get a delete button on their own review; ownership is still enforced server-side.
+
 ## 2026-08-06 (3) — Paged review reads (plan phase 3)
 
 - **`GET /api/danh-gia?maSach=&page=&size=&sort=&loc=` replaces `GET /api/danh-gia/findAll`.** The old endpoint returned every review of a book in one unbounded array; a popular book turned its own product page into a megabyte response. One request now carries the page, `tongSo`, `diemTrungBinh`, and the star distribution. Page size is capped server-side at 50.

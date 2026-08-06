@@ -89,6 +89,8 @@ domain/ (JPA Entities - MySQL)
 
 ### Quy Tắc Nghiệp Vụ Đánh Giá
 
+- **Che tên chạy ở backend** (`shared/util/TenHienThiUtil`). Che ở frontend thì tên đầy đủ vẫn nằm nguyên trong response — đó là trang trí, không phải bảo vệ.
+- **Đường công khai không trả `maNguoiDung`.** Từ khi chỉ người đã nhận hàng mới đánh giá được, mỗi đánh giá là bằng chứng của một đơn đã giao; một định danh ổn định đi kèm cho phép quét cả catalog rồi dựng lại lịch sử mua hàng từng người. Quyền sở hữu do cờ `laCuaToi` mang.
 - **Hai DTO, hai khán giả.** `DanhGiaCongKhaiResponse` cho `/api/danh-gia**`: không `maNguoiDung`, không `isActive`. `DanhGiaQuanTriResponse` cho `/api/admin/danh-gia**`: có danh tính thật. Đừng gộp lại — test PII của đường công khai sẽ khoá chết khả năng nhìn thấy tên thật của màn kiểm duyệt, mà đó chính là việc của admin.
 - **Phân bố sao và `tongSo` luôn tính trên toàn bộ đánh giá `HIEN_THI`**, không theo bộ lọc đang chọn. Tính theo bộ lọc thì bấm vào một cột sẽ làm các cột còn lại về 0.
 - **Mọi kiểu sắp xếp phải có khoá phụ `maDanhGia`.** Không có nó, hai đánh giá cùng timestamp làm thứ tự không ổn định và một dòng có thể xuất hiện ở hai trang liên tiếp hoặc không ở trang nào.

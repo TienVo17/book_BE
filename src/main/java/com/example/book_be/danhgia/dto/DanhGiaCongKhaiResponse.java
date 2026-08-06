@@ -1,6 +1,8 @@
 package com.example.book_be.danhgia.dto;
 
 import com.example.book_be.danhgia.domain.SuDanhGia;
+import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.shared.util.TenHienThiUtil;
 import lombok.Data;
 
 import java.sql.Timestamp;
@@ -22,6 +24,11 @@ public class DanhGiaCongKhaiResponse {
     private String nhanXet;
     private float diemXepHang;
     private Timestamp timestamp;
+    /**
+     * Ten da che, dung {@link com.example.book_be.shared.util.TenHienThiUtil}. Truoc day
+     * moi danh gia hien chu "Khách hàng" vi backend khong tra ten nao ca.
+     */
+    private String tenHienThi;
     /** De giao dien danh dau "danh gia cua ban" ma khong can lo danh tinh ai khac. */
     private boolean laCuaToi;
 
@@ -34,6 +41,10 @@ public class DanhGiaCongKhaiResponse {
         r.nhanXet = d.getNhanXet();
         r.diemXepHang = d.getDiemXepHang();
         r.timestamp = d.getTimestamp();
+        NguoiDung nguoiDung = d.getNguoiDung();
+        r.tenHienThi = nguoiDung == null
+                ? TenHienThiUtil.TEN_AN_DANH
+                : TenHienThiUtil.che(nguoiDung.getHoDem(), nguoiDung.getTen());
         r.laCuaToi = maNguoiDungDangXem != null
                 && d.getMaNguoiDung() != null
                 && d.getMaNguoiDung().equals(maNguoiDungDangXem);

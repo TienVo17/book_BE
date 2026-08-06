@@ -38,9 +38,16 @@ public interface SuDanhGiaRepository extends JpaRepository<SuDanhGia, Long>, Jpa
      */
     boolean existsByNguoiDung_MaNguoiDungAndSach_MaSach(int maNguoiDung, int maSach);
 
+    /**
+     * {@code EntityGraph} o day khong phai toi uu som: {@code DanhGiaCongKhaiResponse} doc
+     * ten nguoi dung de che, nen thieu no la mot truy van lazy cho MOI dong cua moi trang
+     * san pham duoc mo.
+     */
+    @EntityGraph(attributePaths = {"nguoiDung"})
     Page<SuDanhGia> findBySach_MaSachAndTrangThai(
             int maSach, TrangThaiDanhGia trangThai, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"nguoiDung"})
     Page<SuDanhGia> findBySach_MaSachAndTrangThaiAndDiemXepHang(
             int maSach, TrangThaiDanhGia trangThai, float diemXepHang, Pageable pageable);
 

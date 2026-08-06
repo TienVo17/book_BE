@@ -119,7 +119,9 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SuDanhGia updateReview(Long maDanhGia, SuDanhGia danhGia, Long maNguoiDungYeuCau) {
-        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
+        // timKemNguoiDung chu khong phai findById: response tra ve doc ten nguoi dung de
+        // che, ma luc do entity da roi transaction.
+        SuDanhGia db = suDanhGiaRepository.timKemNguoiDung(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         kiemTraChuSoHuu(db, maNguoiDungYeuCau);
         sachRepository.khoaSachDeCapNhat(db.getSach().getMaSach());
@@ -144,7 +146,7 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SuDanhGia deleteReview(Long maDanhGia, Long maNguoiDungYeuCau, boolean laQuanTri) {
-        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
+        SuDanhGia db = suDanhGiaRepository.timKemNguoiDung(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         if (!laQuanTri) {
             kiemTraChuSoHuu(db, maNguoiDungYeuCau);
