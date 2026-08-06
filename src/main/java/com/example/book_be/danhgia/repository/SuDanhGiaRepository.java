@@ -25,6 +25,13 @@ import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 public interface SuDanhGiaRepository extends JpaRepository<SuDanhGia, Long>, JpaSpecificationExecutor<SuDanhGia> {
 
     /**
+     * Danh gia da bi an van tinh la "da danh gia". Neu loc theo trang thai o day thi
+     * nguoi bi an bai se duoc moi viet bai moi, va rang buoc uk_danhgia_nguoi_sach
+     * moi la thu chan lai — bang mot loi 409 chang giai thich duoc gi.
+     */
+    boolean existsByNguoiDung_MaNguoiDungAndSach_MaSach(int maNguoiDung, int maSach);
+
+    /**
      * Tinh lai diem trung binh va so luot danh gia cua mot cuon sach tu cac danh gia
      * dang o trang thai hien thi.
      *

@@ -49,6 +49,7 @@ class ReviewOwnershipIT {
     @Autowired QuyenRepository quyenRepository;
     @Autowired SuDanhGiaRepository suDanhGiaRepository;
     @Autowired SachRepository sachRepository;
+    @Autowired com.example.book_be.donhang.repository.DonHangRepository donHangRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired PlatformTransactionManager txManager;
 
@@ -58,6 +59,7 @@ class ReviewOwnershipIT {
     private String nguoiKhac;
     private String quanTri;
     private Long maDanhGia;
+    private Integer maDonHang;
 
     @BeforeEach
     void provisionFixtures() {
@@ -76,6 +78,8 @@ class ReviewOwnershipIT {
                 suDanhGiaRepository.findById(maDanhGia).ifPresent(suDanhGiaRepository::delete);
             }
         });
+        DonHangDaGiaoFixture.xoaDon(txManager, donHangRepository, maDonHang);
+        maDonHang = null;
         xoaNguoiDung(chuSoHuu);
         xoaNguoiDung(nguoiKhac);
         xoaNguoiDung(quanTri);
@@ -163,6 +167,11 @@ class ReviewOwnershipIT {
             danhGia.setNhanXet("Danh gia goc cua chu so huu");
             danhGia.setDiemXepHang(5F);
             danhGia.setTimestamp(new Timestamp(System.currentTimeMillis()));
+            // Bang chung da mua. Phase 7 nang ma_don_hang len NOT NULL; fixture dung danh
+            // gia khong don se chet o @BeforeEach va keo theo ca lop test nay.
+            maDonHang = DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                    nguoiDungRepository, sachRepository, tenDangNhap, sach.getMaSach());
+            danhGia.setMaDonHang(maDonHang);
             danhGia.datTrangThai(com.example.book_be.danhgia.domain.TrangThaiDanhGia.HIEN_THI);
             danhGia.setNguoiDung(nguoiDung);
             danhGia.setSach(sach);

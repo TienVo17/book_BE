@@ -2,11 +2,16 @@ package com.example.book_be.danhgia.service;
 
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.danhgia.repository.DanhGiaAnTombstoneRepository;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
+import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.sach.domain.Sach;
+import com.example.book_be.danhgia.domain.DanhGiaAnTombstone;
+import com.example.book_be.danhgia.domain.LyDoKhongDanhGiaDuoc;
 import com.example.book_be.danhgia.domain.SuDanhGia;
 import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
+import com.example.book_be.danhgia.dto.CoTheDanhGiaResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -37,6 +42,37 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     SuDanhGiaRepository suDanhGiaRepository;
     @Autowired
     private SachRepository sachRepository;
+    @Autowired
+    private DonHangRepository donHangRepository;
+    @Autowired
+    private DanhGiaAnTombstoneRepository tombstoneRepository;
+
+    /**
+     * Che do Chat: chi nguoi co don DA_GIAO chua cuon sach do moi danh gia duoc.
+     *
+     * <p>Thu tu kiem tra khong tuy tien. Tombstone dung truoc vi no la ket cuoi — noi
+     * "chua nhan hang" cho nguoi da bi an bai la sai va con mach nuoc cho ho mua lai de
+     * mo khoa. "Da danh gia" dung truoc dieu kien mua vi no la tinh trang cu the hon.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public CoTheDanhGiaResponse kiemTraCoTheDanhGia(int maNguoiDung, int maSach) {
+        if (tombstoneRepository.existsByMaNguoiDungAndMaSach(maNguoiDung, maSach)) {
+            return CoTheDanhGiaResponse.khong(LyDoKhongDanhGiaDuoc.DA_BI_AN);
+        }
+        if (suDanhGiaRepository.existsByNguoiDung_MaNguoiDungAndSach_MaSach(maNguoiDung, maSach)) {
+            return CoTheDanhGiaResponse.khong(LyDoKhongDanhGiaDuoc.DA_DANH_GIA);
+        }
+        Integer maDonHang = donHangRepository.timDonDaGiaoChoSach(maNguoiDung, maSach);
+        if (maDonHang != null) {
+            return CoTheDanhGiaResponse.duoc(maDonHang);
+        }
+        // Phan biet "chua mua bao gio" voi "da mua nhung hang chua toi": hai tinh huong
+        // nay doi hai hanh dong khac han o phia nguoi dung.
+        return donHangRepository.demDonChuaSach(maNguoiDung, maSach) > 0
+                ? CoTheDanhGiaResponse.khong(LyDoKhongDanhGiaDuoc.CHUA_NHAN_HANG)
+                : CoTheDanhGiaResponse.khong(LyDoKhongDanhGiaDuoc.CHUA_MUA);
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -45,7 +81,15 @@ public class DanhGiaServiceImpl implements DanhGiaService {
         Sach sach = sachRepository.khoaSachDeCapNhat(maSach.intValue()).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sách."));
 
+        // Kiem tra lai o day chu khong tin ket qua client da doc tu co-the-danh-gia:
+        // endpoint kia la tien ich hien thi, day moi la cho chan.
+        CoTheDanhGiaResponse quyen = kiemTraCoTheDanhGia(maNguoiDung.intValue(), maSach.intValue());
+        if (!quyen.isCoThe()) {
+            throw khongDuQuyen(quyen.getLyDo());
+        }
+
         SuDanhGia suDanhGia = new SuDanhGia();
+        suDanhGia.setMaDonHang(quyen.getMaDonHang());
         suDanhGia.setNhanXet(nhanXet);
         suDanhGia.setDiemXepHang(diemXepHang);
         suDanhGia.setTimestamp(new Timestamp(System.currentTimeMillis()));
@@ -125,6 +169,9 @@ public class DanhGiaServiceImpl implements DanhGiaService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         sachRepository.khoaSachDeCapNhat(db.getSach().getMaSach());
         db.datTrangThai(trangThaiMoi);
+        if (trangThaiMoi == TrangThaiDanhGia.DA_AN) {
+            ghiTombstone(db);
+        }
         SuDanhGia daLuu = suDanhGiaRepository.save(db);
 
         tinhLaiTongHop(db.getSach().getMaSach());
@@ -158,6 +205,40 @@ public class DanhGiaServiceImpl implements DanhGiaService {
             }
         }
         return false;
+    }
+
+    /**
+     * Dau vet phai song sot qua buoc chu so huu tu xoa bai — do la ly do no khong nam
+     * tren chinh dong danh gia. Idempotent: an roi hien roi an lai khong tao dong thu hai.
+     */
+    private void ghiTombstone(SuDanhGia danhGia) {
+        int maNguoiDung = danhGia.getNguoiDung().getMaNguoiDung();
+        int maSach = danhGia.getSach().getMaSach();
+        if (tombstoneRepository.existsByMaNguoiDungAndMaSach(maNguoiDung, maSach)) {
+            return;
+        }
+        DanhGiaAnTombstone tombstone = new DanhGiaAnTombstone();
+        tombstone.setMaNguoiDung(maNguoiDung);
+        tombstone.setMaSach(maSach);
+        tombstone.setTaoLuc(new Timestamp(System.currentTimeMillis()));
+        tombstoneRepository.save(tombstone);
+    }
+
+    /**
+     * `DA_DANH_GIA` la 409 vi yeu cau xung dot voi trang thai hien tai; ba ly do con lai
+     * la 403 vi nguoi goi khong du dieu kien, du yeu cau hoan toan hop le.
+     */
+    private ResponseStatusException khongDuQuyen(LyDoKhongDanhGiaDuoc lyDo) {
+        return switch (lyDo) {
+            case DA_DANH_GIA -> new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bạn đã đánh giá cuốn sách này rồi.");
+            case DA_BI_AN -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Đánh giá của bạn cho cuốn sách này đã bị ẩn, không thể đăng lại.");
+            case CHUA_NHAN_HANG -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Bạn chỉ đánh giá được sau khi đã nhận hàng.");
+            case CHUA_MUA -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Bạn cần mua và nhận cuốn sách này trước khi đánh giá.");
+        };
     }
 
     private void kiemTraChuSoHuu(SuDanhGia danhGia, Long maNguoiDungYeuCau) {

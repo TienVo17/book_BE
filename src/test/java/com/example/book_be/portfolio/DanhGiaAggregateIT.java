@@ -49,11 +49,13 @@ class DanhGiaAggregateIT {
     @Autowired NguoiDungRepository nguoiDungRepository;
     @Autowired QuyenRepository quyenRepository;
     @Autowired SachRepository sachRepository;
+    @Autowired com.example.book_be.donhang.repository.DonHangRepository donHangRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired PlatformTransactionManager txManager;
 
     private final List<String> nguoiDungDaTao = new ArrayList<>();
     private final List<Long> danhGiaDaTao = new ArrayList<>();
+    private final List<Integer> donDaTao = new ArrayList<>();
     private int maSach;
 
     /**
@@ -88,6 +90,8 @@ class DanhGiaAggregateIT {
                 danhGiaDaTao.forEach(id ->
                         suDanhGiaRepository.findById(id).ifPresent(suDanhGiaRepository::delete)));
         danhGiaDaTao.clear();
+        donDaTao.forEach(ma -> DonHangDaGiaoFixture.xoaDon(txManager, donHangRepository, ma));
+        donDaTao.clear();
         nguoiDungDaTao.forEach(this::xoaNguoiDung);
         nguoiDungDaTao.clear();
         new TransactionTemplate(txManager).executeWithoutResult(status ->
@@ -239,7 +243,16 @@ class DanhGiaAggregateIT {
                 sachRepository.findById((long) maSach).orElseThrow().getSoLuotDanhGia());
     }
 
+    /**
+     * Tu phase 2, {@code addReview} doi mot don DA_GIAO chua cuon sach do. Fixture phai
+     * dung don truoc, neu khong moi test o day chi con do 403.
+     */
     private Long themDanhGia(String tenDangNhap, float diem) {
+        int maDonHang = DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                nguoiDungRepository, sachRepository, tenDangNhap, maSach);
+        synchronized (donDaTao) {
+            donDaTao.add(maDonHang);
+        }
         SuDanhGia daTao = danhGiaService.addReview(
                 "Danh gia fixture cho " + tenDangNhap, diem, maNguoiDungCua(tenDangNhap), (long) maSach);
         Long id = daTao.getMaDanhGia();

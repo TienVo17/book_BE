@@ -50,6 +50,7 @@ class ReviewExposureIT {
     @Autowired QuyenRepository quyenRepository;
     @Autowired SuDanhGiaRepository suDanhGiaRepository;
     @Autowired SachRepository sachRepository;
+    @Autowired com.example.book_be.donhang.repository.DonHangRepository donHangRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired PlatformTransactionManager txManager;
 
@@ -57,6 +58,7 @@ class ReviewExposureIT {
     private String quanTri;
     private Long maDanhGia;
     private Integer maSach;
+    private Integer maDonHang;
 
     @BeforeEach
     void provisionFixtures() {
@@ -73,6 +75,8 @@ class ReviewExposureIT {
                 suDanhGiaRepository.findById(maDanhGia).ifPresent(suDanhGiaRepository::delete);
             }
         });
+        DonHangDaGiaoFixture.xoaDon(txManager, donHangRepository, maDonHang);
+        maDonHang = null;
         xoaNguoiDung(tacGia);
         xoaNguoiDung(quanTri);
         new TransactionTemplate(txManager).executeWithoutResult(status -> {
@@ -189,7 +193,13 @@ class ReviewExposureIT {
             sach.setIsActive(1);
             sach = sachRepository.saveAndFlush(sach);
 
+            // Bang chung da mua: phase 7 nang ma_don_hang len NOT NULL, va fixture nao con
+            // dung danh gia khong don se chet o do. Gan luon o day thay vi doi.
+            maDonHang = DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                    nguoiDungRepository, sachRepository, tenDangNhap, sach.getMaSach());
+
             SuDanhGia danhGia = new SuDanhGia();
+            danhGia.setMaDonHang(maDonHang);
             danhGia.setNhanXet(NOI_DUNG_BI_AN);
             danhGia.setDiemXepHang(1F);
             danhGia.setTimestamp(new Timestamp(System.currentTimeMillis()));

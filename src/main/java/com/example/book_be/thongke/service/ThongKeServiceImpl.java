@@ -33,14 +33,15 @@ public class ThongKeServiceImpl implements ThongKeService {
         Map<String, Object> result = new HashMap<>();
 
         // Order and revenue aggregates
-        result.put("totalOrders", donHangRepository.count());
+        // Moi con so o day loai don demo cua V12 — xem DonHangRepository.
+        result.put("totalOrders", donHangRepository.demDonThat());
         result.put("totalRevenue", donHangRepository.sumDoanhThu());
         result.put("todayOrders", donHangRepository.countDonHangHomNay());
         result.put("todayRevenue", donHangRepository.sumDoanhThuHomNay());
         result.put("totalUsers", nguoiDungRepository.count());
 
         // Pending orders: trangThaiGiaoHang = 0 means chua giao
-        result.put("pendingOrders", donHangRepository.countByTrangThaiGiaoHang(0));
+        result.put("pendingOrders", donHangRepository.demTheoTrangThaiGiaoHang(0));
 
         // Top 5 best-selling books
         List<Object[]> topBanChayRaw = chiTietDonHangRepository.findTopBanChay(PageRequest.of(0, 5));

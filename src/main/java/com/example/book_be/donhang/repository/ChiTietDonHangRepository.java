@@ -18,6 +18,10 @@ import java.util.List;
 public interface ChiTietDonHangRepository extends JpaRepository<ChiTietDonHang, Long>, JpaSpecificationExecutor {
 
     // Returns Object[] rows: [maSach, tenSach, tongBan] ordered by sales volume desc
-    @Query("SELECT ct.sach.maSach, ct.sach.tenSach, SUM(ct.soLuong) as tongBan FROM ChiTietDonHang ct GROUP BY ct.sach.maSach, ct.sach.tenSach ORDER BY tongBan DESC")
+    // Loai don demo (V12): chung ton tai de danh gia seed co bang chung da mua, khong phai
+    // vi ai do that su mua cuon sach do. De lai thi bang ban chay bi xao lai boi du lieu dan dung.
+    @Query("SELECT ct.sach.maSach, ct.sach.tenSach, SUM(ct.soLuong) as tongBan FROM ChiTietDonHang ct "
+            + "WHERE ct.donHang.laDonDemo = false "
+            + "GROUP BY ct.sach.maSach, ct.sach.tenSach ORDER BY tongBan DESC")
     List<Object[]> findTopBanChay(Pageable pageable);
 }

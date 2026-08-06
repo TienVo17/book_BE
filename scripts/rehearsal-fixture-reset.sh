@@ -58,6 +58,13 @@ USER_PREFIX="rehearsal-${RUN_ID}"
 COUPON_CODE="REHEARSAL${RUN_ID##*-}"
 
 cleanup() {
+  # Reviews first. danhgia.ma_don_hang points at an order but carries no FK until the
+  # cleanup migration adds one, so deleting the order first would leave the review
+  # pointing at nothing -- and that migration would then fail to create the FK.
+  # danhgia_an_tombstone needs no clause here: it cascades from nguoi_dung and sach.
+  sql "DELETE FROM danhgia WHERE ma_don_hang > $BASELINE_ORDER;"
+  sql "DELETE FROM danhgia WHERE ma_sach > $BASELINE_BOOK;"
+  sql "DELETE FROM danhgia WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE '${USER_PREFIX}-%');"
   sql "DELETE FROM lich_su_trang_thai_don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
   sql "DELETE FROM chi_tiet_don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
   sql "DELETE FROM don_hang WHERE ma_don_hang > $BASELINE_ORDER;"
@@ -73,6 +80,8 @@ cleanup() {
 # Clean anything a previous aborted run left behind, then arm the trap so this
 # run's own fixtures are removed even on failure.
 purge_stale() {
+  sql "DELETE FROM danhgia WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%');"
+  sql "DELETE FROM danhgia WHERE ma_sach IN (SELECT ma_sach FROM (SELECT ma_sach FROM sach WHERE ten_sach LIKE 'Rehearsal Book %') t);"
   sql "DELETE FROM lich_su_trang_thai_don_hang WHERE ma_don_hang IN (SELECT ma_don_hang FROM (SELECT ma_don_hang FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%')) t);"
   sql "DELETE FROM chi_tiet_don_hang WHERE ma_don_hang IN (SELECT ma_don_hang FROM (SELECT ma_don_hang FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%')) t);"
   sql "DELETE FROM don_hang WHERE ma_nguoi_dung IN (SELECT ma_nguoi_dung FROM nguoi_dung WHERE ten_dang_nhap LIKE 'rehearsal-%');"

@@ -1,5 +1,6 @@
 package com.example.book_be.danhgia.web;
 
+import com.example.book_be.danhgia.dto.CoTheDanhGiaResponse;
 import com.example.book_be.danhgia.dto.DanhGiaBo;
 import com.example.book_be.danhgia.dto.DanhGiaResponse;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
@@ -43,6 +44,21 @@ public class DanhGiaController {
             return builder.and(predicates.toArray(new Predicate[0]));
         });
         return DanhGiaResponse.fromList(suDanhGiaPage);
+    }
+
+    /**
+     * Cho giao dien biet truoc co nen hien form khong, va neu khong thi vi sao.
+     *
+     * <p>Day KHONG phai cho cuong che — {@code addReview} tu kiem tra lai. Endpoint chi
+     * ton tai de nguoi dung khong go xong ca bai roi moi bi tu choi.
+     */
+    @GetMapping("/co-the-danh-gia")
+    public CoTheDanhGiaResponse coTheDanhGia(@RequestParam("maSach") Integer maSach) {
+        if (maSach == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu mã sách.");
+        }
+        NguoiDung nguoiDung = nguoiDungHienTai();
+        return danhGiaService.kiemTraCoTheDanhGia(nguoiDung.getMaNguoiDung(), maSach);
     }
 
     @PostMapping("/them-danh-gia-v1")

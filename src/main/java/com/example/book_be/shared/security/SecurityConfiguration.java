@@ -100,6 +100,10 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/danh-gia/findAll**").permitAll()
+                // Ket qua phu thuoc lich su mua hang cua chinh nguoi goi, nen khong the
+                // mo cong khai; thieu dong nay thi endpoint ship ra ma chet cam vi
+                // anyRequest().denyAll() ben duoi.
+                .requestMatchers(HttpMethod.GET, "/api/danh-gia/co-the-danh-gia**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/them-danh-gia-v1").authenticated()
                 // Quyen so huu duoc kiem tra o service; o day chi yeu cau da dang nhap.
                 .requestMatchers(HttpMethod.POST, "/api/danh-gia/sua-danh-gia/**").authenticated()

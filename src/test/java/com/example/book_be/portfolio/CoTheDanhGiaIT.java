@@ -2,6 +2,8 @@ package com.example.book_be.portfolio;
 
 import com.example.book_be.TestcontainersConfig;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
+import com.example.book_be.donhang.domain.TrangThaiGiaoHang;
+import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.nguoidung.domain.Quyen;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
@@ -17,12 +19,14 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,43 +34,40 @@ import java.util.regex.Pattern;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Moi nguoi mot danh gia moi cuon sach — rang buoc {@code uk_danhgia_nguoi_sach} cua V11.
+ * {@code GET /api/danh-gia/co-the-danh-gia} phai noi ro VI SAO khong danh gia duoc.
  *
- * <p>Truoc day khong co gi chan mot tai khoan danh gia cung mot cuon sach bao nhieu lan tuy
- * y, tuc la diem trung binh hien tren trang san pham co the bi mot nguoi keo len hoac dim
- * xuong tuy thich. Test nay bat ca hai mat: HTTP tra 409 co ma loi, va database chi con
- * dung mot dong.
+ * <p>Bon ly do dan toi bon hanh dong khac nhau ve phia nguoi dung. Mot thong bao chung
+ * chung ("ban khong the danh gia") bat ho tu doan, va thuong doan sai.
+ *
+ * <p>Endpoint nay cung la cai bay kinh dien cua repo: {@code anyRequest().denyAll()} lam
+ * moi route khong khai bao tuong minh trong SecurityConfiguration ship ra ma chet cam.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfig.class)
-class DanhGiaUniqueIT {
+class CoTheDanhGiaIT {
 
-    private static final String MAT_KHAU = "DanhGiaUnique@123";
+    private static final String MAT_KHAU = "CoTheDanhGia@123";
 
     @Autowired TestRestTemplate rest;
     @Autowired NguoiDungRepository nguoiDungRepository;
     @Autowired QuyenRepository quyenRepository;
     @Autowired SuDanhGiaRepository suDanhGiaRepository;
     @Autowired SachRepository sachRepository;
-    @Autowired com.example.book_be.donhang.repository.DonHangRepository donHangRepository;
+    @Autowired DonHangRepository donHangRepository;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired PlatformTransactionManager txManager;
 
-    private String nguoiDanhGia;
+    private final List<Integer> donDaTao = new ArrayList<>();
+    private String nguoiMua;
     private String quanTri;
     private int maSach;
-    private Integer maDonHang;
 
     @BeforeEach
     void provisionFixtures() {
         long runId = System.nanoTime();
-        nguoiDanhGia = taoNguoiDung("unique-user-" + runId, "USER");
-        quanTri = taoNguoiDung("unique-admin-" + runId, "ADMIN");
+        nguoiMua = taoNguoiDung("cothe-buyer-" + runId, "USER");
+        quanTri = taoNguoiDung("cothe-admin-" + runId, "ADMIN");
         maSach = taoSach();
-        // Tu phase 2 khong con danh gia duoc cuon sach chua nhan; rang buoc duy nhat chi
-        // do duoc khi nguoi gui thuc su di qua duoc cua truoc do.
-        maDonHang = DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
-                nguoiDungRepository, sachRepository, nguoiDanhGia, maSach);
     }
 
     @AfterEach
@@ -75,70 +76,111 @@ class DanhGiaUniqueIT {
                 suDanhGiaRepository.findAll().stream()
                         .filter(d -> d.getSach() != null && d.getSach().getMaSach() == maSach)
                         .forEach(suDanhGiaRepository::delete));
-        DonHangDaGiaoFixture.xoaDon(txManager, donHangRepository, maDonHang);
-        maDonHang = null;
-        xoaNguoiDung(nguoiDanhGia);
+        donDaTao.forEach(ma -> DonHangDaGiaoFixture.xoaDon(txManager, donHangRepository, ma));
+        donDaTao.clear();
+        xoaNguoiDung(nguoiMua);
         xoaNguoiDung(quanTri);
         new TransactionTemplate(txManager).executeWithoutResult(status ->
                 sachRepository.findById((long) maSach).ifPresent(sachRepository::delete));
     }
 
     @Test
-    void danh_gia_lan_hai_cung_mot_cuon_sach_bi_tu_choi() {
-        assertThat(guiDanhGia(5, "Danh gia dau tien").getStatusCode().is2xxSuccessful())
-                .as("danh gia dau tien phai thanh cong")
-                .isTrue();
-
-        ResponseEntity<String> lanHai = guiDanhGia(1, "Danh gia thu hai cua cung mot nguoi");
-
-        assertThat(lanHai.getStatusCode().value())
-                .as("danh gia trung phai la 409, khong phai 500")
-                .isEqualTo(409);
-        assertThat(lanHai.getBody() == null ? "" : lanHai.getBody())
-                .as("409 phai theo dung lugc do loi thong nhat")
-                .contains("\"code\":\"CONFLICT\"");
+    void chua_mua_thi_ly_do_la_chua_mua() {
+        assertThat(goi(nguoiMua).getBody())
+                .contains("\"coThe\":false")
+                .contains("\"lyDo\":\"CHUA_MUA\"");
     }
 
-    /** Rang buoc chi co gia tri neu no thuc su chan dong thu hai xuong database. */
     @Test
-    void chi_con_dung_mot_dong_trong_database() {
-        guiDanhGia(5, "Danh gia dau tien");
-        guiDanhGia(1, "Danh gia thu hai cua cung mot nguoi");
+    void mua_roi_chua_nhan_thi_ly_do_la_chua_nhan_hang() {
+        donDaTao.add(DonHangDaGiaoFixture.taoDonChuaGiao(txManager, donHangRepository,
+                nguoiDungRepository, sachRepository, nguoiMua, maSach, TrangThaiGiaoHang.CHO_XU_LY));
 
-        long soDong = suDanhGiaRepository.findAll().stream()
-                .filter(d -> d.getSach() != null && d.getSach().getMaSach() == maSach)
-                .count();
+        assertThat(goi(nguoiMua).getBody())
+                .contains("\"lyDo\":\"CHUA_NHAN_HANG\"");
+    }
 
-        assertThat(soDong)
-                .as("lan gui thu hai khong duoc de lai dong nao")
-                .isEqualTo(1);
+    @Test
+    void da_nhan_hang_thi_duoc_va_kem_ma_don_hang() {
+        int maDonHang = DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                nguoiDungRepository, sachRepository, nguoiMua, maSach);
+        donDaTao.add(maDonHang);
+
+        assertThat(goi(nguoiMua).getBody())
+                .contains("\"coThe\":true")
+                .contains("\"maDonHang\":" + maDonHang);
+    }
+
+    @Test
+    void da_danh_gia_thi_ly_do_la_da_danh_gia() {
+        donDaTao.add(DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                nguoiDungRepository, sachRepository, nguoiMua, maSach));
+        guiDanhGia(nguoiMua);
+
+        assertThat(goi(nguoiMua).getBody())
+                .contains("\"lyDo\":\"DA_DANH_GIA\"");
+    }
+
+    @Test
+    void bi_an_thi_ly_do_la_da_bi_an() {
+        donDaTao.add(DonHangDaGiaoFixture.taoDonDaGiao(txManager, donHangRepository,
+                nguoiDungRepository, sachRepository, nguoiMua, maSach));
+        guiDanhGia(nguoiMua);
+        anDanhGiaMoiNhat();
+
+        assertThat(goi(nguoiMua).getBody())
+                .as("da bi an phai thang ly do DA_DANH_GIA — no la ket cuoi, khong phai tinh trang tam thoi")
+                .contains("\"lyDo\":\"DA_BI_AN\"");
     }
 
     /**
-     * Duong an/hien cua admin voi id khong ton tai. Ban truoc dung {@code orElse(null)} roi
-     * goi setter ngay, nen id la se sinh NullPointerException va tra ve 500.
+     * Ket qua phu thuoc lich su mua hang cua chinh nguoi goi, nen khach an danh khong duoc
+     * doc. 401 la cau tra loi dung o tang security; endpoint khong tra ve mot ly do thu nam.
      */
     @Test
-    void admin_an_danh_gia_khong_ton_tai_tra_404_co_ma_loi() {
-        ResponseEntity<String> response = rest.postForEntity(
-                "/api/admin/danh-gia/unactive/{id}", new HttpEntity<>(bearer(quanTri)),
-                String.class, 999_999_999L);
+    void khach_chua_dang_nhap_khong_goi_duoc() {
+        ResponseEntity<String> response = rest.getForEntity(
+                "/api/danh-gia/co-the-danh-gia?maSach={maSach}", String.class, maSach);
 
-        assertThat(response.getStatusCode().value())
-                .as("id khong ton tai la 404, khong phai 500")
-                .isEqualTo(404);
-        assertThat(response.getBody() == null ? "" : response.getBody())
-                .as("404 phai theo dung lugc do loi thong nhat")
-                .contains("\"code\":\"NOT_FOUND\"");
+        assertThat(response.getStatusCode().is2xxSuccessful())
+                .as("endpoint nay khong duoc mo cong khai")
+                .isFalse();
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
     }
 
-    private ResponseEntity<String> guiDanhGia(int diem, String nhanXet) {
-        HttpHeaders headers = bearer(nguoiDanhGia);
+    // ---------------------------------------------------------------------
+
+    private ResponseEntity<String> goi(String tenDangNhap) {
+        ResponseEntity<String> response = rest.exchange(
+                "/api/danh-gia/co-the-danh-gia?maSach={maSach}", HttpMethod.GET,
+                new HttpEntity<>(bearer(tenDangNhap)), String.class, maSach);
+        assertThat(response.getStatusCode().is2xxSuccessful())
+                .as("endpoint phai co rule security, neu khong no chet cam vi denyAll")
+                .isTrue();
+        return response;
+    }
+
+    private void guiDanhGia(String tenDangNhap) {
+        HttpHeaders headers = bearer(tenDangNhap);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        String body = "{\"maSach\":" + maSach + ",\"diemXepHang\":" + diem
-                + ",\"nhanXet\":\"" + nhanXet + "\"}";
-        return rest.postForEntity("/api/danh-gia/them-danh-gia-v1",
+        String body = "{\"maSach\":" + maSach + ",\"diemXepHang\":4,\"nhanXet\":\"Danh gia fixture\"}";
+        ResponseEntity<String> response = rest.postForEntity("/api/danh-gia/them-danh-gia-v1",
                 new HttpEntity<>(body, headers), String.class);
+        assertThat(response.getStatusCode().is2xxSuccessful())
+                .as("fixture: gui danh gia thanh cong")
+                .isTrue();
+    }
+
+    private void anDanhGiaMoiNhat() {
+        Long maDanhGia = suDanhGiaRepository.findAll().stream()
+                .filter(d -> d.getSach() != null && d.getSach().getMaSach() == maSach)
+                .map(d -> d.getMaDanhGia())
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("khong tim thay danh gia de an"));
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/admin/danh-gia/unactive/{id}", new HttpEntity<>(bearer(quanTri)),
+                String.class, maDanhGia);
+        assertThat(response.getStatusCode().is2xxSuccessful()).as("admin an duoc danh gia").isTrue();
     }
 
     private HttpHeaders bearer(String tenDangNhap) {
@@ -161,9 +203,9 @@ class DanhGiaUniqueIT {
             Sach mau = sachRepository.findAll().stream().findFirst()
                     .orElseThrow(() -> new IllegalStateException("can it nhat mot cuon sach seed"));
             Sach sach = new Sach();
-            sach.setTenSach("Unique Fixture Book " + System.nanoTime());
+            sach.setTenSach("Co The Danh Gia Book " + System.nanoTime());
             sach.setTenTacGia("Fixture");
-            sach.setMoTa("Sach fixture cho DanhGiaUniqueIT");
+            sach.setMoTa("Sach fixture cho CoTheDanhGiaIT");
             sach.setGiaNiemYet(mau.getGiaNiemYet());
             sach.setGiaBan(mau.getGiaBan());
             sach.setSoLuong(100);
@@ -180,7 +222,7 @@ class DanhGiaUniqueIT {
             assertThat(quyen).as("quyen %s da duoc seed", tenQuyen).isNotNull();
 
             NguoiDung user = new NguoiDung();
-            user.setHoDem("Unique");
+            user.setHoDem("CoThe");
             user.setTen("Fixture");
             user.setTenDangNhap(tenDangNhap);
             user.setMatKhau(passwordEncoder.encode(MAT_KHAU));

@@ -104,6 +104,14 @@ public class DonHang {
     @Column(name = "checkout_response_payment_status")
     private Integer checkoutResponsePaymentStatus;
 
+    /**
+     * Don do migration sinh ra de hop thuc hoa danh gia demo, khong phai giao dich that.
+     * Bi loai khoi moi truy van thong ke — xem DonHangRepository. Khong expose ra JSON.
+     */
+    @JsonIgnore
+    @Column(name = "la_don_demo", nullable = false)
+    private boolean laDonDemo;
+
     @Transient
     public String getPhuongThucThanhToan() {
         if (hinhThucThanhToan == null || hinhThucThanhToan.getMaCode() == null) {

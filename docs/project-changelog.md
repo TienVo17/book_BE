@@ -1,5 +1,15 @@
 # Project Changelog
 
+## 2026-08-06 (2) — Verified purchase (plan phase 2)
+
+- **Only customers with a delivered order can review a book.** `POST /api/danh-gia/them-danh-gia-v1` now requires a `don_hang` of the caller, containing that book, with `trang_thai_giao_hang = DA_GIAO (2)`. The review stores that order in `danhgia.ma_don_hang` as its evidence. Cancelled and in-flight orders do not qualify, and another customer's order never unlocks the book for you.
+- Added `GET /api/danh-gia/co-the-danh-gia?maSach=` (authenticated) returning `{coThe, maDonHang, lyDo}` with `lyDo ∈ {CHUA_MUA, CHUA_NHAN_HANG, DA_DANH_GIA, DA_BI_AN}`. It is a display aid only — `addReview` re-checks server-side, so a modified client gains nothing. The matching security rule is explicit; without it `anyRequest().denyAll()` would have shipped the endpoint dead.
+- **Closed the hide → self-delete → repost loop.** Hiding a review now writes a row in `danhgia_an_tombstone` keyed on `(ma_nguoi_dung, ma_sach)`. The tombstone outlives the review row, so an author who deletes their own hidden review — still their right — cannot post a replacement. `danhgia.tung_bi_an` could not do this job: it dies with the row it lives on.
+- Editing a review no longer touches its moderation state, so "edit" is not a cheaper way to unhide than delete-and-repost.
+- **Demo orders never reach the admin dashboard.** V12 seeds a `DA_GIAO` order for every legacy review that had no purchase evidence; those rows carry `don_hang.la_don_demo = 1` and are excluded from revenue, today's revenue, total orders, pending orders, and the best-seller table. They also carry `trang_thai_thanh_toan = 0`, so they cannot inflate revenue even if the flag were ignored somewhere.
+- `V12__review_verified_purchase.sql` is additive plus DML, re-runnable, and adds `idx_don_hang_nguoi_trang_thai` so the eligibility check is one indexed query per product page.
+- `scripts/rehearsal-fixture-reset.sh` now deletes rehearsal reviews before the orders they reference; otherwise the phase-7 foreign key on `ma_don_hang` would fail to create.
+
 ## 2026-08-06
 
 ### Review foundation (plan phase 1)
