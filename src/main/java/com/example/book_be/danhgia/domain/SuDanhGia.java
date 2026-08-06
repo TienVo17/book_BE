@@ -52,8 +52,8 @@ public class SuDanhGia  {
     private Integer isActive = 1;
 
     /**
-     * Trang thai kiem duyet. Thay the dan cho {@link #isActive}; V12 se go cot cu
-     * sau khi khong con code nao doc no.
+     * Trang thai kiem duyet. Da thay the hoan toan {@link #isActive} tren moi duong doc;
+     * cot cu chi con duoc GHI de tuong thich nguoc, va V13 se go no.
      */
     @Setter(AccessLevel.NONE)
     @Enumerated(EnumType.STRING)

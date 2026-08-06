@@ -155,7 +155,7 @@ CORS permits `PATCH` only from the normalized `FRONTEND_URL` origin. The securit
 
 Spring Data REST preserves GET on the `Sach` surfaces but disables `POST`, `PUT`, `PATCH`, and `DELETE` at the collection, item, and association level. This prevents raw Data REST writes from bypassing the stock-delta contract.
 
-`SuDanhGiaRepository` is `@RepositoryRestResource(exported = false)`, so `/su-danh-gia/**` and the relation `/sach/{id}/listDanhGia` both return 404. That relation used to be open and served admin-hidden reviews — complete with `"isActive": 0` — to anonymous callers, because it never passes through `DanhGiaController` and therefore honours no status filter. The only public read path for reviews is `GET /api/danh-gia/findAll?maSach=`, which filters `trangThai = HIEN_THI`. Blocking the repository rather than the `Sach` association was deliberate: association-exposure config is keyed on the *owning* domain type, so disabling it on `Sach` would also have killed `/sach/{id}/listTheLoai`.
+`SuDanhGiaRepository` is `@RepositoryRestResource(exported = false)`, so `/su-danh-gia/**` and the relation `/sach/{id}/listDanhGia` both return 404. That relation used to be open and served admin-hidden reviews — complete with `"isActive": 0` — to anonymous callers, because it never passes through `DanhGiaController` and therefore honours no status filter. The only public read path for reviews is `GET /api/danh-gia?maSach=`, which filters `trangThai = HIEN_THI`. Blocking the repository rather than the `Sach` association was deliberate: association-exposure config is keyed on the *owning* domain type, so disabling it on `Sach` would also have killed `/sach/{id}/listTheLoai`.
 
 ## Luồng Trạng Thái & Hủy Đơn Hàng
 
@@ -187,7 +187,7 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 | POST | `/tai-khoan/dang-nhap` | Đăng nhập |
 | GET | `/tai-khoan/kich-hoat` | Kích hoạt tài khoản |
 | ALL | `/gio-hang/**` | Matcher legacy Spring Data REST; repository `GioHang` đã `exported=false` nên các path này không còn phục vụ dữ liệu. Frontend dùng giỏ hàng local (`localStorage`), không gọi `/api/gio-hang/**`. |
-| GET | `/api/danh-gia/findAll**` | Xem đánh giá |
+| GET | `/api/danh-gia` | Xem đánh giá (phân trang, phân bố sao) |
 | GET | `/api/don-hang/vnpay-payment` | Callback VNPay |
 
 ### Endpoint Yêu Cầu Đăng Nhập (Authenticated)

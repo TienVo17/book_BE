@@ -2,24 +2,18 @@ package com.example.book_be.danhgia.web;
 
 import com.example.book_be.danhgia.dto.CoTheDanhGiaResponse;
 import com.example.book_be.danhgia.dto.DanhGiaBo;
-import com.example.book_be.danhgia.dto.DanhGiaResponse;
+import com.example.book_be.danhgia.dto.DanhGiaCongKhaiResponse;
+import com.example.book_be.danhgia.dto.DanhGiaTrangResponse;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
-import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.danhgia.domain.SuDanhGia;
-import com.example.book_be.danhgia.domain.TrangThaiDanhGia;
+import com.example.book_be.danhgia.service.DanhGiaDocService;
 import com.example.book_be.danhgia.service.DanhGiaService;
-import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,20 +24,33 @@ public class DanhGiaController {
     private DanhGiaService danhGiaService;
 
     @Autowired
-    private NguoiDungRepository nguoiDungRepository;
+    private DanhGiaDocService danhGiaDocService;
 
     @Autowired
-    private SuDanhGiaRepository suDanhGiaRepository;
+    private NguoiDungRepository nguoiDungRepository;
 
-    @GetMapping("findAll")
-    public List<DanhGiaResponse> findAll(@RequestParam("maSach") Integer maSach) {
-        List<SuDanhGia> suDanhGiaPage = suDanhGiaRepository.findAll((root, query, builder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(builder.equal(root.get("sach").get("maSach"), maSach));
-            predicates.add(builder.equal(root.get("trangThai"), TrangThaiDanhGia.HIEN_THI));
-            return builder.and(predicates.toArray(new Predicate[0]));
-        });
-        return DanhGiaResponse.fromList(suDanhGiaPage);
+    /**
+     * Mot request du cho ca khoi danh gia tren trang san pham.
+     *
+     * <p>Thay cho {@code findAll} cu, von tra ve toan bo danh gia cua mot cuon trong mot
+     * mang khong gioi han va khong kem thong tin tong hop nao.
+     *
+     * <p>Cong khai: khach chua dang nhap van doc duoc. {@code maNguoiDungDangXem} chi phuc
+     * vu co {@code laCuaToi}, nen khong dang nhap khong lam mat noi dung gi.
+     */
+    @GetMapping
+    public DanhGiaTrangResponse docTrang(@RequestParam("maSach") Integer maSach,
+                                         @RequestParam(value = "page", required = false) Integer page,
+                                         @RequestParam(value = "size", required = false) Integer size,
+                                         @RequestParam(value = "sort", required = false) String sort,
+                                         @RequestParam(value = "loc", required = false) Integer loc) {
+        if (maSach == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu mã sách.");
+        }
+        if (loc != null && (loc < 1 || loc > 5)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bộ lọc sao không hợp lệ.");
+        }
+        return danhGiaDocService.docTrang(maSach, page, size, sort, loc, maNguoiDungDangXemHoacNull());
     }
 
     /**
@@ -62,7 +69,7 @@ public class DanhGiaController {
     }
 
     @PostMapping("/them-danh-gia-v1")
-    public DanhGiaResponse addReview(@RequestBody DanhGiaBo danhGia) {
+    public DanhGiaCongKhaiResponse addReview(@RequestBody DanhGiaBo danhGia) {
         if (danhGia == null || danhGia.getMaSach() == null || danhGia.getDiemXepHang() == null
                 || danhGia.getDiemXepHang() < 1 || danhGia.getDiemXepHang() > 5
                 || danhGia.getNhanXet() == null || danhGia.getNhanXet().isBlank()) {
@@ -84,26 +91,41 @@ public class DanhGiaController {
                 (long) nguoiDung.getMaNguoiDung(),
                 (long) danhGia.getMaSach()
         );
-        return DanhGiaResponse.from(suDanhGia);
+        return DanhGiaCongKhaiResponse.from(suDanhGia, nguoiDung.getMaNguoiDung());
     }
 
     @PostMapping("/sua-danh-gia/{maDanhGia}")
-    public DanhGiaResponse updateReview(@PathVariable Long maDanhGia, @RequestBody SuDanhGia danhGia) {
+    public DanhGiaCongKhaiResponse updateReview(@PathVariable Long maDanhGia, @RequestBody SuDanhGia danhGia) {
         NguoiDung nguoiDung = nguoiDungHienTai();
-        return DanhGiaResponse.from(danhGiaService.updateReview(
+        return DanhGiaCongKhaiResponse.from(danhGiaService.updateReview(
                 maDanhGia, danhGia, (long) nguoiDung.getMaNguoiDung()
-        ));
+        ), nguoiDung.getMaNguoiDung());
     }
 
     @PostMapping("/xoa-danh-gia/{maDanhGia}")
-    public DanhGiaResponse deleteReview(@PathVariable Long maDanhGia) {
+    public DanhGiaCongKhaiResponse deleteReview(@PathVariable Long maDanhGia) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         NguoiDung nguoiDung = nguoiDungHienTai();
         boolean laQuanTri = authentication.getAuthorities().stream()
                 .anyMatch(quyen -> "ADMIN".equals(quyen.getAuthority()));
-        return DanhGiaResponse.from(danhGiaService.deleteReview(
+        return DanhGiaCongKhaiResponse.from(danhGiaService.deleteReview(
                 maDanhGia, (long) nguoiDung.getMaNguoiDung(), laQuanTri
-        ));
+        ), nguoiDung.getMaNguoiDung());
+    }
+
+    /**
+     * Nguoi dung hien tai neu co, {@code null} neu la khach. Khac
+     * {@link #nguoiDungHienTai()}: duong doc cong khai khong duoc ném 401 chi vi chua
+     * dang nhap — no chi mat co {@code laCuaToi}.
+     */
+    private Integer maNguoiDungDangXemHoacNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(authentication.getName());
+        return nguoiDung == null ? null : nguoiDung.getMaNguoiDung();
     }
 
     /** Principal da duoc SecurityConfiguration xac thuc; van kiem tra lai de fail-closed. */

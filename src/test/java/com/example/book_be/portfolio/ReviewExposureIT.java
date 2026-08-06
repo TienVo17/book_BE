@@ -91,7 +91,7 @@ class ReviewExposureIT {
         anDanhGia();
 
         ResponseEntity<String> response = rest.getForEntity(
-                "/api/danh-gia/findAll?maSach={maSach}", String.class, maSach);
+                "/api/danh-gia?maSach={maSach}", String.class, maSach);
 
         assertThat(response.getBody()).doesNotContain(NOI_DUNG_BI_AN);
     }

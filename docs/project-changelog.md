@@ -1,5 +1,14 @@
 # Project Changelog
 
+## 2026-08-06 (3) — Paged review reads (plan phase 3)
+
+- **`GET /api/danh-gia?maSach=&page=&size=&sort=&loc=` replaces `GET /api/danh-gia/findAll`.** The old endpoint returned every review of a book in one unbounded array; a popular book turned its own product page into a megabyte response. One request now carries the page, `tongSo`, `diemTrungBinh`, and the star distribution. Page size is capped server-side at 50.
+- The star distribution and totals are always computed over **all** visible reviews, never over the current filter. Filtering to 4 stars must not zero out the other four bars — that would destroy the very thing the distribution is for. There is a test for exactly that trap.
+- Sorting: `moi-nhat`, `cu-nhat`, `diem-cao`, `diem-thap`, and `huu-ich`. `huu-ich` is accepted now and behaves as `moi-nhat` until helpful votes exist, so shared URLs do not break later. Every sort has an explicit id tiebreaker; without one, rows with equal timestamps can appear on two consecutive pages or on none.
+- **Split `DanhGiaResponse` into `DanhGiaCongKhaiResponse` and `DanhGiaQuanTriResponse`.** One DTO serving both the shop and the moderation screen is a trap: masking identity for the public path would simultaneously blind the moderator, whose whole job is deciding whether a specific person's post comes down. The public DTO carries no `maNguoiDung` and no `isActive`; the admin DTO keeps real identity plus `trangThai`, `tungBiAn`, and `maDonHang`.
+- **Fixed a 500 in admin hide/show.** `SuDanhGia.nguoiDung` is lazy and the entity leaves the transaction before the response is built, so reading the username threw. The admin paths now load through an `@EntityGraph` finder, which also removes an N+1 on the moderation list (21 queries for a 10-row page).
+- Nothing in the review domain reads `is_active` any more. The admin list previously declared `useState<any[]>` and read `item.isActive`: with the field gone the value was silently `undefined`, so every row displayed "Đã ẩn" and the button sent `!undefined` — always "show". The moderation tool had inverted itself with no compile error and no failing test. It is now typed `DanhGiaQuanTri[]`, which is what makes `tsc --noEmit` an actual gate. The column itself is still written for compatibility and is dropped in phase 7.
+
 ## 2026-08-06 (2) — Verified purchase (plan phase 2)
 
 - **Only customers with a delivered order can review a book.** `POST /api/danh-gia/them-danh-gia-v1` now requires a `don_hang` of the caller, containing that book, with `trang_thai_giao_hang = DA_GIAO (2)`. The review stores that order in `danhgia.ma_don_hang` as its evidence. Cancelled and in-flight orders do not qualify, and another customer's order never unlocks the book for you.

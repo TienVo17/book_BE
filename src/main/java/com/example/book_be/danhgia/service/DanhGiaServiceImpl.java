@@ -165,7 +165,7 @@ public class DanhGiaServiceImpl implements DanhGiaService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SuDanhGia doiTrangThai(Long maDanhGia, TrangThaiDanhGia trangThaiMoi) {
-        SuDanhGia db = suDanhGiaRepository.findById(maDanhGia)
+        SuDanhGia db = suDanhGiaRepository.timKemNguoiDung(maDanhGia)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá."));
         sachRepository.khoaSachDeCapNhat(db.getSach().getMaSach());
         db.datTrangThai(trangThaiMoi);

@@ -4,7 +4,7 @@ import com.example.book_be.sach.dto.SachBo;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.repository.SachRepository;
-import com.example.book_be.danhgia.dto.DanhGiaResponse;
+import com.example.book_be.danhgia.dto.DanhGiaQuanTriResponse;
 import com.example.book_be.danhgia.repository.SuDanhGiaRepository;
 import com.example.book_be.danhgia.service.DanhGiaService;
 import com.example.book_be.nguoidung.domain.Quyen;
@@ -38,16 +38,9 @@ public class BinhLuanController {
     private DanhGiaService danhGiaService;
 
     @GetMapping("findAll")
-    public Page<DanhGiaResponse> findAll(@RequestParam("page") Integer page) {
-        Pageable pageable = PageRequest.of(page,10);
-        Page<SuDanhGia> suDanhGiaPage = suDanhGiaRepository.findAll((root, query, builder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-
-            return builder.and(predicates.toArray(new Predicate[0]));
-        }, pageable);
-
-        return DanhGiaResponse.fromPage(suDanhGiaPage);
+    public Page<DanhGiaQuanTriResponse> findAll(@RequestParam("page") Integer page) {
+        Pageable pageable = PageRequest.of(page == null || page < 0 ? 0 : page, 10);
+        return DanhGiaQuanTriResponse.fromPage(suDanhGiaRepository.timTrangChoQuanTri(pageable));
     }
 
 
@@ -63,14 +56,14 @@ public class BinhLuanController {
      * 200 rong, khong phan biet duoc thanh cong hay that bai.
      */
     @PostMapping("active/{id}")
-    public ResponseEntity<DanhGiaResponse> active(@PathVariable Long id) {
-        return ResponseEntity.ok(DanhGiaResponse.from(
+    public ResponseEntity<DanhGiaQuanTriResponse> active(@PathVariable Long id) {
+        return ResponseEntity.ok(DanhGiaQuanTriResponse.from(
                 danhGiaService.doiTrangThai(id, TrangThaiDanhGia.HIEN_THI)));
     }
 
     @PostMapping("unactive/{id}")
-    public ResponseEntity<DanhGiaResponse> unactive(@PathVariable Long id) {
-        return ResponseEntity.ok(DanhGiaResponse.from(
+    public ResponseEntity<DanhGiaQuanTriResponse> unactive(@PathVariable Long id) {
+        return ResponseEntity.ok(DanhGiaQuanTriResponse.from(
                 danhGiaService.doiTrangThai(id, TrangThaiDanhGia.DA_AN)));
     }
 
