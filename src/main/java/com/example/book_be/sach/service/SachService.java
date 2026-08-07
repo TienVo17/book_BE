@@ -2,6 +2,7 @@ package com.example.book_be.sach.service;
 
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachGoiYResponse;
 import com.example.book_be.sach.dto.SachTonKhoResponse;
 import com.example.book_be.sach.domain.Sach;
 import org.springframework.data.domain.Page;
@@ -9,8 +10,14 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 
 public interface SachService {
+    /** Gia tri hop le cho tham so {@code sort} cua GET /api/sach — controller validate truoc khi goi service. */
+    String SORT_MOI_NHAT = "moi-nhat";
+    String SORT_GIA_TANG = "gia-tang";
+    String SORT_GIA_GIAM = "gia-giam";
+    String SORT_TEN_AZ = "ten-az";
+    String SORT_DANH_GIA = "danh-gia";
+
     Page<Sach> findAll(SachBo bo);
-    Page<Sach> findBookByName(String tenSach, int page, int size);
     Sach save(Sach sach);
     Sach save(SachAdminUpsertBo bo);
     Sach update(Sach bo) throws Exception;
@@ -24,4 +31,5 @@ public interface SachService {
     List<Sach> findMoiNhat(int limit);
     List<Sach> findLienQuan(int maSach, int limit);
     Sach findBySlug(String slug);
+    List<SachGoiYResponse> findGoiY(String tuKhoa, int limit);
 }

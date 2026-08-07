@@ -39,6 +39,15 @@ public class RestConfig implements RepositoryRestConfigurer {
         };
         blockHttpMethods(Sach.class, config, disableSachMutationMethods);
 
+        // Sach: dong nay chi chan mutation (POST/PUT/PATCH/DELETE) tren collection/item/
+        // association theo LOAI THUC THE. No KHONG dong duoc "/sach/search/<ten-phuong-thuc>" —
+        // do la tai nguyen tim kiem rieng cua repository, chi dong duoc bang
+        // @RestResource(exported = false) tren TUNG query method trong chinh SachRepository
+        // (da lam o do). Nguyen nhan phai lam vay: mot query method rieng cua Sach nhu
+        // findAllByIsActive KHONG di qua bo loc isActive cua SachServiceImpl, nen phoi no ra la
+        // lo du lieu sach da an; cac cau @Modifying doi ton kho cung se goi duoc tu ben ngoai
+        // neu con exported.
+
         // Nguoi dung: dong hoan toan collection/item/association qua Spring Data REST.
         // Cac endpoint search (existsByTenDangNhap/existsByEmail) khong bi anh huong boi
         // config nay nen 2 endpoint public van hoat dong (xac nhan boi AdminAndRepositoryExposureIT).

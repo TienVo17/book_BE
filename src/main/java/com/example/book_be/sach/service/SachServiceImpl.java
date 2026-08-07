@@ -2,6 +2,7 @@ package com.example.book_be.sach.service;
 
 import com.example.book_be.sach.dto.SachAdminUpsertBo;
 import com.example.book_be.sach.dto.SachBo;
+import com.example.book_be.sach.dto.SachGoiYResponse;
 import com.example.book_be.sach.dto.SachThongTinChiTietBo;
 import com.example.book_be.sach.dto.SachTonKhoResponse;
 import com.example.book_be.sach.repository.HinhAnhRepository;
@@ -13,11 +14,15 @@ import com.example.book_be.sach.domain.SachThongTinChiTiet;
 import com.example.book_be.sach.domain.TheLoai;
 import com.example.book_be.shared.util.BookDescriptionSanitizer;
 import com.example.book_be.shared.util.SlugUtil;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,12 +50,6 @@ public class SachServiceImpl implements SachService {
     private TheLoaiRepository theLoaiRepository;
 
     @Override
-    public Page<Sach> findBookByName(String tenSach, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return sachRepository.findByTenSachContaining(tenSach, pageable);
-    }
-
-    @Override
     public Page<Sach> findAll(SachBo model) {
         Pageable pageable = PageRequest.of(model.getPage(), model.getPageSize());
         Page<Sach> sachPage = sachRepository.findAll((root, query, builder) -> {
@@ -59,10 +58,21 @@ public class SachServiceImpl implements SachService {
                 predicates.add(builder.equal(builder.coalesce(root.get("isActive"), 1), 1));
             }
             if (model.getTenSach() != null && !model.getTenSach().isEmpty()) {
-                String keyword = "%" + model.getTenSach().toLowerCase() + "%";
+                String tuKhoa = model.getTenSach().toLowerCase();
+                String keyword = "%" + tuKhoa + "%";
+                // Collation MySQL da tu bo qua moi dau thanh/dau mu (do bang request that: go
+                // "toi tai gioi" van khop "Tôi Tài Giỏi"). Rieng "Đ/đ" la MOT CHU CAI RIENG
+                // trong bang chu cai tieng Viet nen KHONG duoc collation gop voi "D/d" — go
+                // "dang gia" khong khop "Đáng Giá" neu khong co ve nay. Chuan hoa "đ"->"d" ca
+                // hai phia (cot va tu khoa) de khop ca hai chieu co dau/khong dau. LIKE %...%
+                // von da khong dung duoc index va bang sach rat nho nen them ve OR nay khong
+                // dang ngai hieu nang.
+                String keywordKhongDauD = "%" + tuKhoa.replace("đ", "d") + "%";
                 predicates.add(builder.or(
                         builder.like(builder.lower(root.get("tenSach")), keyword),
-                        builder.like(builder.lower(root.get("tenTacGia")), keyword)
+                        builder.like(builder.lower(root.get("tenTacGia")), keyword),
+                        builder.like(chuanHoaChuD(builder, root.get("tenSach")), keywordKhongDauD),
+                        builder.like(chuanHoaChuD(builder, root.get("tenTacGia")), keywordKhongDauD)
                 ));
             }
             if (model.getMaTheLoai() != null && model.getMaTheLoai() > 0) {
@@ -71,12 +81,57 @@ public class SachServiceImpl implements SachService {
                 ));
                 query.distinct(true);
             }
-            query.orderBy(builder.desc(root.get("maSach")));
+            if (model.getGiaMin() != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.get("giaBan"), model.getGiaMin()));
+            }
+            if (model.getGiaMax() != null) {
+                predicates.add(builder.lessThanOrEqualTo(root.get("giaBan"), model.getGiaMax()));
+            }
+            // Moi kieu sap xep phai chot bang khoa phu maSach DESC. Neu khong, hai cuon cung gia
+            // (hoac cung ten, cung diem danh gia...) se doi cho nhau giua cac lan query khac nhau
+            // vi MySQL khong dam bao thu tu cho cac dong bang nhau — mot cuon co the roi vao hai
+            // trang lien tiep hoac khong o trang nao khi phan trang.
+            String sortKey = model.getSort() == null ? SORT_MOI_NHAT : model.getSort();
+            List<Order> order = switch (sortKey) {
+                case SORT_GIA_TANG -> List.of(builder.asc(root.get("giaBan")), builder.desc(root.get("maSach")));
+                case SORT_GIA_GIAM -> List.of(builder.desc(root.get("giaBan")), builder.desc(root.get("maSach")));
+                case SORT_TEN_AZ -> List.of(builder.asc(root.get("tenSach")), builder.desc(root.get("maSach")));
+                case SORT_DANH_GIA -> List.of(builder.desc(root.get("trungBinhXepHang")), builder.desc(root.get("maSach")));
+                default -> List.of(builder.desc(root.get("maSach")));
+            };
+            query.orderBy(order);
             return builder.and(predicates.toArray(new Predicate[0]));
         }, pageable);
 
         sachPage.getContent().forEach(this::loadImages);
         return sachPage;
+    }
+
+    /**
+     * REPLACE long: bien "Đ"/"đ" thanh "D"/"d" roi ha thuong, de so sanh khong con phu thuoc
+     * vao chu cai rieng nay cua tieng Viet ma collation MySQL khong tu gop nhu cac dau khac.
+     */
+    private Expression<String> chuanHoaChuD(CriteriaBuilder builder, Expression<String> cot) {
+        Expression<String> boHoaD = builder.function("REPLACE", String.class, cot, builder.literal("Đ"), builder.literal("D"));
+        Expression<String> boThuongD = builder.function("REPLACE", String.class, boHoaD, builder.literal("đ"), builder.literal("d"));
+        return builder.lower(boThuongD);
+    }
+
+    @Override
+    public List<SachGoiYResponse> findGoiY(String tuKhoa, int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        List<Sach> ketQua = sachRepository.findGoiY(tuKhoa, pageable);
+        return ketQua.stream()
+                .map(sach -> SachGoiYResponse.from(sach, timAnhDauTien(sach.getMaSach())))
+                .toList();
+    }
+
+    /** Anh dau tien cua sach theo thu tu ma_hinh_anh tang dan, null neu sach chua co anh. */
+    private String timAnhDauTien(int maSach) {
+        Page<HinhAnh> anh = hinhAnhRepository.findAll(
+                (root, query, builder) -> builder.equal(root.get("sach").get("maSach"), maSach),
+                PageRequest.of(0, 1, Sort.by(Sort.Direction.ASC, "maHinhAnh")));
+        return anh.hasContent() ? anh.getContent().get(0).getUrlHinh() : null;
     }
 
     @Override
