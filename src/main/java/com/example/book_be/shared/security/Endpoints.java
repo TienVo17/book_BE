@@ -33,6 +33,7 @@ public class Endpoints {
             // Dang ky nhan tin o footer: khach chua dang nhap van phai dung duoc.
             // Ca hai duong deu co gioi han tan suat theo IP trong NhanTinController.
             "/api/nhan-tin/dang-ky",
+            "/api/nhan-tin/xac-nhan/*",
             "/api/nhan-tin/huy/*",
     };
     public static final String[] PUBLIC_PUT_ENDPOINS = {

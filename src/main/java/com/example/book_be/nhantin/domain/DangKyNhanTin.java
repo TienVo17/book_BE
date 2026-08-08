@@ -34,4 +34,15 @@ public class DangKyNhanTin {
 
     @Column(name = "da_huy", nullable = false)
     private Boolean daHuy;
+
+    /** Chi dia chi da xac nhan moi thuc su nam trong danh sach gui. */
+    @Column(name = "da_xac_nhan", nullable = false)
+    private Boolean daXacNhan;
+
+    /** Khoa trong thu xac thuc. Xoa di sau khi xac nhan xong, khong giu lai khoa con dung duoc. */
+    @Column(name = "ma_xac_nhan", unique = true, length = 36)
+    private String maXacNhan;
+
+    @Column(name = "ngay_xac_nhan")
+    private Instant ngayXacNhan;
 }

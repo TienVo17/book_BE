@@ -17,6 +17,8 @@ public class FrontendUrlProvider {
     private static final String ACTIVATION_PATH = "kich-hoat";
     private static final String RESET_PASSWORD_PATH = "dat-lai-mat-khau";
     private static final String VNPAY_RETURN_PATH = "xu-ly-kq-thanh-toan";
+    private static final String NEWSLETTER_CONFIRM_PATH = "xac-nhan-nhan-tin";
+    private static final String NEWSLETTER_UNSUBSCRIBE_PATH = "huy-nhan-tin";
 
     private final String frontendUrl;
 
@@ -38,6 +40,14 @@ public class FrontendUrlProvider {
 
     public String vnPayReturnUrl() {
         return buildPath(VNPAY_RETURN_PATH);
+    }
+
+    public String xacNhanNhanTinUrl(String maXacNhan) {
+        return buildPath(NEWSLETTER_CONFIRM_PATH, maXacNhan);
+    }
+
+    public String huyNhanTinUrl(String maHuy) {
+        return buildPath(NEWSLETTER_UNSUBSCRIBE_PATH, maHuy);
     }
 
     public static String normalizeOrigin(String rawUrl) {

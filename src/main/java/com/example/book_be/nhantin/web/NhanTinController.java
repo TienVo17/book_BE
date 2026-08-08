@@ -38,6 +38,14 @@ public class NhanTinController {
         return ResponseEntity.ok(Map.of("daDangKy", true));
     }
 
+    @PostMapping("/xac-nhan/{maXacNhan}")
+    public ResponseEntity<Map<String, Object>> xacNhan(@PathVariable String maXacNhan,
+                                                       HttpServletRequest httpRequest) {
+        batBuocTrongGioiHan("nhan-tin-xac-nhan:" + diaChiIp(httpRequest));
+        nhanTinService.xacNhan(maXacNhan);
+        return ResponseEntity.ok(Map.of("daXacNhan", true));
+    }
+
     @PostMapping("/huy/{maHuy}")
     public ResponseEntity<Map<String, Object>> huy(@PathVariable String maHuy,
                                                    HttpServletRequest httpRequest) {

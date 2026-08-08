@@ -3,10 +3,12 @@ package com.example.book_be.nhantin.web;
 import com.example.book_be.TestcontainersConfig;
 import com.example.book_be.nhantin.domain.DangKyNhanTin;
 import com.example.book_be.nhantin.repository.DangKyNhanTinRepository;
+import com.example.book_be.shared.email.EmailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
@@ -14,13 +16,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 /**
- * Bat bien can database that: rang buoc UNIQUE, migration V17, va viec repository KHONG bi
- * Spring Data REST phoi ra ngoai.
+ * Bat bien can database that: rang buoc UNIQUE, migration V17/V18, va viec repository KHONG
+ * bi Spring Data REST phoi ra ngoai.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfig.class)
@@ -28,6 +34,9 @@ class NhanTinIT {
 
     @Autowired TestRestTemplate rest;
     @Autowired DangKyNhanTinRepository repository;
+
+    /** Test khong duoc gui thu that; MAIL_FROM cung khong duoc cau hinh o day. */
+    @MockBean EmailService emailService;
 
     private String emailDaDung;
 
@@ -40,20 +49,60 @@ class NhanTinIT {
     }
 
     @Test
-    void dang_ky_luu_duoc_va_ha_chu_thuong() {
+    void dang_ky_luu_o_trang_thai_cho_xac_nhan() {
         emailDaDung = "Footer.Test." + System.nanoTime() + "@Example.COM";
 
         ResponseEntity<String> response = guiDangKy(emailDaDung);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        emailDaDung = emailDaDung.toLowerCase(java.util.Locale.ROOT);
+        emailDaDung = emailDaDung.toLowerCase(Locale.ROOT);
         Optional<DangKyNhanTin> daLuu = repository.findByEmail(emailDaDung);
         assertThat(daLuu).isPresent();
-        assertThat(daLuu.get().getDaHuy()).isFalse();
+        assertThat(daLuu.get().getDaXacNhan()).as("chua bam lien ket thi chua vao danh sach").isFalse();
+        assertThat(daLuu.get().getMaXacNhan()).isNotBlank();
         assertThat(daLuu.get().getMaHuy()).isNotBlank();
+        verify(emailService).sendEmail(any(), any(), any());
     }
 
-    /** Bam hai lan la chuyen binh thuong; khong duoc bao loi cho mot thao tac da thanh cong. */
+    @Test
+    void bam_lien_ket_xac_nhan_thi_vao_danh_sach_va_ma_bi_xoa() {
+        emailDaDung = "footer.xacnhan." + System.nanoTime() + "@example.com";
+        guiDangKy(emailDaDung);
+        String maXacNhan = repository.findByEmail(emailDaDung).orElseThrow().getMaXacNhan();
+
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/nhan-tin/xac-nhan/{ma}", new HttpEntity<>(new HttpHeaders()), String.class, maXacNhan);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        DangKyNhanTin sau = repository.findByEmail(emailDaDung).orElseThrow();
+        assertThat(sau.getDaXacNhan()).isTrue();
+        assertThat(sau.getMaXacNhan()).isNull();
+    }
+
+    /** Dung lai khoa da xac nhan mot lan phai that bai. */
+    @Test
+    void xac_nhan_hai_lan_bang_cung_mot_ma_thi_lan_hai_tra_404() {
+        emailDaDung = "footer.hailan." + System.nanoTime() + "@example.com";
+        guiDangKy(emailDaDung);
+        String maXacNhan = repository.findByEmail(emailDaDung).orElseThrow().getMaXacNhan();
+
+        rest.postForEntity("/api/nhan-tin/xac-nhan/{ma}", new HttpEntity<>(new HttpHeaders()), String.class, maXacNhan);
+        ResponseEntity<String> lanHai = rest.postForEntity(
+                "/api/nhan-tin/xac-nhan/{ma}", new HttpEntity<>(new HttpHeaders()), String.class, maXacNhan);
+
+        assertThat(lanHai.getStatusCode().value()).isEqualTo(404);
+    }
+
+    @Test
+    void xac_nhan_bang_ma_sai_tra_404() {
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/nhan-tin/xac-nhan/{ma}", new HttpEntity<>(new HttpHeaders()), String.class,
+                "ma-khong-ton-tai-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(404);
+    }
+
+    /** Bam hai lan la chuyen binh thuong; khong duoc tao dong thu hai. */
     @Test
     void dang_ky_hai_lan_van_200_va_chi_mot_dong() {
         emailDaDung = "footer.trung." + System.nanoTime() + "@example.com";
@@ -69,10 +118,22 @@ class NhanTinIT {
     }
 
     @Test
-    void email_khong_hop_le_tra_400() {
+    void email_khong_hop_le_tra_400_va_khong_gui_thu() {
         ResponseEntity<String> response = guiDangKy("khong-phai-email");
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
+    }
+
+    /** Khong gui duoc thu thi khong duoc bao thanh cong cho mot dang ky khong the hoan tat. */
+    @Test
+    void khong_gui_duoc_thu_thi_tra_503() {
+        doThrow(new IllegalStateException("MAIL_FROM chua duoc cau hinh."))
+                .when(emailService).sendEmail(any(), any(), any());
+        emailDaDung = "footer.loimail." + System.nanoTime() + "@example.com";
+
+        ResponseEntity<String> response = guiDangKy(emailDaDung);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(503);
     }
 
     @Test

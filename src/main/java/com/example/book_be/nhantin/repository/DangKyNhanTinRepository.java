@@ -23,4 +23,7 @@ public interface DangKyNhanTinRepository extends JpaRepository<DangKyNhanTin, Lo
 
     @RestResource(exported = false)
     Optional<DangKyNhanTin> findByMaHuy(String maHuy);
+
+    @RestResource(exported = false)
+    Optional<DangKyNhanTin> findByMaXacNhan(String maXacNhan);
 }
