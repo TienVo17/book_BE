@@ -351,9 +351,11 @@ class CheckoutIdempotencyIT {
     }
 
     private CheckoutOrderRequest checkoutRequest(int maSach, int soLuong, int maDiaChi, String maCoupon) {
+        // null hinh thuc giao hang: giu nguyen hanh vi mien phi ship cua cac test nay, vi chung
+        // do bat bien cua idempotency chu khong do cach tinh phi.
         return new CheckoutOrderRequest(
                 new ArrayList<>(List.of(new CartItemRequest(maSach, soLuong))),
-                maDiaChi, PAYMENT_METHOD_COD, maCoupon);
+                maDiaChi, PAYMENT_METHOD_COD, maCoupon, null);
     }
 
     private int tonKho(int maSach) {

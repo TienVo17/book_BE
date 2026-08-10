@@ -5,6 +5,8 @@ import com.example.book_be.giamgia.repository.CouponRepository;
 import com.example.book_be.nguoidung.repository.DiaChiGiaoHangRepository;
 import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.giohang.repository.GioHangRepository;
+import com.example.book_be.donhang.repository.HinhThucGiaoHangRepository;
+import com.example.book_be.donhang.domain.HinhThucGiaoHang;
 import com.example.book_be.thanhtoan.repository.HinhThucThanhToanRepository;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.sach.repository.SachRepository;
@@ -63,6 +65,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private HinhThucThanhToanRepository hinhThucThanhToanRepository;
+
+    @Autowired
+    private HinhThucGiaoHangRepository hinhThucGiaoHangRepository;
 
     @Autowired
     private CouponRepository couponRepository;
@@ -152,7 +157,13 @@ public class OrderServiceImpl implements OrderService {
         donHang.setTrangThaiGiaoHang(0);
         donHang.setHinhThucThanhToan(hinhThucThanhToan);
         donHang.setChiPhiThanhToan(hinhThucThanhToan.getChiPhiGiaoHang());
-        donHang.setChiPhiGiaoHang(0);
+
+        // Truoc day dong nay ghi cung 0 nen moi don deu mien phi ship, du bang
+        // hinh_thuc_giao_hang da co san bieu phi va tongTien ben duoi da cong chiPhiGiaoHang.
+        // Ca duong ong deu du, chi thieu dung buoc gan gia tri.
+        HinhThucGiaoHang hinhThucGiaoHang = resolveDeliveryMethod(request.getMaHinhThucGiaoHang());
+        donHang.setHinhThucGiaoHang(hinhThucGiaoHang);
+        donHang.setChiPhiGiaoHang(hinhThucGiaoHang == null ? 0 : hinhThucGiaoHang.getChiPhiGiaoHang());
 
         // TreeMap: lap theo maSach tang dan de moi transaction khoa row Sach cung thu tu -> tranh deadlock.
         Map<Integer, Integer> soLuongTheoSach = gomSoLuongTheoSach(request.getItems());
@@ -216,6 +227,8 @@ public class OrderServiceImpl implements OrderService {
                 donHang.getTongTien(),
                 donHang.getTongTienSanPham(),
                 soTienGiam,
+                donHang.getChiPhiGiaoHang(),
+                hinhThucGiaoHang == null ? null : hinhThucGiaoHang.getTenHinhThucGiaoHang(),
                 coupon != null ? coupon.getMa() : null,
                 normalizePaymentMethodCode(hinhThucThanhToan),
                 donHang.getTrangThaiThanhToan(),
@@ -243,6 +256,9 @@ public class OrderServiceImpl implements OrderService {
                 donHang.getTongTien(),
                 donHang.getTongTienSanPham(),
                 soTienGiam,
+                donHang.getChiPhiGiaoHang(),
+                donHang.getHinhThucGiaoHang() == null
+                        ? null : donHang.getHinhThucGiaoHang().getTenHinhThucGiaoHang(),
                 donHang.getCheckoutResponseCouponCode(),
                 donHang.getCheckoutResponsePaymentMethod(),
                 donHang.getCheckoutResponsePaymentStatus(),
@@ -254,7 +270,12 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Hash on dinh tren request DA NORMALIZE: sach sap xep tang dan theo maSach voi so luong da
-     * gop (khong phu thuoc thu tu items trong JSON goc), dia chi, phuong thuc thanh toan, coupon.
+     * gop (khong phu thuoc thu tu items trong JSON goc), dia chi, phuong thuc thanh toan, coupon,
+     * hinh thuc giao hang.
+     *
+     * <p>Hinh thuc giao hang PHAI nam trong hash: no doi tong tien. Bo qua no thi khach doi tu
+     * "tu lay tai cua hang" sang "giao tan noi" roi dat lai se bi coi la dat trung va nhan ve
+     * chinh don cu voi phi cu.
      */
     private String computeFingerprint(CheckoutOrderRequest request) {
         Map<Integer, Integer> normalizedItems = gomSoLuongTheoSach(request.getItems());
@@ -265,6 +286,8 @@ public class OrderServiceImpl implements OrderService {
                 ? "" : request.getPhuongThucThanhToan().trim().toUpperCase());
         canonical.append("|coupon=").append(request.getMaCoupon() == null || request.getMaCoupon().isBlank()
                 ? "" : request.getMaCoupon().trim().toUpperCase());
+        canonical.append("|delivery=").append(request.getMaHinhThucGiaoHang() == null
+                ? "" : request.getMaHinhThucGiaoHang());
         return sha256Hex(canonical.toString());
     }
 
@@ -348,6 +371,21 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return coupon;
+    }
+
+    /**
+     * {@code null} khi client khong gui — giu nguyen hanh vi mien phi ship cu thay vi mac dinh
+     * mot hinh thuc co phi, de khong ai bi tinh them tien cho lua chon chua tung nhin thay.
+     * Ma khong ton tai thi bao 400 chu khong im lang bo qua: im lang se cho ra mot don co gia
+     * khac han cai khach vua thay tren man hinh.
+     */
+    private HinhThucGiaoHang resolveDeliveryMethod(Integer maHinhThucGiaoHang) {
+        if (maHinhThucGiaoHang == null) {
+            return null;
+        }
+        return hinhThucGiaoHangRepository.findById(Long.valueOf(maHinhThucGiaoHang))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Hình thức giao hàng không tồn tại."));
     }
 
     private double tinhSoTienGiam(Coupon coupon, double tongTienSanPham) {

@@ -15,6 +15,9 @@ public class Endpoints {
             "/api/sach/**",
             "/api/the-loai",
             "/api/the-loai/**",
+            // Bang tham chieu, khong co du lieu ca nhan. Khach chua dang nhap phai xem duoc
+            // phi van chuyen ngay khi cong don hang.
+            "/api/hinh-thuc-giao-hang",
             "/api/sach/ban-chay",
             "/api/sach/moi-nhat",
             "/api/sach/*/lien-quan",

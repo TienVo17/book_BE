@@ -453,7 +453,7 @@ class SachTonKhoIT {
         CopyOnWriteArrayList<CartItemRequest> items = new CopyOnWriteArrayList<>();
         items.add(new CartItemRequest(maSach, soLuong));
         items.addAll(List.of(themItems));
-        return new CheckoutOrderRequest(items, address.getMaDiaChi(), "COD", null);
+        return new CheckoutOrderRequest(items, address.getMaDiaChi(), "COD", null, null);
     }
 
     private <T> T voiNguoiDung(String tenDangNhap, ThrowingSupplier<T> action) throws Exception {
