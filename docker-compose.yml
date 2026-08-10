@@ -32,6 +32,12 @@
       DB_USERNAME: root
       DB_PASSWORD: ""
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      # Mac dinh giu Gmail de cau hinh cu khong doi hanh vi dot ngot. Doi nha cung cap
+      # chi can dat MAIL_HOST/MAIL_PORT trong .env, khong sua file nay va khong sua code.
+      # Mailjet: MAIL_HOST=in-v3.mailjet.com, MAIL_PORT=587, MAIL_USERNAME=<API Key>,
+      # MAIL_PASSWORD=<Secret Key> — KHONG phai email/mat khau dang nhap Mailjet.
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       # Registration and password reset refuse to report success when no sender
