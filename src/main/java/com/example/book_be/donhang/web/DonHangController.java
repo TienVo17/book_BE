@@ -5,6 +5,8 @@ import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.donhang.dto.CheckoutOrderRequest;
 import com.example.book_be.donhang.dto.CheckoutOrderResponse;
+import com.example.book_be.donhang.dto.OrderDetailLineItemResponse;
+import com.example.book_be.donhang.dto.OrderDetailResponse;
 import com.example.book_be.donhang.dto.OrderListItemResponse;
 import com.example.book_be.donhang.dto.VNPayUrlResponse;
 import com.example.book_be.donhang.domain.ChiTietDonHang;
@@ -41,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -101,16 +104,16 @@ public class DonHangController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> findById(@PathVariable Long id) {
+    public ResponseEntity<OrderDetailResponse> findById(@PathVariable Long id) {
         NguoiDung currentUser = getCurrentUser();
-        DonHang donHang = donHangRepository.findById(id)
+        DonHang donHang = donHangRepository.findDetailById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Đơn hàng không tồn tại."));
         if (!isAdmin()
                 && (donHang.getNguoiDung() == null
                     || donHang.getNguoiDung().getMaNguoiDung() != currentUser.getMaNguoiDung())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền truy cập đơn hàng này.");
         }
-        return ResponseEntity.ok(donHang);
+        return ResponseEntity.ok(toOrderDetailResponse(donHang));
     }
 
     @PostMapping("/them")
@@ -312,6 +315,54 @@ public class DonHangController {
                 donHang.getTrangThaiThanhToan(),
                 donHang.getTrangThaiGiaoHang(),
                 donHang.getTongTien()
+        );
+    }
+
+    private OrderDetailResponse toOrderDetailResponse(DonHang donHang) {
+        List<OrderDetailLineItemResponse> lineItems = donHang.getDanhSachChiTietDonHang() == null
+                ? List.of()
+                : donHang.getDanhSachChiTietDonHang().stream()
+                .sorted(Comparator.comparingInt(ChiTietDonHang::getMaChiTietDonHang))
+                .map(line -> new OrderDetailLineItemResponse(
+                        line.getSach().getMaSach(),
+                        line.getSach().getTenSach(),
+                        line.getSoLuong(),
+                        line.getGiaBan(),
+                        line.getGiaBan() * line.getSoLuong()
+                ))
+                .toList();
+
+        String paymentCode = null;
+        String paymentName = null;
+        if (donHang.getHinhThucThanhToan() != null) {
+            paymentCode = donHang.getHinhThucThanhToan().getMaCode();
+            paymentName = donHang.getHinhThucThanhToan().getTenHinhThucGiaoHang();
+        }
+        String deliveryName = donHang.getHinhThucGiaoHang() == null
+                ? null
+                : donHang.getHinhThucGiaoHang().getTenHinhThucGiaoHang();
+        double discount = Math.max(0, donHang.getTongTienSanPham()
+                + donHang.getChiPhiGiaoHang()
+                + donHang.getChiPhiThanhToan()
+                - donHang.getTongTien());
+
+        return new OrderDetailResponse(
+                donHang.getMaDonHang(),
+                donHang.getNgayTao(),
+                donHang.getHoTen(),
+                donHang.getSoDienThoai(),
+                donHang.getDiaChiNhanHang(),
+                donHang.getTrangThaiThanhToan(),
+                donHang.getTrangThaiGiaoHang(),
+                paymentCode,
+                paymentName,
+                deliveryName,
+                donHang.getTongTienSanPham(),
+                discount,
+                donHang.getChiPhiGiaoHang(),
+                donHang.getChiPhiThanhToan(),
+                donHang.getTongTien(),
+                lineItems
         );
     }
 

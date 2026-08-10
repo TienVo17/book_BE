@@ -59,6 +59,15 @@ public interface DonHangRepository extends JpaRepository<DonHang, Long>, JpaSpec
             + "WHERE d.nguoiDung.maNguoiDung = :maNguoiDung AND ct.sach.maSach = :maSach")
     long demDonChuaSach(@Param("maNguoiDung") int maNguoiDung, @Param("maSach") int maSach);
 
+    @Query("SELECT DISTINCT d FROM DonHang d "
+            + "LEFT JOIN FETCH d.nguoiDung "
+            + "LEFT JOIN FETCH d.hinhThucThanhToan "
+            + "LEFT JOIN FETCH d.hinhThucGiaoHang "
+            + "LEFT JOIN FETCH d.danhSachChiTietDonHang ct "
+            + "LEFT JOIN FETCH ct.sach "
+            + "WHERE d.maDonHang = :id")
+    Optional<DonHang> findDetailById(@Param("id") Long id);
+
     /** Tra cuu don da tao boi cung nguoi dung + cung Idempotency-Key (phuc vu replay/claim khi checkout). */
     Optional<DonHang> findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(int maNguoiDung, String checkoutIdempotencyKey);
 }
