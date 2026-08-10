@@ -4,11 +4,20 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+/**
+ * Gui qua SMTP. Mac dinh, va la duong dung o may local.
+ *
+ * <p>KHONG dung duoc tren Render goi mien phi: ho chan cong 25/465/587 di ra tu 26/09/2025,
+ * va ket noi treo cho toi khi het gio thay vi bao loi ngay. Tren do phai dat
+ * {@code MAIL_PROVIDER=mailjet} de chuyen sang {@link MailjetEmailService} qua HTTP.
+ */
 @Service
+@ConditionalOnProperty(name = "app.mail.provider", havingValue = "smtp", matchIfMissing = true)
 public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final String fromAddress;

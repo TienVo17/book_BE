@@ -36,6 +36,9 @@
       # chi can dat MAIL_HOST/MAIL_PORT trong .env, khong sua file nay va khong sua code.
       # Mailjet: MAIL_HOST=in-v3.mailjet.com, MAIL_PORT=587, MAIL_USERNAME=<API Key>,
       # MAIL_PASSWORD=<Secret Key> — KHONG phai email/mat khau dang nhap Mailjet.
+      # smtp (mac dinh) hoac mailjet. Render goi mien phi chan cong SMTP di ra nen tren do
+      # phai dat mailjet; o local thi ca hai deu chay.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-smtp}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
