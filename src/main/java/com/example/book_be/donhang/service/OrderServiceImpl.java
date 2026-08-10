@@ -33,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private OrderConfirmationEmailService orderConfirmationEmailService;
 
     @Override
     public CheckoutOrderResponse saveOrUpdate(CheckoutOrderRequest request) {
@@ -202,6 +206,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IdempotencyKeyRaceException();
         }
 
+        List<ChiTietDonHang> createdLineItems = new ArrayList<>();
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
             Sach db = sachRepository.findById(Long.valueOf(entry.getKey()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sách không tồn tại."));
@@ -212,6 +217,7 @@ public class OrderServiceImpl implements OrderService {
             chiTietDonHang.setGiaBan(db.getGiaBan());
             chiTietDonHang.setDanhGia(true);
             chiTietDonHangRepository.save(chiTietDonHang);
+            createdLineItems.add(chiTietDonHang);
             gioHangRepository.deleteByMaNguoiDungAndMaSach(nguoiDung.getMaNguoiDung(), db.getMaSach());
         }
 
@@ -222,6 +228,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        orderConfirmationEmailService.scheduleAfterCommit(donHang, createdLineItems);
         return new CheckoutOrderResponse(
                 donHang.getMaDonHang(),
                 donHang.getTongTien(),

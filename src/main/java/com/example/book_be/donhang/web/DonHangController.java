@@ -1,6 +1,5 @@
 package com.example.book_be.donhang.web;
 
-import com.example.book_be.donhang.repository.ChiTietDonHangRepository;
 import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.donhang.dto.CheckoutOrderRequest;
@@ -19,8 +18,6 @@ import com.example.book_be.donhang.service.DonHangHuyService;
 import com.example.book_be.donhang.service.DonHangTrangThaiService;
 import com.example.book_be.donhang.service.OrderService;
 import com.example.book_be.shared.dto.ThongBao;
-import com.example.book_be.shared.email.EmailService;
-import com.example.book_be.shared.email.HtmlEncoder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,13 +67,7 @@ public class DonHangController {
     private VNPayService vnPayService;
 
     @Autowired
-    private EmailService emailService;
-
-    @Autowired
     private DonHangRepository donHangRepository;
-
-    @Autowired
-    private ChiTietDonHangRepository chiTietDonHangRepository;
 
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
@@ -192,29 +183,10 @@ public class DonHangController {
         if (soTienVnPay != tongTienDonHang) {
             return "orderfail";
         }
-        List<ChiTietDonHang> chiTietDonHangs = chiTietDonHangRepository.findAll((root, query, builder) -> builder.equal(
-                root.get("donHang").get("maDonHang"), donHang.getMaDonHang()
-        ));
         if (paymentStatus == 1) {
             // Idempotent qua may trang thai: an toan khi VNPay callback chay lai.
             donHangTrangThaiService.chuyenTrangThaiGiaoHang(donHang, TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
             donHangTrangThaiService.chuyenTrangThaiThanhToan(donHang, TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
-            try {
-                String noiDung = this.generateOrderEmailBody(String.valueOf(donHang.getMaDonHang()),
-                        donHang.getNguoiDung().getHoDem() + " " + donHang.getNguoiDung().getTen(),
-                        donHang.getNgayTao().toString(),
-                        donHang.getDiaChiNhanHang(),
-                        String.valueOf(donHang.getTongTien()),
-                        chiTietDonHangs
-                );
-                emailService.sendEmail(donHang.getNguoiDung().getEmail(),
-                        "Thông báo Đơn hàng của bạn", noiDung);
-            } catch (Exception exception) {
-                // Email is best-effort after a verified payment; callback result remains authoritative.
-                org.slf4j.LoggerFactory.getLogger(DonHangController.class)
-                        .warn("event=email_failed type=payment_confirmation exception={}",
-                                exception.getClass().getSimpleName());
-            }
         }
         return paymentStatus == 1 ? "ordersuccess" : "orderfail";
     }
@@ -227,51 +199,6 @@ public class DonHangController {
         String nguoiThucHien = SecurityContextHolder.getContext().getAuthentication().getName();
         DonHang capNhat = donHangTrangThaiService.chuyenTrangThaiTiepTheo(donHang, nguoiThucHien);
         return ResponseEntity.ok(capNhat);
-    }
-
-    public String generateOrderEmailBody(String orderId, String customerName, String orderDate, String diaChi, String tongTien, List<ChiTietDonHang> chiTietDonHangs) {
-        StringBuilder chiTietDonHangHtml = new StringBuilder();
-        for (ChiTietDonHang chiTietDonHang : chiTietDonHangs) {
-            chiTietDonHangHtml.append("<tr>")
-                    .append("<td style=\"border: 1px solid #ddd; padding: 8px;\">")
-                    .append(HtmlEncoder.encode(chiTietDonHang.getMaChiTietDonHang())).append("</td>")
-                    .append("<td style=\"border: 1px solid #ddd; padding: 8px;\">")
-                    .append(HtmlEncoder.encode(chiTietDonHang.getSach().getTenSach())).append("</td>")
-                    .append("<td style=\"border: 1px solid #ddd; padding: 8px;\">")
-                    .append(HtmlEncoder.encode(chiTietDonHang.getSoLuong())).append("</td>")
-                    .append("<td style=\"border: 1px solid #ddd; padding: 8px;\">")
-                    .append(HtmlEncoder.encode(chiTietDonHang.getSach().getGiaBan())).append("</td>")
-                    .append("<td style=\"border: 1px solid #ddd; padding: 8px;\">")
-                    .append(HtmlEncoder.encode(chiTietDonHang.getSoLuong() * chiTietDonHang.getSach().getGiaBan())).append("</td>")
-                    .append("</tr>");
-        }
-        return "<html>"
-                + "<body>"
-                + "<h2 style=\"border-bottom: 2px solid #333; padding-bottom: 10px;\">Thông báo Đơn hàng của bạn</h2>"
-                + "<p>Chào " + HtmlEncoder.encode(customerName) + ",</p>"
-                + "<p>Cảm ơn bạn đã đặt hàng tại chúng tôi! Dưới đây là thông tin chi tiết về đơn hàng của bạn:</p>"
-                + "<p><b>Mã Đơn Hàng : </b>" + HtmlEncoder.encode(orderId) + "</p>"
-                + "<p><b>Ngày Đặt Hàng : </b>" + HtmlEncoder.encode(orderDate) + "</p>"
-                + "<table style=\"width: 100%; border: 1px solid #ddd; border-collapse: collapse;\">"
-                + "<thead style=\"background-color: #f4f4f4;\">"
-                + "<tr>"
-                + "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Mã chi tiết đơn hàng</th>"
-                + "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Tên sách</th>"
-                + "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Số lượng</th>"
-                + "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Giá bán</th>"
-                + "<th style=\"border: 1px solid #ddd; padding: 8px; text-align: left;\">Thanh toán</th>"
-                + "</tr>"
-                + "</thead>"
-                + "<tbody>"
-                + chiTietDonHangHtml
-                + "</tbody>"
-                + "</table>"
-                + "<p style=\"color:red; border-top: 2px solid red; padding-top: 10px;\"><b>Tổng tiền: " + HtmlEncoder.encode(tongTien) + "</b></p>"
-                + "<p><b>Địa chỉ nhận hàng: " + HtmlEncoder.encode(diaChi) + "</b></p>"
-                + "<p style=\"border-top: 1px solid #ddd; padding-top: 10px;\">Đơn hàng của bạn sẽ được xử lý trong vòng 24 giờ. Chúng tôi sẽ thông báo khi hàng hóa được gửi đi.</p>"
-                + "<p style=\"border-top: 1px solid #ddd; padding-top: 10px;\">Trân trọng cảm ơn!</p>"
-                + "</body>"
-                + "</html>";
     }
 
     @PostMapping("/huy/{maDonHang}")

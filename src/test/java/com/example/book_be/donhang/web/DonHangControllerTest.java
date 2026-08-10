@@ -34,8 +34,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -136,6 +139,37 @@ class DonHangControllerTest {
         mvc.perform(get("/api/don-hang/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Đơn hàng không tồn tại."));
+    }
+
+    @Test
+    void vnpay_callback_thanh_cong_chi_chuyen_trang_thai_khong_gui_email_trung() throws Exception {
+        DonHang order = order(user(7, "owner"));
+        order.getHinhThucThanhToan().setMaCode("VNPAY");
+        when(vnPayService.orderReturn(org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        when(donHangRepository.findById(91L)).thenReturn(Optional.of(order));
+        when(donHangTrangThaiService.chuyenTrangThaiGiaoHang(
+                order, com.example.book_be.donhang.domain.TrangThaiGiaoHang.DANG_GIAO, "VNPAY"))
+                .thenReturn(order);
+        when(donHangTrangThaiService.chuyenTrangThaiThanhToan(
+                order, com.example.book_be.donhang.domain.TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY"))
+                .thenReturn(order);
+
+        mvc.perform(get("/api/don-hang/vnpay-payment")
+                        .param("vnp_OrderInfo", "91")
+                        .param("vnp_Amount", "20000000")
+                        .param("vnp_PayDate", "20260810120000")
+                        .param("vnp_TransactionNo", "txn-91"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("ordersuccess"));
+
+        verify(donHangTrangThaiService).chuyenTrangThaiGiaoHang(
+                order, com.example.book_be.donhang.domain.TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
+        verify(donHangTrangThaiService).chuyenTrangThaiThanhToan(
+                order, com.example.book_be.donhang.domain.TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
+        verify(emailService, never()).sendEmail(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
     private void authenticate(String username, String authority) {

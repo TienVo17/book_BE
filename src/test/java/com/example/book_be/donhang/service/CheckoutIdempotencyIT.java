@@ -20,11 +20,13 @@ import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.repository.QuyenRepository;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.shared.email.EmailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,6 +46,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Checkout idempotency tren MySQL Testcontainers that: cung user + cung Idempotency-Key phai
@@ -67,6 +75,7 @@ class CheckoutIdempotencyIT {
     @Autowired NguoiDungRepository nguoiDungRepository;
     @Autowired QuyenRepository quyenRepository;
     @Autowired PlatformTransactionManager txManager;
+    @MockBean EmailService emailService;
 
     private final Set<Long> donHangFixtures = new LinkedHashSet<>();
     private final List<Integer> sachFixtures = new ArrayList<>();
@@ -78,6 +87,7 @@ class CheckoutIdempotencyIT {
 
     @BeforeEach
     void provisionOwner() {
+        reset(emailService);
         fixtureRunId = "checkout-idem-" + System.nanoTime();
         owner = taoNguoiDung("owner");
     }
@@ -144,6 +154,7 @@ class CheckoutIdempotencyIT {
                 .findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(owner.getMaNguoiDung(), key)
                 .orElseThrow();
         assertThat(persisted.getMaDonHang()).as("dung 1 don gan voi key nay").isEqualTo(firstBody.getMaDonHang());
+        verify(emailService, times(1)).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -232,6 +243,7 @@ class CheckoutIdempotencyIT {
 
         assertThat(tonKho(sach.getMaSach())).as("kho chi tru dung 1 lan du 2 request dong thoi").isEqualTo(18);
         assertThat(daSuDungCoupon(coupon.getMaCoupon())).as("coupon chi tang dung 1 lan du 2 request dong thoi").isEqualTo(1);
+        verify(emailService, times(1)).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -257,6 +269,55 @@ class CheckoutIdempotencyIT {
                 .findByNguoiDung_MaNguoiDungAndCheckoutIdempotencyKey(owner.getMaNguoiDung(), key)
                 .orElseThrow();
         assertThat(persisted.getMaDonHang()).isEqualTo(firstBody.getMaDonHang());
+        verify(emailService, times(1)).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void don_vnpay_moi_gui_dung_mot_email_xac_nhan() {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        CheckoutOrderRequest request = new CheckoutOrderRequest(
+                new ArrayList<>(List.of(new CartItemRequest(sach.getMaSach(), 1))),
+                diaChi.getMaDiaChi(), "VNPAY", null, null);
+
+        ResponseEntity<?> response = checkout(owner, request, "vnpay-email-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        CheckoutOrderResponse body = (CheckoutOrderResponse) response.getBody();
+        assertThat(body).isNotNull();
+        donHangFixtures.add(body.getMaDonHang().longValue());
+        verify(emailService, times(1)).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void loi_email_khong_lam_that_bai_checkout_da_commit() {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        CheckoutOrderRequest request = checkoutRequest(sach.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+        doThrow(new IllegalStateException("mail unavailable"))
+                .when(emailService).sendEmail(anyString(), anyString(), anyString());
+
+        ResponseEntity<?> response = checkout(owner, request, "mail-failure-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        CheckoutOrderResponse body = (CheckoutOrderResponse) response.getBody();
+        assertThat(body).isNotNull();
+        donHangFixtures.add(body.getMaDonHang().longValue());
+        assertThat(tonKho(sach.getMaSach())).isEqualTo(18);
+        assertThat(donHangRepository.existsById(body.getMaDonHang().longValue())).isTrue();
+        verify(emailService, times(1)).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void checkout_that_bai_khong_gui_email() {
+        Sach sach = taoSach(1);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        CheckoutOrderRequest request = checkoutRequest(sach.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+
+        ResponseEntity<?> response = checkout(owner, request, "rollback-email-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }
 
     @Test
