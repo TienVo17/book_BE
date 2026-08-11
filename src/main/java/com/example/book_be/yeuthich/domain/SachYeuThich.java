@@ -13,14 +13,11 @@ public class SachYeuThich {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ma_sach_yeu_thich")
     private int maSachYeuThich;
-    @ManyToOne(cascade = {
-            CascadeType.DETACH,CascadeType.MERGE,CascadeType.REFRESH,CascadeType.PERSIST
-    })
-    @JoinColumn(name="ma_nguoi_dung",nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name="ma_nguoi_dung", nullable = false)
     private NguoiDung nguoiDung;
-    @ManyToOne(cascade = {
-            CascadeType.DETACH,CascadeType.MERGE,CascadeType.REFRESH,CascadeType.PERSIST
-    })
-    @JoinColumn(name="ma_sach",nullable = false)
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name="ma_sach", nullable = false)
     private Sach sach; // 1 quyển sách được nhiều ng thích
 }

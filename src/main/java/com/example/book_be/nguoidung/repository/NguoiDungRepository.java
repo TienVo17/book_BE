@@ -19,10 +19,19 @@ public interface NguoiDungRepository extends JpaRepository<NguoiDung, Long>, Jpa
 
     NguoiDung findByTenDangNhap(String tenDangNhap);
 
+    @Query("SELECT u.maNguoiDung FROM NguoiDung u WHERE u.tenDangNhap = :tenDangNhap")
+    Optional<Integer> findIdByTenDangNhap(@Param("tenDangNhap") String tenDangNhap);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM NguoiDung u WHERE u.tenDangNhap = :tenDangNhap")
     Optional<NguoiDung> findByTenDangNhapForCartWrite(
             @Param("tenDangNhap") String tenDangNhap
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM NguoiDung u WHERE u.maNguoiDung = :maNguoiDung")
+    Optional<NguoiDung> findByIdForWishlistWrite(
+            @Param("maNguoiDung") int maNguoiDung
     );
 
     NguoiDung findByEmail(String email);

@@ -201,7 +201,8 @@ class OwnershipAuthorizationIT {
         ResponseEntity<String> response = rest.exchange(
                 "/api/yeu-thich/{maSach}", HttpMethod.DELETE, new HttpEntity<>(headers), String.class, MA_SACH);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo("[]");
         assertThat(sachYeuThichRepository.existsByNguoiDung_MaNguoiDungAndSach_MaSach(userA.getMaNguoiDung(), MA_SACH))
                 .as("yeu thich cua A van con sau khi B thu xoa")
                 .isTrue();
