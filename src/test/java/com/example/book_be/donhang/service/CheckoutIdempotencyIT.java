@@ -11,7 +11,11 @@ import com.example.book_be.donhang.web.DonHangController;
 import com.example.book_be.giamgia.domain.Coupon;
 import com.example.book_be.giamgia.domain.LoaiGiamGia;
 import com.example.book_be.giamgia.repository.CouponRepository;
+import com.example.book_be.giohang.domain.GioHang;
 import com.example.book_be.giohang.dto.CartItemRequest;
+import com.example.book_be.giohang.dto.CartMergeRequest;
+import com.example.book_be.giohang.repository.GioHangRepository;
+import com.example.book_be.giohang.service.CartService;
 import com.example.book_be.nguoidung.domain.DiaChiGiaoHang;
 import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.nguoidung.domain.Quyen;
@@ -67,11 +71,13 @@ class CheckoutIdempotencyIT {
     private static final String PAYMENT_METHOD_COD = "COD";
 
     @Autowired DonHangController donHangController;
+    @Autowired CartService cartService;
     @Autowired DonHangRepository donHangRepository;
     @Autowired ChiTietDonHangRepository chiTietDonHangRepository;
     @Autowired SachRepository sachRepository;
     @Autowired CouponRepository couponRepository;
     @Autowired DiaChiGiaoHangRepository diaChiGiaoHangRepository;
+    @Autowired GioHangRepository gioHangRepository;
     @Autowired NguoiDungRepository nguoiDungRepository;
     @Autowired QuyenRepository quyenRepository;
     @Autowired PlatformTransactionManager txManager;
@@ -96,6 +102,7 @@ class CheckoutIdempotencyIT {
     void cleanupFixtures() {
         SecurityContextHolder.clearContext();
         new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            gioHangRepository.deleteGioHangByMaNguoiDung(owner.getMaNguoiDung());
             for (Long maDonHang : donHangFixtures) {
                 List<ChiTietDonHang> chiTiets = chiTietDonHangRepository.findAll().stream()
                         .filter(item -> item.getDonHang() != null
@@ -321,6 +328,134 @@ class CheckoutIdempotencyIT {
     }
 
     @Test
+    void checkout_tu_choi_item_null_voi_400_truoc_mutation() {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        List<CartItemRequest> items = new ArrayList<>();
+        items.add(null);
+        CheckoutOrderRequest request = new CheckoutOrderRequest(
+                items, diaChi.getMaDiaChi(), PAYMENT_METHOD_COD, null, null);
+
+        ResponseEntity<?> response = checkout(
+                owner, request, "null-checkout-item-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(tonKho(sach.getMaSach())).isEqualTo(20);
+        assertThat(donHangRepository.findAll().stream()
+                .filter(order -> order.getNguoiDung() != null)
+                .filter(order -> order.getNguoiDung().getMaNguoiDung()
+                        == owner.getMaNguoiDung()))
+                .isEmpty();
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void checkout_tu_choi_tai_khoan_bi_vo_hieu_hoa_sau_xac_thuc() {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            NguoiDung managed = nguoiDungRepository
+                    .findById((long) owner.getMaNguoiDung())
+                    .orElseThrow();
+            managed.setDaKichHoat(false);
+            nguoiDungRepository.saveAndFlush(managed);
+        });
+        CheckoutOrderRequest request = checkoutRequest(
+                sach.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+
+        ResponseEntity<?> response = checkout(
+                owner, request, "inactive-account-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+        assertThat(tonKho(sach.getMaSach())).isEqualTo(20);
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void checkout_tu_choi_sach_da_ngung_ban_truoc_khi_mutation() {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            Sach managed = sachRepository.findById((long) sach.getMaSach()).orElseThrow();
+            managed.setIsActive(0);
+            sachRepository.saveAndFlush(managed);
+        });
+        CheckoutOrderRequest request = checkoutRequest(
+                sach.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+
+        ResponseEntity<?> response = checkout(
+                owner, request, "inactive-book-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(tonKho(sach.getMaSach())).isEqualTo(20);
+        assertThat(donHangRepository.findAll().stream()
+                .filter(order -> order.getNguoiDung() != null)
+                .filter(order -> order.getNguoiDung().getMaNguoiDung() == owner.getMaNguoiDung()))
+                .isEmpty();
+        verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void checkout_chi_xoa_cart_line_da_dat_va_khong_xoa_sach_khac() {
+        Sach sachDaDat = taoSach(20);
+        Sach sachConLai = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        taoCartLine(sachDaDat, 2);
+        taoCartLine(sachConLai, 4);
+        CheckoutOrderRequest request = checkoutRequest(
+                sachDaDat.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+
+        ResponseEntity<?> response = checkout(
+                owner, request, "selective-cart-cleanup-" + System.nanoTime());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        CheckoutOrderResponse body = (CheckoutOrderResponse) response.getBody();
+        assertThat(body).isNotNull();
+        donHangFixtures.add(body.getMaDonHang().longValue());
+        assertThat(gioHangRepository.findByMaNguoiDung(owner.getMaNguoiDung()))
+                .singleElement()
+                .satisfies(line -> {
+                    assertThat(line.getSach().getMaSach()).isEqualTo(sachConLai.getMaSach());
+                    assertThat(line.getSoLuong()).isEqualTo(4);
+                });
+    }
+
+    @Test
+    void merge_va_checkout_cung_user_duoc_tuan_tu_hoa_khong_lost_update() throws Exception {
+        Sach sach = taoSach(20);
+        DiaChiGiaoHang diaChi = taoDiaChi(owner);
+        CheckoutOrderRequest orderRequest = checkoutRequest(
+                sach.getMaSach(), 2, diaChi.getMaDiaChi(), null);
+        CartMergeRequest mergeRequest = new CartMergeRequest(
+                List.of(new CartItemRequest(sach.getMaSach(), 3)));
+
+        List<ResponseEntity<?>> results = chayDongThoi(
+                () -> checkout(owner, orderRequest, "merge-checkout-order-" + System.nanoTime()),
+                () -> merge(owner, mergeRequest, "merge-checkout-cart-" + System.nanoTime()));
+
+        assertThat(results).allSatisfy(response ->
+                assertThat(response.getStatusCode().value()).isEqualTo(200));
+        CheckoutOrderResponse order = results.stream()
+                .map(ResponseEntity::getBody)
+                .filter(CheckoutOrderResponse.class::isInstance)
+                .map(CheckoutOrderResponse.class::cast)
+                .findFirst()
+                .orElseThrow();
+        donHangFixtures.add(order.getMaDonHang().longValue());
+        assertThat(tonKho(sach.getMaSach())).isEqualTo(18);
+        List<GioHang> cartLines = gioHangRepository
+                .findByMaNguoiDung(owner.getMaNguoiDung());
+        // Hai ket qua deu linearizable: checkout chay truoc thi merge tao lai dong 3;
+        // merge chay truoc thi checkout xoa dung dong cua sach vua dat.
+        assertThat(cartLines).hasSizeBetween(0, 1);
+        if (!cartLines.isEmpty()) {
+            assertThat(cartLines.get(0).getSach().getMaSach())
+                    .isEqualTo(sach.getMaSach());
+            assertThat(cartLines.get(0).getSoLuong()).isEqualTo(3);
+        }
+    }
+
+    @Test
     void key_khac_nhau_tao_don_doc_lap() {
         Sach sach = taoSach(20);
         DiaChiGiaoHang diaChi = taoDiaChi(owner);
@@ -411,6 +546,22 @@ class CheckoutIdempotencyIT {
         }
     }
 
+    private ResponseEntity<?> merge(
+            NguoiDung user,
+            CartMergeRequest request,
+            String idempotencyKey
+    ) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(user.getTenDangNhap(), null, List.of()));
+        try {
+            return ResponseEntity.ok(cartService.mergeGuestCart(request, idempotencyKey));
+        } catch (ResponseStatusException exception) {
+            return ResponseEntity.status(exception.getStatusCode()).body(exception.getReason());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
     private CheckoutOrderRequest checkoutRequest(int maSach, int soLuong, int maDiaChi, String maCoupon) {
         // null hinh thuc giao hang: giu nguyen hanh vi mien phi ship cua cac test nay, vi chung
         // do bat bien cua idempotency chu khong do cach tinh phi.
@@ -478,6 +629,21 @@ class CheckoutIdempotencyIT {
      * DiaChiGiaoHang.nguoiDung cascades PERSIST, so the owner must be re-read inside the same
      * transaction that saves the address; passing the detached fixture instance would fail.
      */
+    private void taoCartLine(Sach sach, int soLuong) {
+        new TransactionTemplate(txManager).executeWithoutResult(status -> {
+            NguoiDung managedOwner = nguoiDungRepository
+                    .findById((long) owner.getMaNguoiDung())
+                    .orElseThrow(() -> new IllegalStateException("fixture user missing"));
+            Sach managedBook = sachRepository.findById((long) sach.getMaSach())
+                    .orElseThrow(() -> new IllegalStateException("fixture book missing"));
+            GioHang line = new GioHang();
+            line.setNguoiDung(managedOwner);
+            line.setSach(managedBook);
+            line.setSoLuong(soLuong);
+            gioHangRepository.saveAndFlush(line);
+        });
+    }
+
     private DiaChiGiaoHang taoDiaChi(NguoiDung owner) {
         int ownerId = owner.getMaNguoiDung();
         DiaChiGiaoHang saved = new TransactionTemplate(txManager).execute(status -> {

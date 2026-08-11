@@ -188,9 +188,33 @@ JPEG/PNG/WebP, mỗi ảnh tối đa 5 MB. Backend kiểm tra chữ ký nội du
 - `GET /api/sach/{id}/lien-quan`
 - `GET /api/seo/**`
 
+### Giỏ hàng đã đăng nhập
+
+Mọi route `/api/gio-hang/**` yêu cầu JWT. Giỏ hàng là dữ liệu authoritative trên
+server, theo người dùng; client chỉ giữ giỏ khách tạm thời trước khi đăng nhập.
+
+| Method | Path | Request / hành vi |
+|---|---|---|
+| `GET` | `/api/gio-hang` | Trả `{items, tongSoLuong, tongTien}` của người dùng hiện tại. Dòng sách không active hoặc hết hàng không xuất hiện trong summary. |
+| `POST` | `/api/gio-hang/items` | Body `{maSach, soLuong}`; thêm vào dòng hiện có. `soLuong` phải dương và tổng không vượt tồn kho. |
+| `PUT` | `/api/gio-hang/items/{maSach}` | Body `{soLuong}`; số dương đặt lại số lượng, `0` xóa dòng. |
+| `DELETE` | `/api/gio-hang/items/{maSach}` | Xóa dòng sách của chính người dùng. |
+| `DELETE` | `/api/gio-hang` | Xóa toàn bộ giỏ của chính người dùng. |
+| `POST` | `/api/gio-hang/merge` | Nhập `{items:[{maSach, soLuong}]}` từ giỏ khách; bắt buộc header `Idempotency-Key`. |
+
+`POST /merge` nhận tối đa 32 KiB JSON và 100 dòng, gộp các dòng trùng `maSach`, cộng vào giỏ server rồi cap theo tồn kho.
+Sách không tồn tại, inactive hoặc hết hàng được trả trong `removedItems`; dòng bị cap
+được trả trong `adjustedItems` với lý do tương ứng. Header `Idempotency-Key` không
+được rỗng, dài tối đa 100 ký tự và chỉ gồm `A-Z`, `a-z`, số, `.`, `_`, `-`. Gửi lại
+cùng key và cùng giỏ đã chuẩn hóa trả snapshot merge đã lưu, không cộng thêm; dùng
+lại key với giỏ khác trả `409`. Thiếu hoặc key không hợp lệ trả `400`. Mỗi request
+nhận tối đa 100 dòng; mỗi instance nhận tối đa 30 merge mới/10 phút/người dùng.
+Replay của receipt đã tồn tại không bị rate limit để retry sau mất response vẫn an toàn.
+Receipt được giữ 30 ngày rồi job hằng ngày xóa theo batch 500 trên index thời gian; client chỉ dựa vào replay trong cửa sổ này.
+
 ### Authenticated
 
-- `POST /api/don-hang/them` — bắt buộc header `Idempotency-Key`; thiếu hoặc rỗng trả `400`. Gửi lại cùng key với cùng nội dung sẽ trả về đúng đơn đã tạo thay vì tạo đơn mới; cùng key nhưng nội dung khác trả `409` — accepts an optional `Idempotency-Key` header
+- `POST /api/don-hang/them` — bắt buộc header `Idempotency-Key`; thiếu hoặc rỗng trả `400`. Gửi lại cùng key với cùng nội dung trả đúng đơn đã tạo thay vì tạo đơn mới; cùng key nhưng nội dung khác trả `409`.
 - `GET /api/don-hang/findAll**`
 - `GET /api/don-hang/{id}`
 - `POST /api/don-hang/huy/{maDonHang}`
@@ -198,8 +222,7 @@ JPEG/PNG/WebP, mỗi ảnh tối đa 5 MB. Backend kiểm tra chữ ký nội du
 - `GET /api/dia-chi`, `POST/PUT/DELETE /api/dia-chi/**`
 - `POST /api/danh-gia/them-danh-gia-v1`
 
-There is no guest checkout: every order requires a valid JWT and an address owned
-by that user.
+Không có guest checkout: mọi đơn hàng cần JWT hợp lệ và địa chỉ thuộc chính người dùng đó.
 
 ## Lỗi API và Trace
 

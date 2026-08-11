@@ -77,7 +77,8 @@ public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificat
     @RestResource(exported = false)
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Sach s SET s.soLuong = s.soLuong - :soLuong "
-            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong >= :soLuong")
+            + "WHERE s.maSach = :maSach AND :soLuong > 0 AND s.soLuong >= :soLuong "
+            + "AND (s.isActive IS NULL OR s.isActive = 1)")
     int truKhoNeuDu(@Param("maSach") int maSach, @Param("soLuong") int soLuong);
 
     /** Hoan kho khi huy don, chi khi ket qua khong vuot qua Integer.MAX_VALUE. */
@@ -120,4 +121,9 @@ public interface SachRepository extends JpaRepository<Sach, Long>, JpaSpecificat
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Sach s WHERE s.maSach = :maSach")
     Optional<Sach> khoaSachDeCapNhat(@Param("maSach") int maSach);
+
+    @RestResource(exported = false)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Sach s WHERE s.maSach = :maSach")
+    Optional<Sach> findByIdForCartWrite(@Param("maSach") int maSach);
 }

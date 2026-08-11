@@ -3,6 +3,7 @@ package com.example.book_be.shared.security;
 import com.example.book_be.nguoidung.baomat.Jwtfilter;
 import com.example.book_be.nguoidung.service.UserService;
 import com.example.book_be.shared.config.FrontendUrlProvider;
+import com.example.book_be.shared.web.CartMergeRequestSizeFilter;
 import com.example.book_be.shared.web.RequestTraceFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +30,8 @@ public class SecurityConfiguration {
     private Jwtfilter jwtFilter;
     @Autowired
     private RequestTraceFilter requestTraceFilter;
+    @Autowired
+    private CartMergeRequestSizeFilter cartMergeRequestSizeFilter;
     @Autowired
     private ApiAuthenticationEntryPoint authenticationEntryPoint;
     @Autowired
@@ -131,7 +134,8 @@ public class SecurityConfiguration {
                 .accessDeniedHandler(accessDeniedHandler));
 
         http.addFilterBefore(requestTraceFilter, UsernamePasswordAuthenticationFilter.class);
-        http.addFilterAfter(jwtFilter, RequestTraceFilter.class);
+        http.addFilterAfter(cartMergeRequestSizeFilter, RequestTraceFilter.class);
+        http.addFilterAfter(jwtFilter, CartMergeRequestSizeFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.csrf(AbstractHttpConfigurer::disable);
 

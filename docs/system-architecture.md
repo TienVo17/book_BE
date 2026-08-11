@@ -113,6 +113,65 @@ Client                     Backend                          DB
 
 > **Tồn kho nguyên tử:** checkout trừ kho bằng UPDATE có điều kiện `SachRepository.truKhoNeuDu` (0 bản ghi = hết hàng → 400, rollback cả đơn). Lặp trừ theo `maSach` tăng dần (TreeMap) để chống deadlock. Query chỉ nhận số lượng dương và không làm tồn âm.
 
+## Giỏ Hàng Authoritative Trên Server
+
+`/api/gio-hang/**` là API giỏ hàng của người dùng đã xác thực. Repository Spring
+Data REST `GioHangRepository` vẫn `exported=false`; chỉ controller này được phục
+vụ dữ liệu. Giỏ local chỉ là nguồn nhập tạm cho khách trước đăng nhập, không phải
+nguồn sự thật sau đó.
+
+| Method | Path | Hành vi |
+|---|---|---|
+| `GET` | `/api/gio-hang` | Trả summary `{items, tongSoLuong, tongTien}` của user hiện tại. |
+| `POST` | `/api/gio-hang/items` | Body `{maSach, soLuong}`; cộng vào dòng hiện có. |
+| `PUT` | `/api/gio-hang/items/{maSach}` | Body `{soLuong}`; số dương thay số lượng, `0` xóa. |
+| `DELETE` | `/api/gio-hang/items/{maSach}` | Xóa một dòng. |
+| `DELETE` | `/api/gio-hang` | Xóa toàn bộ giỏ. |
+| `POST` | `/api/gio-hang/merge` | Nhập giỏ khách `{items:[{maSach, soLuong}]}`; bắt buộc `Idempotency-Key`. |
+
+Mọi ghi giỏ và checkout cùng lấy `PESSIMISTIC_WRITE` trên row `NguoiDung`; vì vậy
+mỗi người dùng có một luồng ghi tuần tự cho add/update/remove/merge/clear và đặt
+hàng. Ràng buộc DB `uk_gio_hang_nguoi_sach` bảo đảm tối đa một dòng `(ma_nguoi_dung,
+ma_sach)`; `so_luong` là `INT NOT NULL` với check `> 0`. Migration V19 dọn các dòng
+legacy không hợp lệ, gộp dòng trùng và cap tổng tại `Integer.MAX_VALUE` trước khi
+siết các ràng buộc này.
+
+### Merge giỏ khách idempotent
+
+Client phải gửi `Idempotency-Key` không rỗng, dài tối đa 100 ký tự, chỉ gồm chữ/số
+và `.`, `_`, `-`; thiếu hoặc sai trả `400`. Filter trước MVC binding yêu cầu
+`Content-Length` hợp lệ và tối đa 32 KiB; request nhận tối đa 100 dòng. Mỗi
+instance nhận tối đa 30 merge mới/10 phút/người dùng; replay receipt đã tồn tại được
+xử lý trước rate limit để response-loss retry luôn an toàn. Server gộp các dòng khách
+theo `maSach`, kiểm tra số lượng dương và băm payload chuẩn hóa. Trong một transaction,
+server:
+
+1. khóa user và tra receipt theo `(ma_nguoi_dung, idempotency_key)`;
+2. nếu receipt có fingerprint trùng, trả lại nguyên snapshot response đã lưu, không ghi giỏ;
+3. nếu fingerprint khác, trả `409`, không ghi giỏ;
+4. nếu chưa có receipt, áp dụng merge, lưu response JSON và receipt rồi commit.
+
+`gio_hang_merge_receipt` có PK, unique `(ma_nguoi_dung, idempotency_key)`, fingerprint
+SHA-256 không null, index `(created_at, receipt_id)` và FK tới user `ON DELETE CASCADE`.
+Receipt sống cùng user, bị xóa khi user bị xóa và được job hằng ngày dọn sau 30 ngày
+theo transaction batch 500; đây cũng là cửa sổ replay được cam kết. Khóa user khiến
+hai merge cùng user/key tuần tự; chỉ request đầu tiên thay đổi
+giỏ, request sau replay hoặc conflict.
+
+Merge cộng vào dòng server rồi cap theo tồn kho. Sách không tìm thấy, inactive hoặc
+hết hàng không được thêm và được báo ở `removedItems` với `BOOK_NOT_FOUND`,
+`BOOK_INACTIVE` hoặc `OUT_OF_STOCK`; dòng bị cap được báo ở `adjustedItems` với
+`CAPPED_TO_STOCK`. Các thao tác thêm/cập nhật trực tiếp từ chối sách inactive, hết
+hàng, ID/số lượng không hợp lệ hoặc lượng vượt tồn kho bằng `400`. Summary cũng bỏ
+qua dòng trở nên inactive hoặc hết hàng để không quảng bá hàng không thể mua.
+
+### Checkout và dọn giỏ
+
+Checkout dùng cùng khóa user, trừ kho và tạo đơn trong transaction. Sau khi tạo từng
+`ChiTietDonHang`, chỉ dòng giỏ có `(ma_nguoi_dung, ma_sach)` đã có trong đơn mới bị
+xóa; các dòng khác của giỏ được giữ. Replay checkout không chạy lại transaction nên
+không xóa thêm dòng giỏ. Không có guest checkout.
+
 ## Luồng Tồn Kho và Điều Chỉnh Admin
 
 `Sach.soLuong` luôn phải nằm trong miền `0..Integer.MAX_VALUE`. Bốn nguồn ghi kho hợp lệ là tạo sách (tồn ban đầu), checkout (trừ), hủy đơn (hoàn), và delta quản trị. Mọi thay đổi runtime dùng `UPDATE` có điều kiện trong transaction, không đọc-rồi-ghi giá trị tồn.
@@ -186,7 +245,7 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 | POST | `/tai-khoan/dang-ky` | Đăng ký |
 | POST | `/tai-khoan/dang-nhap` | Đăng nhập |
 | GET | `/tai-khoan/kich-hoat` | Kích hoạt tài khoản |
-| ALL | `/gio-hang/**` | Matcher legacy Spring Data REST; repository `GioHang` đã `exported=false` nên các path này không còn phục vụ dữ liệu. Frontend dùng giỏ hàng local (`localStorage`), không gọi `/api/gio-hang/**`. |
+| ALL | `/gio-hang/**` | Matcher legacy; repository `GioHang` đã `exported=false` nên không phục vụ dữ liệu. API giỏ hàng hiện hành là `/api/gio-hang/**` và yêu cầu JWT. |
 | GET | `/api/danh-gia` | Xem đánh giá (phân trang, phân bố sao) |
 | GET | `/api/don-hang/vnpay-payment` | Callback VNPay |
 
@@ -194,7 +253,13 @@ Hai cột `Integer` (`trang_thai_thanh_toan` 0/1, `trang_thai_giao_hang` 0=chờ
 
 | Method | Path | Mô tả |
 |--------|------|-------|
-| POST | `/api/don-hang/them` | Đặt hàng; nhận `maCoupon` (optional), backend tự tính giảm giá và tổng tiền |
+| GET | `/api/gio-hang` | Xem summary giỏ server của chính user |
+| POST | `/api/gio-hang/items` | Thêm `{maSach, soLuong}` vào giỏ server |
+| PUT | `/api/gio-hang/items/{maSach}` | Đặt số lượng; `0` xóa dòng |
+| DELETE | `/api/gio-hang/items/{maSach}` | Xóa một dòng giỏ |
+| DELETE | `/api/gio-hang` | Xóa toàn bộ giỏ |
+| POST | `/api/gio-hang/merge` | Merge giỏ khách; bắt buộc `Idempotency-Key`, replay cùng payload trả snapshot, payload khác trả `409` |
+| POST | `/api/don-hang/them` | Đặt hàng; bắt buộc `Idempotency-Key`, nhận `maCoupon` (optional), backend tự tính giảm giá và tổng tiền |
 | GET | `/api/don-hang/findAll**` | Xem đơn hàng (admin thấy mọi đơn; user chỉ đơn của mình) |
 | GET | `/api/don-hang/{id}` | Chi tiết đơn (admin mọi đơn; user chỉ đơn của mình → 403) |
 | POST | `/api/don-hang/huy/{maDonHang}` | Hủy đơn (owner hoặc admin); hoàn kho + coupon, chống double-cancel |
@@ -243,7 +308,7 @@ SecurityConfiguration
 App Startup:
   1. DataSource connect → MySQL
   2. Flyway check flyway_schema_history
-  3. Flyway apply pending migrations (V1→V8)
+  3. Flyway apply pending migrations (V1→V19)
   4. Hibernate validate schema vs entities
   5. Application context boot
 ```
@@ -254,6 +319,7 @@ App Startup:
 - `V6__add_payment_method_codes.sql` thêm `ma_code` cho `hinh_thuc_thanh_toan` và backfill mã ổn định (`COD`, `VNPAY`)
 - `V7__lich_su_trang_thai_va_ma_coupon.sql` thêm bảng `lich_su_trang_thai_don_hang`, cột `don_hang.ma_coupon` (FK `ON DELETE SET NULL`) và `don_hang.version` (`@Version` optimistic lock)
 - `V8__add_join_table_primary_keys.sql` thêm composite primary key (và FK còn thiếu) cho `nguoidung_quyen`/`sach_theloai` — bắt buộc trên managed MySQL có `sql_require_primary_key=ON` (Aiven). Idempotent qua `information_schema` check nên an toàn cho cả DB mới và DB đã chạy V1 trước đó. `db/migration/beforeMigrate.sql` precreate hai bảng này với PK ngay từ đầu cho DB mới (không cần quyền `SESSION_VARIABLES_ADMIN`)
+- `V19__server_cart_integrity_and_merge_receipts.sql` dọn dữ liệu giỏ legacy, thêm unique user-sách và check số lượng dương, rồi tạo receipt merge idempotent theo user/key.
 - Demo data tự động seed khi DB trống
 
 ## Cấu Hình Docker

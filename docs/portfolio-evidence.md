@@ -39,12 +39,12 @@ Verified against the committed state, not just a working tree.
 
 ## Verification results
 
-Last full run 2026-08-06.
+Last full run 2026-08-06. Backend verification used Maven in Docker with the Docker socket mounted, `DOCKER_API_VERSION=1.44`, and `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`; the command shown below is the Maven portion, not a directly reproducible host command. Current host runs remain blocked by the documented Docker Engine 29/Testcontainers compatibility issue.
 
 | Gate | Command | Result |
 |---|---|---|
-| Backend unit | `mvnw -B -Dapi.version=1.44 verify` | PASS — 84/84 (Surefire) |
-| Backend integration | same run (MySQL Testcontainers) | PASS — 220/220 (Failsafe), 7 min 27 s |
+| Backend unit | `mvnw -B -Dapi.version=1.44 verify` (inside the Docker workaround above) | PASS — 84/84 (Surefire) |
+| Backend integration | same containerized run (MySQL Testcontainers) | PASS — 220/220 (Failsafe), 7 min 27 s |
 | Frontend suite | `npm test -- --watchAll=false --runInBand` | PASS — 34 suites, 231 tests |
 | Frontend typecheck | `npx tsc --noEmit` | PASS |
 | Frontend build | `npm run build` | PASS (rewrites the robots `Sitemap:` URL) |
@@ -181,9 +181,10 @@ curl 'http://localhost:8080/api/sach?page=0'
 # 3. Frontend at http://localhost:3000
 ```
 
-Flyway creates the schema, seeds reference data and a default admin on first
-start. Fresh startup was measured three times: `281 s` for the first run
-(image build) and `37 s` / `36 s` afterwards.
+Flyway creates the schema and reference/demo data on first start. V10 disables
+legacy seed accounts whose original identity/hash remains unchanged; startup does
+not expose a usable default admin. Fresh startup was measured three times: `281 s`
+for the first run (image build) and `37 s` / `36 s` afterwards.
 
 ### Browser rehearsal (isolated stack)
 

@@ -14,7 +14,7 @@ public interface CartService {
 
     CartSummaryResponse removeItem(Integer maSach);
 
-    CartMergeResponse mergeGuestCart(CartMergeRequest request);
+    CartMergeResponse mergeGuestCart(CartMergeRequest request, String idempotencyKey);
 
     void clearCurrentUserCart();
 }

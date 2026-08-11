@@ -87,6 +87,15 @@ domain/ (JPA Entities - MySQL)
 - **Tách intent tạo/sửa:** `POST /api/admin/sach/insert` validate/ghi `soLuongTon >= 0`; `PUT /api/admin/sach/update/{id}` không được gán, validate, hoặc khôi phục `soLuongTon` từ payload legacy, kể cả `null`, âm hoặc stale. `Sach` dùng `@DynamicUpdate` để metadata flush chỉ ghi dirty columns.
 - **Điều chỉnh runtime:** chỉ `PATCH /api/admin/sach/{id}/ton-kho` được dùng cho signed delta; request là `{soLuongThayDoi: integer khác 0}`, response scalar `{maSach,soLuongTon}` phải được coi là authoritative. Dùng exception/status 400 (invalid), 404 (missing), 409 (range conflict).
 
+### Quy Tắc Nghiệp Vụ Giỏ Hàng
+
+- **Nguồn sự thật:** `/api/gio-hang/**` là giỏ server theo user đã xác thực; `GioHangRepository` phải giữ `@RepositoryRestResource(exported = false)`. Không tạo route public hoặc đường Data REST để đọc/ghi giỏ.
+- **Serialization ghi theo user:** mọi mutation giỏ (`addItem`, `updateItemQuantity`, `removeItem`, `mergeGuestCart`, `clearCurrentUserCart`) và checkout phải lấy user bằng `NguoiDungRepository.findByTenDangNhapForCartWrite`. Không đổi thành read-then-write, lock chỉ giỏ, hoặc bỏ khóa: unique constraint không tự ngăn lost update trên một dòng đã tồn tại.
+- **Ràng buộc dữ liệu:** `gio_hang` phải có tối đa một dòng cho `(ma_nguoi_dung, ma_sach)` và `so_luong > 0`. Không lưu dòng quantity `0`; `PUT` quantity `0` phải xóa. Khi có migration sửa dữ liệu legacy, dọn/gộp/cap dữ liệu trước rồi mới thêm constraint.
+- **Sách khả dụng:** thêm/cập nhật trực tiếp từ chối sách không tồn tại, inactive, hết hàng hoặc lượng vượt tồn. Merge bỏ sách không tồn tại/inactive/hết hàng vào `removedItems`; cap lượng theo tồn và báo `CAPPED_TO_STOCK` trong `adjustedItems`. Summary không trả dòng đã inactive hoặc hết hàng.
+- **Merge idempotent:** `POST /api/gio-hang/merge` bắt buộc `Idempotency-Key` đã trim, dài 1–100, regex `^[A-Za-z0-9._-]+$`. Chuẩn hóa/gộp payload trước khi băm SHA-256. Receipt phải lưu fingerprint và toàn bộ response snapshot; fingerprint trùng replay snapshot không mutation, khác trả `409` trước mutation. Bảng receipt giữ unique `(ma_nguoi_dung, idempotency_key)` và FK user `ON DELETE CASCADE`.
+- **Dọn sau checkout:** chỉ xóa các dòng giỏ có sách đã thực sự tạo trong `ChiTietDonHang`, trong cùng transaction checkout. Không gọi clear-cart chung; replay checkout không được có mutation thứ hai.
+
 ### Quy Tắc Nghiệp Vụ Đánh Giá
 
 - **Không thêm cột đếm sẵn cho lượt hữu ích.** Khác `trung_binh_xep_hang` (đã có trong contract, thiếu writer là bug thật), một cột đếm ở đây là denormalize hoàn toàn mới — thêm một nguồn sự thật thứ hai phải canh, cho một cửa hàng mười cuốn sách. Đếm bằng một câu `GROUP BY` trên tập id của trang.
@@ -144,7 +153,7 @@ book_BE/
 │   │   │   └── shared/                 # config, security, util, dto, email
 │   │   └── resources/
 │   │       ├── application.properties  # Cấu hình
-│   │       └── db/migration/           # Flyway migrations (V1–V8) + beforeMigrate.sql callback
+│   │       └── db/migration/           # Flyway migrations (V1–V19) + beforeMigrate.sql callback
 │   └── test/                           # Unit tests và Testcontainers integration tests
 ├── scripts/                            # smoke scripts, gồm kiem-tra-ton-kho-delta.sh
 ├── docs/                               # Tài liệu dự án
@@ -160,6 +169,7 @@ book_BE/
 - Integration test cần MySQL thật/Testcontainers dùng hậu tố `*IT` (ví dụ `SachTonKhoIT`, `SachAdminTonKhoControllerIT`). `maven-failsafe-plugin` chạy chúng tại `mvn verify`, không phải `mvn test`.
 - `mvn -B clean test-compile` chỉ xác minh main/test sources compile. Không ghi đó là kết quả pass của test behavior hay concurrency.
 - Test tồn kho phải cover writer bounds, stale metadata, HTTP 400/404/409/auth, Data REST write closure/relation GET, và concurrency với latch, timeout, futures/error propagation. Shell HTTP smoke chỉ bổ sung; không thay thế deterministic integration test.
+- Test giỏ server phải cover auth controller, quantity/ID/key invalid, sách inactive/hết hàng, cap tồn, unique/check migration, replay/conflict merge, response snapshot, và hai mutation đồng thời cùng user. `CartMergeIT` cùng Testcontainers là bằng chứng deterministic cho serialization; khi Docker Engine 29 không chạy được Testcontainers 1.19.8 trên máy host, dùng Maven-in-Docker với socket và `-Dapi.version=1.44` như README thay vì coi smoke runtime là thay thế.
 
 ## Những Vấn Đề Đã Biết (Known Issues)
 

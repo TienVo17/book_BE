@@ -85,8 +85,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * Idempotency: neu idempotencyKey duoc truyen (khong null/blank), thao tac claim/replay chay
-     * TRUOC khi tru kho/dung coupon (khong mutation neu la replay hoac 409). Khi 2 request cung
+     * Idempotency: idempotencyKey bat buoc o controller; service van giu overload khong key cho
+     * caller noi bo cu. Khi key duoc truyen, thao tac claim/replay chay TRUOC khi tru kho/dung
+     * coupon (khong mutation neu la replay hoac 409). Khi 2 request cung
      * key chay dong thoi va ca hai deu khong thay don da ton tai, unique constraint
      * (ma_nguoi_dung, checkout_idempotency_key) chan ban ghi thu 2 luc INSERT; ben thua
      * (DataIntegrityViolationException) rollback TOAN BO transaction cua no (hoan tra kho/coupon
@@ -128,9 +129,12 @@ public class OrderServiceImpl implements OrderService {
         // Doc lai NguoiDung BEN TRONG transaction nay de no la managed entity: DonHang.nguoiDung
         // cascade PERSIST, mot instance detached (doc ngoai transaction) se lam Hibernate nem
         // "detached entity passed to persist" khi luu don hang moi.
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
-        if (nguoiDung == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập.");
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapForCartWrite(tenDangNhap)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập."));
+        if (!Boolean.TRUE.equals(nguoiDung.getDaKichHoat())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Tài khoản không còn hoạt động.");
         }
 
         if (idempotencyKey != null) {
@@ -175,6 +179,10 @@ public class OrderServiceImpl implements OrderService {
         for (Map.Entry<Integer, Integer> entry : soLuongTheoSach.entrySet()) {
             Sach db = sachRepository.findById(Long.valueOf(entry.getKey()))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sách không tồn tại."));
+            if (db.getIsActive() != null && db.getIsActive() != 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Sách " + db.getTenSach() + " hiện không khả dụng.");
+            }
             // Tru kho nguyen tu: 0 ban ghi = het hang -> throw -> rollback ca transaction (cac sach da tru truoc do hoan tu dong).
             if (sachRepository.truKhoNeuDu(db.getMaSach(), entry.getValue()) == 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -344,8 +352,10 @@ public class OrderServiceImpl implements OrderService {
         // TreeMap giu thu tu maSach tang dan -> khoa row Sach nhat quan giua cac transaction (chong deadlock).
         Map<Integer, Long> soLuongTongTheoSach = new TreeMap<>();
         for (CartItemRequest item : items) {
-            if (item.getMaSach() == null || item.getSoLuong() == null || item.getSoLuong() <= 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thông tin sản phẩm đặt hàng không hợp lệ.");
+            if (item == null || item.getMaSach() == null
+                    || item.getSoLuong() == null || item.getSoLuong() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Thông tin sản phẩm đặt hàng không hợp lệ.");
             }
             long total = soLuongTongTheoSach.getOrDefault(item.getMaSach(), 0L) + item.getSoLuong().longValue();
             if (total > Integer.MAX_VALUE) {

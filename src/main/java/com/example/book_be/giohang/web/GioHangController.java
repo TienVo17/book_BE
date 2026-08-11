@@ -25,8 +25,12 @@ public class GioHangController {
     }
 
     @PutMapping("/items/{maSach}")
-    public ResponseEntity<?> updateItem(@PathVariable Integer maSach, @RequestBody CartQuantityRequest request) {
-        return ResponseEntity.ok(cartService.updateItemQuantity(maSach, request.getSoLuong()));
+    public ResponseEntity<?> updateItem(
+            @PathVariable Integer maSach,
+            @RequestBody(required = false) CartQuantityRequest request
+    ) {
+        return ResponseEntity.ok(cartService.updateItemQuantity(
+                maSach, request == null ? null : request.getSoLuong()));
     }
 
     @DeleteMapping("/items/{maSach}")
@@ -35,8 +39,11 @@ public class GioHangController {
     }
 
     @PostMapping("/merge")
-    public ResponseEntity<?> mergeGuestCart(@RequestBody(required = false) CartMergeRequest request) {
-        return ResponseEntity.ok(cartService.mergeGuestCart(request));
+    public ResponseEntity<?> mergeGuestCart(
+            @RequestBody(required = false) CartMergeRequest request,
+            @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return ResponseEntity.ok(cartService.mergeGuestCart(request, idempotencyKey));
     }
 
     @DeleteMapping

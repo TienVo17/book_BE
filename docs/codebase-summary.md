@@ -95,7 +95,7 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 | `application.properties` | DB URL, JWT secret, SMTP config, Flyway config (`ddl-auto=validate`) |
 | Docker image config (root) | Multi-stage build: Maven → JRE 17 |
 | `docker-compose.yml` | 3 services: MySQL, Backend, Frontend (frontend build context: `../book_FE`) |
-| `src/main/resources/db/migration/` | Flyway migrations (V1-V8): schema, seed, demo data, slug thể loại, payment codes, lịch sử trạng thái + `ma_coupon`/`version` đơn hàng, composite PK cho bảng nối (Aiven) |
+| `src/main/resources/db/migration/` | Flyway migrations (V1-V19): schema/reference data, checkout idempotency, review/newsletter và cart integrity/merge receipts; V10 vô hiệu hóa seed account legacy |
 | `repomix-output.xml` | Compaction snapshot dùng để tổng hợp codebase/docs sync |
 | `.gitignore` | Loại trừ target, IDE files |
 
@@ -105,14 +105,19 @@ NguoiDung ──1:N──► DonHang ──1:N──► ChiTietDonHang ──N:1
 |------|-------|
 | `V1__init_schema.sql` | Baseline schema: 17 bảng, PKs, FKs, indexes |
 | `V2__seed_reference_data.sql` | Quyền, hình thức GH/TT |
-| `V3__seed_default_admin.sql` | Tài khoản admin mặc định |
+| `V3__seed_default_admin.sql` | Seed admin legacy; V10 thu hồi quyền và vô hiệu hóa nếu định danh/hash gốc còn nguyên |
 | `V4__seed_demo_data.sql` | Demo: 10 sách, 5 users, đơn hàng, đánh giá |
 | `V5__add_slug_to_the_loai.sql` | Thêm `slug`, backfill dữ liệu cũ, và unique constraint cho `the_loai` |
 | `V6__add_payment_method_codes.sql` | Thêm cột `ma_code` cho `hinh_thuc_thanh_toan`, backfill COD/VNPAY |
 | `V7__lich_su_trang_thai_va_ma_coupon.sql` | Bảng `lich_su_trang_thai_don_hang`; `don_hang.ma_coupon` (FK `ON DELETE SET NULL`); `don_hang.version` (`@Version`) |
 | `V8__add_join_table_primary_keys.sql` | Composite primary key + FK cho `nguoidung_quyen`/`sach_theloai` (idempotent, tương thích DB mới lẫn cũ); bắt buộc để chạy trên Aiven MySQL (`sql_require_primary_key=ON`) |
+| `V9__add_checkout_idempotency.sql` | Receipt/snapshot bảo đảm checkout retry-safe |
+| `V10__neutralize_seed_accounts_and_add_admin_bootstrap.sql` | Vô hiệu hóa seed accounts legacy, thêm unique identity và trạng thái admin bootstrap một lần |
+| `V11`–`V16` | Schema đánh giá, verified purchase, quota/idempotency/cleanup cho ảnh đánh giá |
+| `V17`–`V18` | Newsletter subscription và double opt-in |
+| `V19__server_cart_integrity_and_merge_receipts.sql` | Gộp cart legacy, unique user-book, quantity dương và receipt merge idempotent |
 
-Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới (V5, V6, V7, V8...). `beforeMigrate.sql`/`afterMigrate.sql` callback tại `db/migration/` chạy trước/sau mỗi lần Flyway migrate — không phải versioned migration, không xuất hiện trong `flyway_schema_history`.
+Schema quản lý bởi Flyway, Hibernate chỉ `validate`. Mọi thay đổi schema phải qua migration mới. `beforeMigrate.sql`/`afterMigrate.sql` callback tại `db/migration/` chạy trước/sau mỗi lần Flyway migrate — không phải versioned migration, không xuất hiện trong `flyway_schema_history`. V3/V4 là dữ liệu legacy; V10 vô hiệu hóa đúng các seed account còn nguyên định danh/hash gốc, nên startup hiện tại không cung cấp tài khoản admin mặc định có thể đăng nhập.
 
 ## Tồn Kho Delta
 
