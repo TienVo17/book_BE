@@ -1,8 +1,10 @@
 package com.example.book_be.donhang.repository;
 
 import com.example.book_be.donhang.domain.DonHang;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
@@ -21,6 +23,10 @@ import java.util.Optional;
 /** exported=false: order data la nhay cam, chi /api/don-hang/** (co kiem tra ownership) duoc dung. */
 @RepositoryRestResource(path = "don-hang", exported = false)
 public interface DonHangRepository extends JpaRepository<DonHang, Long>, JpaSpecificationExecutor {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM DonHang d WHERE d.maDonHang = :id")
+    Optional<DonHang> findByIdForStateChange(@Param("id") Long id);
 
     // Doanh thu KHONG tinh don da huy (trangThaiGiaoHang = 3) du da thanh toan.
     @Query("SELECT COALESCE(SUM(d.tongTien), 0) FROM DonHang d WHERE d.trangThaiThanhToan = 1 AND (d.trangThaiGiaoHang IS NULL OR d.trangThaiGiaoHang <> 3) AND d.laDonDemo = false")

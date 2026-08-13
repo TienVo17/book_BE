@@ -15,18 +15,26 @@ import com.example.book_be.nguoidung.domain.NguoiDung;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.sach.domain.Sach;
 import com.example.book_be.sach.repository.SachRepository;
+import com.example.book_be.thanhtoan.config.VnPayConfig;
+import com.example.book_be.thanhtoan.domain.HinhThucThanhToan;
+import com.example.book_be.thanhtoan.repository.HinhThucThanhToanRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,16 +42,19 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * VNPay callback (thanh toan thanh cong) dua voi admin huy tren CUNG 1 don hang. Chung minh
- * @Version optimistic lock hien co da du de bao dam dung 1 phia thanh cong, khong bao gio ket
- * thuc o trang thai "da huy + hoan kho/coupon" VA "da thanh toan" cung luc.
- *
- * Neu test nay xanh voi co che @Version hien co, KHONG duoc sua production code (theo yeu cau
- * phase). Chi khi test chung minh vi pham bat bien moi duoc them 1 lop khoa/giao dich.
+ * Bao ve hai tinh huong khac nhau cua VNPay va huy don:
+ * - Khi callback va huy dua dong thoi, khoa hang dung chung tuan tu hoa ca hai transaction;
+ *   ket qua cuoi cung phai la DA_HUY + DA_THANH_TOAN.
+ * - Khi gateway xac nhan thanh toan sau khi huy da commit (URL cu khong the thu hoi), payment
+ *   phai duoc ghi nhan nhung delivery van DA_HUY, khong giao lai va khong doi kho/coupon lan nua.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@AutoConfigureMockMvc(addFilters = false)
 @Import(TestcontainersConfig.class)
 class VNPayCancelRaceIT {
 
@@ -60,8 +71,11 @@ class VNPayCancelRaceIT {
     @Autowired SachRepository sachRepository;
     @Autowired CouponRepository couponRepository;
     @Autowired NguoiDungRepository nguoiDungRepository;
+    @Autowired HinhThucThanhToanRepository hinhThucThanhToanRepository;
     @Autowired LichSuTrangThaiDonHangRepository lichSuRepository;
     @Autowired PlatformTransactionManager txManager;
+    @Autowired MockMvc mvc;
+    @Autowired VnPayConfig vnPayConfig;
 
     private final List<Long> donHangFixtures = new ArrayList<>();
     private Integer tonKhoBanDau;
@@ -147,6 +161,9 @@ class VNPayCancelRaceIT {
             DonHang don = new DonHang();
             don.setNgayTao(new Date());
             don.setNguoiDung(nguoiDungRepository.findById((long) ownerId).orElseThrow());
+            HinhThucThanhToan vnpay = hinhThucThanhToanRepository.findByMaCodeIgnoreCase("VNPAY")
+                    .orElseThrow();
+            don.setHinhThucThanhToan(vnpay);
             don.setHoTen("IT VNPay Race");
             don.setSoDienThoai("0900000000");
             don.setTongTien(100000);
@@ -175,7 +192,7 @@ class VNPayCancelRaceIT {
     }
 
     @Test
-    void vnpay_thanh_cong_dua_voi_admin_huy_chi_1_ben_thanh_cong_khong_bao_gio_vua_huy_vua_thanh_toan() throws Exception {
+    void vnpay_thanh_cong_dua_voi_admin_huy_ca_hai_hoan_tat_tuan_tu() throws Exception {
         datTonKho(5);
         taoCoupon();
         Long id = taoDonChoXuLy(user("user1"), 2);
@@ -185,66 +202,94 @@ class VNPayCancelRaceIT {
                 () -> thanhToanTrongTransactionSauHangRao(id, daTaiStaleOrder),
                 () -> huyTrongTransactionSauHangRao(id, daTaiStaleOrder));
 
-        boolean thanhToanThang = results.contains(PAYMENT_SUCCESS);
-        boolean huyThang = results.contains(CANCEL_SUCCESS);
-        assertThat(thanhToanThang ^ huyThang).as("dung 1 phia thanh cong: " + results).isTrue();
-        assertThat(results).as("phia con lai bi optimistic lock 409").contains(409);
+        assertThat(results).containsExactlyInAnyOrder(PAYMENT_SUCCESS, CANCEL_SUCCESS);
 
         DonHang cuoiCung = donHangRepository.findById(id).orElseThrow();
-
-        if (thanhToanThang) {
-            assertThat(cuoiCung.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.DANG_GIAO.getGiaTri());
-            assertThat(cuoiCung.getTrangThaiThanhToan()).isEqualTo(TrangThaiThanhToan.DA_THANH_TOAN.getGiaTri());
-            assertThat(tonKho()).as("kho van bi tru, huy khong hoan lai").isEqualTo(3);
-            assertThat(daSuDungCoupon()).as("coupon van o trang thai da dung").isEqualTo(1);
-        } else {
-            assertThat(cuoiCung.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.DA_HUY.getGiaTri());
-            assertThat(cuoiCung.getTrangThaiThanhToan()).isNotEqualTo(TrangThaiThanhToan.DA_THANH_TOAN.getGiaTri());
-            assertThat(tonKho()).as("kho duoc hoan lai boi huy don").isEqualTo(5);
-            assertThat(daSuDungCoupon()).as("coupon duoc hoan luot boi huy don").isEqualTo(0);
-        }
-
-        // Bat bien tuyet doi (ACCEPTED INVARIANT): khong duoc vua huy+hoan kho vua da thanh toan.
-        boolean daHuyVaHoanKho = cuoiCung.getTrangThaiGiaoHang() == TrangThaiGiaoHang.DA_HUY.getGiaTri();
-        boolean daThanhToan = TrangThaiThanhToan.from(cuoiCung.getTrangThaiThanhToan()) == TrangThaiThanhToan.DA_THANH_TOAN;
-        assertThat(daHuyVaHoanKho && daThanhToan)
-                .as("khong duoc vua huy(hoan kho/coupon) vua thanh toan thanh cong")
-                .isFalse();
+        assertThat(cuoiCung.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.DA_HUY.getGiaTri());
+        assertThat(cuoiCung.getTrangThaiThanhToan()).isEqualTo(TrangThaiThanhToan.DA_THANH_TOAN.getGiaTri());
+        assertThat(tonKho()).as("huy don hoan kho dung mot lan").isEqualTo(5);
+        assertThat(daSuDungCoupon()).as("huy don hoan coupon dung mot lan").isEqualTo(0);
     }
 
-    /** Mo phong VNPay callback thanh cong: chuyen giao hang DANG_GIAO roi chuyen thanh toan DA_THANH_TOAN. */
-    private int thanhToanTrongTransactionSauHangRao(Long maDonHang, CountDownLatch daTaiStaleOrder) {
+    @Test
+    void vnpay_xac_nhan_sau_khi_huy_ghi_nhan_tien_nhung_khong_hoi_sinh_don() {
+        datTonKho(5);
+        taoCoupon();
+        Long id = taoDonChoXuLy(user("user1"), 2);
+
+        new TransactionTemplate(txManager).executeWithoutResult(status ->
+                donHangHuyService.huyDon(id, user("admin"), true));
+
+        assertThat(tonKho()).as("huy don da hoan kho").isEqualTo(5);
+        assertThat(daSuDungCoupon()).as("huy don da hoan coupon").isEqualTo(0);
+
+        assertThat(donHangRepository.findById(id).orElseThrow().getTrangThaiGiaoHang())
+                .isEqualTo(TrangThaiGiaoHang.DA_HUY.getGiaTri());
+        assertThat(goiCallbackThanhCong(id, 10000000L)).isEqualTo("ordercancelledpaid");
+
+        DonHang sauCallback = donHangRepository.findById(id).orElseThrow();
+        assertThat(sauCallback.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.DA_HUY.getGiaTri());
+        assertThat(sauCallback.getTrangThaiThanhToan()).isEqualTo(TrangThaiThanhToan.DA_THANH_TOAN.getGiaTri());
+
+        assertThat(goiCallbackThanhCong(id, 10000000L)).isEqualTo("ordercancelledpaid");
+
+        assertThat(tonKho()).as("late payment khong tru kho lan nua").isEqualTo(5);
+        assertThat(daSuDungCoupon()).as("late payment khong dung lai coupon").isEqualTo(0);
+    }
+
+    private String goiCallbackThanhCong(Long maDonHang, long soTienVnPay) {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("vnp_Amount", String.valueOf(soTienVnPay));
+        fields.put("vnp_OrderInfo", String.valueOf(maDonHang));
+        fields.put("vnp_ResponseCode", "00");
+        fields.put("vnp_TransactionStatus", "00");
+
+        Map<String, String> encodedFields = new HashMap<>();
+        fields.forEach((name, value) -> encodedFields.put(encode(name), encode(value)));
+        String signature = vnPayConfig.hashAllFields(encodedFields);
         try {
-            Integer result = new TransactionTemplate(txManager).execute(status -> {
-                DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
-                assertThat(staleOrder.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
-                daTaiStaleOrder.countDown();
-                choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
-                donHangTrangThaiService.chuyenTrangThaiGiaoHang(staleOrder, TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
-                donHangTrangThaiService.chuyenTrangThaiThanhToan(staleOrder, TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
-                return PAYMENT_SUCCESS;
-            });
-            return result == null ? 0 : result;
-        } catch (ResponseStatusException e) {
-            return e.getStatusCode().value();
+            return mvc.perform(get("/api/don-hang/vnpay-payment")
+                            .params(toParams(fields))
+                            .param("vnp_SecureHash", signature))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+        } catch (Exception e) {
+            throw new IllegalStateException("Khong goi duoc VNPay callback test", e);
         }
+    }
+
+    private org.springframework.util.MultiValueMap<String, String> toParams(Map<String, String> fields) {
+        org.springframework.util.LinkedMultiValueMap<String, String> params =
+                new org.springframework.util.LinkedMultiValueMap<>();
+        fields.forEach(params::add);
+        return params;
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+    }
+
+    /** Mo phong callback VNPay thanh cong bang dung transaction service cua production. */
+    private int thanhToanTrongTransactionSauHangRao(Long maDonHang, CountDownLatch daTaiStaleOrder) {
+        DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
+        assertThat(staleOrder.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
+        daTaiStaleOrder.countDown();
+        choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
+        assertThat(donHangTrangThaiService.xuLyThanhToanVnPayThanhCong(maDonHang, 10000000L))
+                .isEqualTo("ordersuccess");
+        return PAYMENT_SUCCESS;
     }
 
     /** Mo phong admin huy don dang cho xu ly. */
     private int huyTrongTransactionSauHangRao(Long maDonHang, CountDownLatch daTaiStaleOrder) {
-        try {
-            Integer result = new TransactionTemplate(txManager).execute(status -> {
-                DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
-                assertThat(staleOrder.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
-                daTaiStaleOrder.countDown();
-                choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
-                donHangHuyService.huyDon(maDonHang, user("admin"), true);
-                return CANCEL_SUCCESS;
-            });
-            return result == null ? 0 : result;
-        } catch (ResponseStatusException e) {
-            return e.getStatusCode().value();
-        }
+        DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
+        assertThat(staleOrder.getTrangThaiGiaoHang()).isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
+        daTaiStaleOrder.countDown();
+        choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
+        donHangHuyService.huyDon(maDonHang, user("admin"), true);
+        return CANCEL_SUCCESS;
     }
 
     private List<Integer> chayDongThoi(Worker dauTien, Worker thuHai) throws Exception {

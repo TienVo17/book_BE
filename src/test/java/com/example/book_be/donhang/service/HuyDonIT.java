@@ -205,16 +205,13 @@ class HuyDonIT {
             Long maDonHang,
             CountDownLatch daTaiStaleOrder) {
         try {
-            Integer result = new TransactionTemplate(txManager).execute(status -> {
-                DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
-                assertThat(staleOrder.getTrangThaiGiaoHang())
-                        .isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
-                daTaiStaleOrder.countDown();
-                choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
-                donHangHuyService.huyDon(maDonHang, user("user1"), false);
-                return 1;
-            });
-            return result == null ? 0 : result;
+            DonHang staleOrder = donHangRepository.findById(maDonHang).orElseThrow();
+            assertThat(staleOrder.getTrangThaiGiaoHang())
+                    .isEqualTo(TrangThaiGiaoHang.CHO_XU_LY.getGiaTri());
+            daTaiStaleOrder.countDown();
+            choTinHieu(daTaiStaleOrder, "Workers did not load the same stale order in time");
+            donHangHuyService.huyDon(maDonHang, user("user1"), false);
+            return 1;
         } catch (ResponseStatusException e) {
             if (e.getStatusCode().value() == 409) {
                 return 409;

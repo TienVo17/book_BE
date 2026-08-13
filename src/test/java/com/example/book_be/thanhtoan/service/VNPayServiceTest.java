@@ -4,11 +4,15 @@ import com.example.book_be.shared.config.FrontendUrlProvider;
 import com.example.book_be.thanhtoan.config.VnPayConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,6 +100,26 @@ class VNPayServiceTest {
     }
 
     @Test
+    void accepts_callback_only_when_signature_and_both_gateway_statuses_succeed() {
+        VnPayConfig config = config();
+        VNPayService service = new VNPayService(config);
+
+        assertThat(service.orderReturn(signedCallback(config, "00", "00"))).isEqualTo(1);
+        assertThat(service.orderReturn(signedCallback(config, "24", "00"))).isZero();
+        assertThat(service.orderReturn(signedCallback(config, "00", "02"))).isZero();
+    }
+
+    @Test
+    void rejects_callback_with_invalid_signature() {
+        VnPayConfig config = config();
+        VNPayService service = new VNPayService(config);
+        MockHttpServletRequest request = signedCallback(config, "00", "00");
+        request.setParameter("vnp_SecureHash", "invalid-signature");
+
+        assertThat(service.orderReturn(request)).isEqualTo(-1);
+    }
+
+    @Test
     void rejects_pay_url_with_query_or_fragment() {
         assertThatIllegalArgumentException().isThrownBy(() -> new VnPayConfig(
                 "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?locale=vi",
@@ -105,5 +129,38 @@ class VNPayServiceTest {
                 "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction",
                 new FrontendUrlProvider("https://frontend.example")))
                 .withMessage("vnpay.pay-url must not include a query or fragment");
+    }
+
+    private VnPayConfig config() {
+        return new VnPayConfig(
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "",
+                "merchant-code",
+                "hash-secret",
+                "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction",
+                new FrontendUrlProvider("https://frontend.example"));
+    }
+
+    private MockHttpServletRequest signedCallback(
+            VnPayConfig config,
+            String responseCode,
+            String transactionStatus) {
+        Map<String, String> rawFields = new HashMap<>();
+        rawFields.put("vnp_Amount", "2500000");
+        rawFields.put("vnp_OrderInfo", "123");
+        rawFields.put("vnp_ResponseCode", responseCode);
+        rawFields.put("vnp_TransactionStatus", transactionStatus);
+
+        Map<String, String> encodedFields = new HashMap<>();
+        rawFields.forEach((name, value) -> encodedFields.put(encode(name), encode(value)));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        rawFields.forEach(request::setParameter);
+        request.setParameter("vnp_SecureHash", config.hashAllFields(encodedFields));
+        return request;
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 }

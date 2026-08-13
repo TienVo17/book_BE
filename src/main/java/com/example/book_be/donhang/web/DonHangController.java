@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
 @RequestMapping("api/don-hang")
 public class DonHangController {
 
-    private static final String PAYMENT_METHOD_COD = "COD";
+    private static final String PAYMENT_METHOD_VNPAY = "VNPAY";
 
     /** Idempotency-Key: chieu dai toi da va allow-list ky tu an toan (khong dau/khoang trang/ky tu dieu khien). */
     private static final int IDEMPOTENCY_KEY_MAX_LENGTH = 100;
@@ -145,19 +145,33 @@ public class DonHangController {
                 || donHang.getNguoiDung().getMaNguoiDung() != currentUser.getMaNguoiDung()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền thanh toán đơn hàng này.");
         }
-        if (isCashOnDelivery(donHang)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng COD không cần tạo liên kết thanh toán.");
+        if (!isVnPay(donHang)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng không dùng phương thức thanh toán VNPAY.");
         }
-        if (donHang.getTrangThaiThanhToan() != null && donHang.getTrangThaiThanhToan() == 1) {
+        if (TrangThaiThanhToan.from(donHang.getTrangThaiThanhToan()) == TrangThaiThanhToan.DA_THANH_TOAN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng này đã được thanh toán.");
         }
-        String paymentUrl = vnPayService.createOrder((int) Math.round(donHang.getTongTien()), String.valueOf(donHang.getMaDonHang()));
+        if (TrangThaiGiaoHang.from(donHang.getTrangThaiGiaoHang()) != TrangThaiGiaoHang.CHO_XU_LY) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng không thể tiếp tục thanh toán ở trạng thái hiện tại.");
+        }
+        int soTienVnd;
+        try {
+            soTienVnd = VNPayService.toVnd(donHang.getTongTien());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+        String paymentUrl = vnPayService.createOrder(soTienVnd, String.valueOf(donHang.getMaDonHang()));
         return ResponseEntity.ok(new VNPayUrlResponse(paymentUrl));
     }
 
     @GetMapping("/vnpay-payment")
     public String GetMapping(HttpServletRequest request, Model model) {
         int paymentStatus = vnPayService.orderReturn(request);
+        if (paymentStatus != 1) {
+            return "orderfail";
+        }
 
         String orderInfo = request.getParameter("vnp_OrderInfo");
         String paymentTime = request.getParameter("vnp_PayDate");
@@ -168,27 +182,13 @@ public class DonHangController {
         model.addAttribute("totalPrice", totalPrice);
         model.addAttribute("paymentTime", paymentTime);
         model.addAttribute("transactionId", transactionId);
-        DonHang donHang = donHangRepository.findById(Long.valueOf(orderInfo)).orElse(null);
-        if (donHang == null) {
+        Long maDonHang = parsePositiveLong(orderInfo);
+        Long soTienVnPay = parsePositiveLong(totalPrice);
+        if (maDonHang == null || soTienVnPay == null) {
             return "orderfail";
         }
-        if (isCashOnDelivery(donHang)) {
-            return "orderfail";
-        }
-        if (donHang.getTrangThaiThanhToan() != null && donHang.getTrangThaiThanhToan() == 1) {
-            return "ordersuccess";
-        }
-        long soTienVnPay = parseVnPayAmount(totalPrice);
-        long tongTienDonHang = Math.round(donHang.getTongTien() * 100);
-        if (soTienVnPay != tongTienDonHang) {
-            return "orderfail";
-        }
-        if (paymentStatus == 1) {
-            // Idempotent qua may trang thai: an toan khi VNPay callback chay lai.
-            donHangTrangThaiService.chuyenTrangThaiGiaoHang(donHang, TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
-            donHangTrangThaiService.chuyenTrangThaiThanhToan(donHang, TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
-        }
-        return paymentStatus == 1 ? "ordersuccess" : "orderfail";
+        // Service tai va khoa authoritative order truoc moi state/payment check.
+        return donHangTrangThaiService.xuLyThanhToanVnPayThanhCong(maDonHang, soTienVnPay);
     }
 
     @PostMapping("/cap-nhat-trang-thai-giao-hang/{maDonHang}")
@@ -293,16 +293,17 @@ public class DonHangController {
         );
     }
 
-    private boolean isCashOnDelivery(DonHang donHang) {
-        return donHang.getHinhThucThanhToan() == null
-                || PAYMENT_METHOD_COD.equalsIgnoreCase(donHang.getHinhThucThanhToan().getMaCode());
+    private boolean isVnPay(DonHang donHang) {
+        return donHang.getHinhThucThanhToan() != null
+                && PAYMENT_METHOD_VNPAY.equalsIgnoreCase(donHang.getHinhThucThanhToan().getMaCode());
     }
 
-    private long parseVnPayAmount(String totalPrice) {
+    private Long parsePositiveLong(String value) {
         try {
-            return Long.parseLong(totalPrice);
+            long parsed = Long.parseLong(value);
+            return parsed > 0 ? parsed : null;
         } catch (Exception e) {
-            return -1;
+            return null;
         }
     }
 }

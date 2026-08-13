@@ -54,7 +54,7 @@ public class DonHangHuyService {
 
     @Transactional
     public DonHang huyDon(Long maDonHang, NguoiDung nguoiThucHien, boolean laAdmin) {
-        DonHang don = donHangRepository.findById(maDonHang)
+        DonHang don = donHangRepository.findByIdForStateChange(maDonHang)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Đơn hàng không tồn tại."));
 
         // So sanh int getMaNguoiDung() (khong so sanh tham chieu); don nguoiDung=null -> chi admin thao tac duoc.

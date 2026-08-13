@@ -33,6 +33,17 @@ public class VNPayService {
         this.clock = clock;
     }
 
+    public static int toVnd(double total) {
+        if (!Double.isFinite(total) || total <= 0) {
+            throw new IllegalArgumentException("Tổng tiền đơn hàng không hợp lệ.");
+        }
+        try {
+            return Math.toIntExact(Math.round(total));
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("Tổng tiền đơn hàng không hợp lệ.", e);
+        }
+    }
+
     public String createOrder(int total, String orderInfo) {
         if (total <= 0) {
             throw new IllegalArgumentException("Payment total must be positive");
@@ -88,7 +99,10 @@ public class VNPayService {
         if (!signedFields.equals(secureHash)) {
             return -1;
         }
-        return "00".equals(request.getParameter("vnp_TransactionStatus")) ? 1 : 0;
+        return "00".equals(request.getParameter("vnp_ResponseCode"))
+                && "00".equals(request.getParameter("vnp_TransactionStatus"))
+                ? 1
+                : 0;
     }
 
     private String buildEncodedQuery(Map<String, String> parameters) {

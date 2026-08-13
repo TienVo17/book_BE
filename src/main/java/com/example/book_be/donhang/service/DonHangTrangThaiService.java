@@ -7,6 +7,7 @@ import com.example.book_be.donhang.domain.TrangThaiGiaoHang;
 import com.example.book_be.donhang.domain.TrangThaiThanhToan;
 import com.example.book_be.donhang.repository.DonHangRepository;
 import com.example.book_be.donhang.repository.LichSuTrangThaiDonHangRepository;
+import com.example.book_be.thanhtoan.service.VNPayService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -84,6 +85,37 @@ public class DonHangTrangThaiService {
             chuyenTrangThaiThanhToan(don, TrangThaiThanhToan.DA_THANH_TOAN, nguoiThucHien);
         }
         return don;
+    }
+
+    /**
+     * Xac minh va ghi nhan callback VNPay thanh cong tren ban ghi da khoa.
+     * Moi callback hop le, ke ca callback lap, deu di qua cung khoa voi huy don.
+     */
+    @Transactional
+    public String xuLyThanhToanVnPayThanhCong(Long maDonHang, Long soTienVnPay) {
+        DonHang don = donHangRepository.findByIdForStateChange(maDonHang)
+                .orElse(null);
+        if (don == null || !"VNPAY".equalsIgnoreCase(don.getPhuongThucThanhToan())) {
+            return "orderfail";
+        }
+        long tongTienVnPay;
+        try {
+            tongTienVnPay = Math.multiplyExact(VNPayService.toVnd(don.getTongTien()), 100L);
+        } catch (ArithmeticException | IllegalArgumentException e) {
+            return "orderfail";
+        }
+        if (soTienVnPay == null || soTienVnPay <= 0 || soTienVnPay != tongTienVnPay) {
+            return "orderfail";
+        }
+
+        TrangThaiGiaoHang giaoHang = TrangThaiGiaoHang.from(don.getTrangThaiGiaoHang());
+        if (giaoHang == TrangThaiGiaoHang.CHO_XU_LY) {
+            chuyenTrangThaiGiaoHang(don, TrangThaiGiaoHang.DANG_GIAO, "VNPAY");
+        }
+        chuyenTrangThaiThanhToan(don, TrangThaiThanhToan.DA_THANH_TOAN, "VNPAY");
+        return giaoHang == TrangThaiGiaoHang.DA_HUY
+                ? "ordercancelledpaid"
+                : "ordersuccess";
     }
 
     /**
