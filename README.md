@@ -82,6 +82,7 @@ Backend mặc định tại `http://localhost:8080`.
 | `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | URL browser return từ VNPay; override khi cần |
 | `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary; bắt buộc cho upload/xóa ảnh sách và ảnh đánh giá, không có fallback local |
 | `FRONTEND_URL` | `http://localhost:3000` | Origin frontend duy nhất cho CORS, email links và VNPay return mặc định |
+| `AUTH_PROXY_REHEARSAL_ENABLED` | `false` | Bật tạm probe same-origin proxy dưới `/tai-khoan/_proxy-rehearsal/*`; phải tắt ngoài cửa sổ rehearsal |
 | `FLYWAY_REPAIR_ON_START` | `false` | Chỉ bật tạm thời khi cần khôi phục lịch sử migration hỏng |
 | `ADMIN_BOOTSTRAP_ENABLED` | `false` | Bật bootstrap admin một lần |
 | `ADMIN_BOOTSTRAP_USERNAME` | rỗng | Bắt buộc khi bật; không được dùng lại định danh seed cũ |

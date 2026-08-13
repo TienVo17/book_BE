@@ -5,9 +5,13 @@ import com.example.book_be.nguoidung.service.UserService;
 import com.example.book_be.shared.config.FrontendUrlProvider;
 import com.example.book_be.shared.web.CartMergeRequestSizeFilter;
 import com.example.book_be.shared.web.RequestTraceFilter;
+import com.example.book_be.shared.web.ProxyRehearsalNoStoreFilter;
+import com.example.book_be.shared.web.ProxyRehearsalController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -28,8 +32,6 @@ import java.util.List;
 public class SecurityConfiguration {
     @Autowired
     private Jwtfilter jwtFilter;
-    @Autowired
-    private RequestTraceFilter requestTraceFilter;
     @Autowired
     private CartMergeRequestSizeFilter cartMergeRequestSizeFilter;
     @Autowired
@@ -52,6 +54,30 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    public FilterRegistrationBean<RequestTraceFilter> requestTraceFilterRegistration(
+            RequestTraceFilter filter) {
+        FilterRegistrationBean<RequestTraceFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(filter);
+        registration.addUrlPatterns("/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<ProxyRehearsalNoStoreFilter> proxyRehearsalNoStoreFilterRegistration(
+            FrontendUrlProvider frontendUrlProvider) {
+        FilterRegistrationBean<ProxyRehearsalNoStoreFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new ProxyRehearsalNoStoreFilter(frontendUrlProvider));
+        registration.addUrlPatterns(
+                ProxyRehearsalController.ISSUE_PATH,
+                ProxyRehearsalController.REDIRECT_PATH,
+                ProxyRehearsalController.COMPLETE_PATH
+        );
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+        return registration;
+    }
+
+    @Bean
     public CorsConfigurationSource corsConfigurationSource(FrontendUrlProvider frontendUrlProvider) {
         CorsConfiguration corsConfig = new CorsConfiguration();
         corsConfig.setAllowedOrigins(List.of(frontendUrlProvider.getFrontendUrl()));
@@ -71,6 +97,8 @@ public class SecurityConfiguration {
         http.authorizeHttpRequests(config -> config
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                .requestMatchers(HttpMethod.GET, Endpoints.PROXY_REHEARSAL_GET_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.POST, Endpoints.PROXY_REHEARSAL_POST_ENDPOINTS).permitAll()
                 .requestMatchers(HttpMethod.GET, Endpoints.PUBLIC_GET_ENDPOINS).permitAll()
                 .requestMatchers(HttpMethod.POST, Endpoints.PUBLIC_POST_ENDPOINS).permitAll()
                 .requestMatchers(HttpMethod.PUT, Endpoints.PUBLIC_PUT_ENDPOINS).permitAll()
@@ -133,8 +161,7 @@ public class SecurityConfiguration {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler));
 
-        http.addFilterBefore(requestTraceFilter, UsernamePasswordAuthenticationFilter.class);
-        http.addFilterAfter(cartMergeRequestSizeFilter, RequestTraceFilter.class);
+        http.addFilterBefore(cartMergeRequestSizeFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterAfter(jwtFilter, CartMergeRequestSizeFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.csrf(AbstractHttpConfigurer::disable);

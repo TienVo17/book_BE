@@ -27,6 +27,15 @@ public class Endpoints {
             "/api/seo/**",
     };
 
+    public static final String[] PROXY_REHEARSAL_GET_ENDPOINTS = {
+            "/tai-khoan/_proxy-rehearsal/redirect",
+            "/tai-khoan/_proxy-rehearsal/complete"
+    };
+
+    public static final String[] PROXY_REHEARSAL_POST_ENDPOINTS = {
+            "/tai-khoan/_proxy-rehearsal/issue"
+    };
+
     public static final String[] PUBLIC_POST_ENDPOINS = {
             "/tai-khoan/dang-ky",
             "/tai-khoan/dang-nhap",

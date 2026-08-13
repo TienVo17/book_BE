@@ -17,4 +17,4 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://book-fe-gray.vercel.app
+        value: https://tienvo17.vercel.app
