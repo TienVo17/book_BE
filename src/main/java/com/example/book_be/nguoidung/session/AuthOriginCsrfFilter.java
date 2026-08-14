@@ -53,6 +53,10 @@ public class AuthOriginCsrfFilter extends OncePerRequestFilter {
             reject(request, response, "AUTH_ORIGIN_REJECTED");
             return;
         }
+        if ("OPTIONS".equals(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         String headerToken = request.getHeader(CSRF_HEADER);
         String cookieToken = cookieValue(request, AuthCsrfTokenService.COOKIE_NAME);
         if (headerToken == null || cookieToken == null

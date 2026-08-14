@@ -51,7 +51,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "jwt.secret=${JWT_SECRET}",
                 "app.auth.refresh-enabled=true",
                 "app.auth.refresh-hmac-key=${AUTH_REFRESH_HMAC_KEY}",
-                "app.auth.csrf-hmac-key=${AUTH_CSRF_HMAC_KEY}"
+                "app.auth.csrf-hmac-key=${AUTH_CSRF_HMAC_KEY}",
+                "app.frontend-url=https://tienvo17.vercel.app"
         })
 @EnabledIfEnvironmentVariable(named = "AUTH_REFRESH_MYSQL_IT", matches = "true")
 @AutoConfigureMockMvc
@@ -163,6 +164,37 @@ class RefreshTokenSessionLocalMysqlIT {
                 .andExpect(jsonPath("$.path").value(path))
                 .andExpect(jsonPath("$.traceId").value(traceId))
                 .andExpect(jsonPath("$.secret").doesNotExist());
+    }
+
+    @Test
+    void refresh_origin_rejection_uses_common_no_store_envelope_before_cors() throws Exception {
+        mockMvc.perform(post("/tai-khoan/refresh")
+                        .header("Origin", "https://untrusted.example")
+                        .header("X-Trace-Id", "auth-origin-rejected"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().string("Cache-Control", "no-store, private"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("CDN-Cache-Control", "no-store"))
+                .andExpect(header().string("X-Trace-Id", "auth-origin-rejected"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("AUTH_ORIGIN_REJECTED"))
+                .andExpect(jsonPath("$.path").value("/tai-khoan/refresh"))
+                .andExpect(jsonPath("$.traceId").value("auth-origin-rejected"));
+    }
+
+    @Test
+    void valid_refresh_preflight_reaches_cors_without_requiring_csrf() throws Exception {
+        mockMvc.perform(options("/tai-khoan/refresh")
+                        .header("Origin", "https://tienvo17.vercel.app")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("X-Trace-Id", "auth-preflight"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin",
+                        "https://tienvo17.vercel.app"))
+                .andExpect(header().string("Cache-Control", "no-store, private"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("CDN-Cache-Control", "no-store"))
+                .andExpect(header().string("X-Trace-Id", "auth-preflight"));
     }
 
     @Test

@@ -207,11 +207,10 @@ public class SecurityConfiguration {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler));
 
-        http.addFilterBefore(
-                retiredProxyRehearsalFilter,
+        http.addFilterBefore(authOriginCsrfFilter,
                 org.springframework.web.filter.CorsFilter.class);
-        http.addFilterBefore(authNoStoreFilter, UsernamePasswordAuthenticationFilter.class);
-        http.addFilterAfter(authOriginCsrfFilter, AuthNoStoreFilter.class);
+        http.addFilterBefore(authNoStoreFilter, AuthOriginCsrfFilter.class);
+        http.addFilterBefore(retiredProxyRehearsalFilter, AuthNoStoreFilter.class);
         http.addFilterAfter(cartMergeRequestSizeFilter, AuthOriginCsrfFilter.class);
         http.addFilterAfter(jwtFilter, CartMergeRequestSizeFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
