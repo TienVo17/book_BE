@@ -16,9 +16,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
@@ -31,6 +33,14 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.MOCK,
@@ -44,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                 "app.auth.csrf-hmac-key=${AUTH_CSRF_HMAC_KEY}"
         })
 @EnabledIfEnvironmentVariable(named = "AUTH_REFRESH_MYSQL_IT", matches = "true")
+@AutoConfigureMockMvc
 @Import(RefreshTokenSessionLocalMysqlIT.MailTestConfiguration.class)
 class RefreshTokenSessionLocalMysqlIT {
     private static final String DEDICATED_SCHEMA = "web_ban_sach_auth_r1_test";
@@ -71,6 +82,7 @@ class RefreshTokenSessionLocalMysqlIT {
     @Autowired TaiKhoanService taiKhoanService;
     @Autowired com.example.book_be.nguoidung.baomat.JwtService jwtService;
     @Autowired BCryptPasswordEncoder passwordEncoder;
+    @Autowired MockMvc mockMvc;
 
     private NguoiDung user;
 
@@ -108,6 +120,49 @@ class RefreshTokenSessionLocalMysqlIT {
             nguoiDungRepository.deleteById((long) user.getMaNguoiDung());
             nguoiDungRepository.flush();
         });
+    }
+
+    @Test
+    void retired_proxy_rehearsal_prefix_is_safe_not_found_for_every_request_shape()
+            throws Exception {
+        assertRetiredProbeNotFound(get("/tai-khoan/_proxy-rehearsal"),
+                "/tai-khoan/_proxy-rehearsal", "retired-probe-base");
+        assertRetiredProbeNotFound(get("/tai-khoan/_proxy-rehearsal/issue"),
+                "/tai-khoan/_proxy-rehearsal/issue", "retired-probe-issue");
+        assertRetiredProbeNotFound(get("/tai-khoan/_proxy-rehearsal/redirect"),
+                "/tai-khoan/_proxy-rehearsal/redirect", "retired-probe-redirect");
+        assertRetiredProbeNotFound(get("/tai-khoan/_proxy-rehearsal/complete"),
+                "/tai-khoan/_proxy-rehearsal/complete", "retired-probe-complete");
+        assertRetiredProbeNotFound(post("/tai-khoan/_proxy-rehearsal/arbitrary")
+                        .contentType("application/json")
+                        .content("{\"secret\":\"must-not-be-reflected\"}")
+                        .header("Authorization", "Bearer malformed"),
+                "/tai-khoan/_proxy-rehearsal/arbitrary", "retired-probe-post");
+        assertRetiredProbeNotFound(delete("/tai-khoan/_proxy-rehearsal/arbitrary/deep"),
+                "/tai-khoan/_proxy-rehearsal/arbitrary/deep", "retired-probe-delete");
+        assertRetiredProbeNotFound(options("/tai-khoan/_proxy-rehearsal/issue")
+                        .header("Origin", "https://tienvo17.vercel.app")
+                        .header("Access-Control-Request-Method", "POST"),
+                "/tai-khoan/_proxy-rehearsal/issue", "retired-probe-preflight");
+    }
+
+    private void assertRetiredProbeNotFound(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,
+            String path,
+            String traceId) throws Exception {
+        mockMvc.perform(request.header("X-Trace-Id", traceId))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store, private"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("CDN-Cache-Control", "no-store"))
+                .andExpect(header().string("X-Trace-Id", traceId))
+                .andExpect(header().string("Set-Cookie", nullValue()))
+                .andExpect(header().string("Location", nullValue()))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.path").value(path))
+                .andExpect(jsonPath("$.traceId").value(traceId))
+                .andExpect(jsonPath("$.secret").doesNotExist());
     }
 
     @Test

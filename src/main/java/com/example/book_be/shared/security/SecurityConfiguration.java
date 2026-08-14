@@ -9,6 +9,7 @@ import com.example.book_be.shared.config.FrontendUrlProvider;
 import com.example.book_be.shared.web.ApiErrorWriter;
 import com.example.book_be.shared.web.CartMergeRequestSizeFilter;
 import com.example.book_be.shared.web.RequestTraceFilter;
+import com.example.book_be.shared.web.RetiredProxyRehearsalFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -72,6 +73,12 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    public RetiredProxyRehearsalFilter retiredProxyRehearsalFilter(
+            ApiErrorWriter apiErrorWriter) {
+        return new RetiredProxyRehearsalFilter(apiErrorWriter);
+    }
+
+    @Bean
     public AuthOriginCsrfFilter authOriginCsrfFilter(
             FrontendUrlProvider frontendUrlProvider,
             AuthCsrfTokenService csrfTokenService,
@@ -98,6 +105,16 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    public FilterRegistrationBean<RetiredProxyRehearsalFilter>
+            disableRetiredProxyRehearsalContainerRegistration(
+                    RetiredProxyRehearsalFilter filter) {
+        FilterRegistrationBean<RetiredProxyRehearsalFilter> registration =
+                new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
     public CorsConfigurationSource corsConfigurationSource(FrontendUrlProvider frontendUrlProvider) {
         CorsConfiguration corsConfig = new CorsConfiguration();
         corsConfig.setAllowedOrigins(List.of(frontendUrlProvider.getFrontendUrl()));
@@ -116,6 +133,7 @@ public class SecurityConfiguration {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             CorsConfigurationSource corsConfigurationSource,
+            RetiredProxyRehearsalFilter retiredProxyRehearsalFilter,
             AuthNoStoreFilter authNoStoreFilter,
             AuthOriginCsrfFilter authOriginCsrfFilter) throws Exception {
         http.authorizeHttpRequests(config -> config
@@ -125,6 +143,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/tai-khoan/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/tai-khoan/dang-xuat").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/phien").authenticated()
+                .requestMatchers("/tai-khoan/_proxy-rehearsal/**").permitAll()
                 // Public payment return must be evaluated before the protected /api/don-hang/** matcher.
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
                 .requestMatchers(HttpMethod.GET, Endpoints.PUBLIC_GET_ENDPOINS).permitAll()
@@ -188,6 +207,9 @@ public class SecurityConfiguration {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler));
 
+        http.addFilterBefore(
+                retiredProxyRehearsalFilter,
+                org.springframework.web.filter.CorsFilter.class);
         http.addFilterBefore(authNoStoreFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterAfter(authOriginCsrfFilter, AuthNoStoreFilter.class);
         http.addFilterAfter(cartMergeRequestSizeFilter, AuthOriginCsrfFilter.class);
