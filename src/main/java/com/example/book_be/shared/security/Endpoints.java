@@ -25,15 +25,7 @@ public class Endpoints {
             "/api/sach/goi-y",
             "/sitemap.xml",
             "/api/seo/**",
-    };
-
-    public static final String[] PROXY_REHEARSAL_GET_ENDPOINTS = {
-            "/tai-khoan/_proxy-rehearsal/redirect",
-            "/tai-khoan/_proxy-rehearsal/complete"
-    };
-
-    public static final String[] PROXY_REHEARSAL_POST_ENDPOINTS = {
-            "/tai-khoan/_proxy-rehearsal/issue"
+            "/api/don-hang/vnpay-payment",
     };
 
     public static final String[] PUBLIC_POST_ENDPOINS = {

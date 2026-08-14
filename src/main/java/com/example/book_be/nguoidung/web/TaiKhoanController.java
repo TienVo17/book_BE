@@ -1,18 +1,19 @@
 package com.example.book_be.nguoidung.web;
 
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.session.RefreshCookieFactory;
+import com.example.book_be.nguoidung.session.RefreshSessionService;
+import com.example.book_be.nguoidung.session.SessionPrincipal;
 import com.example.book_be.shared.security.JwtResponse;
 import com.example.book_be.shared.security.LoginRequest;
 import com.example.book_be.shared.security.RateLimiter;
 import com.example.book_be.nguoidung.baomat.JwtService;
 import com.example.book_be.nguoidung.service.TaiKhoanService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.http.HttpStatus;
@@ -44,11 +45,11 @@ public class TaiKhoanController {
     @Autowired
     private TaiKhoanService taiKhoanService;
     @Autowired
-    private AuthenticationManager AuthenticationManager;
-    @Autowired
     private JwtService jwtService;
     @Autowired
     private RateLimiter rateLimiter;
+    @Autowired
+    private RefreshCookieFactory refreshCookieFactory;
 
     @PostMapping("/dang-ky")
     public ResponseEntity<?> dangKyNguoiDung(@Validated @RequestBody NguoiDung nguoiDung,
@@ -65,7 +66,8 @@ public class TaiKhoanController {
     }
 
     @PostMapping("/dang-nhap")
-    public ResponseEntity<?> dangNhap(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+    public ResponseEntity<?> dangNhap(@RequestBody LoginRequest loginRequest, HttpServletRequest request,
+                                      HttpServletResponse response) {
         String username = loginRequest.getUsername();
         String ip = diaChiIp(request);
 
@@ -77,22 +79,32 @@ public class TaiKhoanController {
         // (nhieu tab, nhieu thiet bi) khong bao gio cham tran.
         String khoaSai = "dang-nhap-sai:" + username;
         try {
-            Authentication authentication = AuthenticationManager.authenticate(new
-                    UsernamePasswordAuthenticationToken(username, loginRequest.getPassword())
-            );
-            if (authentication.isAuthenticated()) {
-                rateLimiter.datLai(khoaSai);
-                final String jwt = jwtService.generateToken(username);
-                return ResponseEntity.ok(new JwtResponse(jwt));
+            TaiKhoanService.AuthenticatedSession authenticated =
+                    taiKhoanService.authenticateAndIssueSession(
+                            username,
+                            loginRequest.getPassword(),
+                            loginRequest.isRememberMe());
+            rateLimiter.datLai(khoaSai);
+            NguoiDung user = authenticated.user();
+            final String jwt = authenticated.accessToken();
+            RefreshSessionService.SessionGrant grant = authenticated.refreshGrant();
+            if (grant != null) {
+                response.addHeader(HttpHeaders.SET_COOKIE,
+                        refreshCookieFactory.issue(
+                                grant.rawToken(), grant.rememberMe()).toString());
             }
-        } catch (AuthenticationException a) {
+            return ResponseEntity.ok(new JwtResponse(
+                    jwt, jwtService.getExpirationSeconds(), SessionPrincipal.from(user)));
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode() != HttpStatus.BAD_REQUEST) {
+                throw exception;
+            }
             batBuocTrongGioiHan(khoaSai, DANG_NHAP_SAI_TOI_DA, DANG_NHAP_CUA_SO);
             // Thong bao giong nhau cho moi nguyen nhan that bai (sai mat khau, khong ton tai,
             // tai khoan bi vo hieu hoa) de khong lo tai khoan nao ton tai.
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Xác thực không thành công.");
     }
 
     // ---- Đổi mật khẩu (yêu cầu đăng nhập) ----

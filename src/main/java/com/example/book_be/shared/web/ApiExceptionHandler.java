@@ -1,5 +1,6 @@
 package com.example.book_be.shared.web;
 
+import com.example.book_be.nguoidung.session.RefreshSessionException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,20 @@ public class ApiExceptionHandler {
 
     public ApiExceptionHandler(ApiErrorWriter errorWriter) {
         this.errorWriter = errorWriter;
+    }
+
+    @ExceptionHandler(RefreshSessionException.class)
+    public ResponseEntity<ApiError> handleRefreshSession(RefreshSessionException exception,
+                                                         HttpServletRequest request) {
+        ApiError error = errorWriter.create(
+                request,
+                HttpStatus.UNAUTHORIZED.value(),
+                exception.getCode(),
+                "Phiên đăng nhập không hợp lệ.");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(org.springframework.http.HttpHeaders.SET_COOKIE,
+                        "__Host-refresh=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")
+                .body(error);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

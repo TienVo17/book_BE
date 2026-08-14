@@ -16,5 +16,11 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: AUTH_REFRESH_ENABLED
+        value: "false"
+      - key: AUTH_REFRESH_HMAC_KEY
+        sync: false
+      - key: AUTH_CSRF_HMAC_KEY
+        sync: false
       - key: FRONTEND_URL
         value: https://tienvo17.vercel.app

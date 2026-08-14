@@ -25,19 +25,30 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration-ms:28800000}")
+    @Value("${jwt.expiration-ms:900000}")
     private long expirationMs;
 
     @Autowired
     private UserService userService;
 
     public String generateToken(String tenDangNhap) {
-        Map<String, Object> claims = new HashMap<>();
         NguoiDung nguoiDung = userService.findByUsername(tenDangNhap);
+        if (nguoiDung == null) {
+            throw new IllegalStateException("Authenticated user no longer exists");
+        }
+        return generateToken(nguoiDung);
+    }
+
+    public String generateToken(NguoiDung nguoiDung) {
+        if (nguoiDung == null) {
+            throw new IllegalStateException("Authenticated user no longer exists");
+        }
+        Map<String, Object> claims = new HashMap<>();
         boolean isAdmin = false;
         boolean isStaff = false;
         boolean isUser = false;
-        if (nguoiDung != null && nguoiDung.getDanhSachQuyen().size() > 0) {
+        if (nguoiDung != null && nguoiDung.getDanhSachQuyen() != null
+                && !nguoiDung.getDanhSachQuyen().isEmpty()) {
             List<Quyen> list = nguoiDung.getDanhSachQuyen();
             for (Quyen q : list) {
                 if (q.getTenQuyen().equals("ADMIN")) {
@@ -51,18 +62,20 @@ public class JwtService {
                 }
             }
         }
+        claims.put("uid", nguoiDung.getMaNguoiDung());
         claims.put("isAdmin", isAdmin);
         claims.put("isStaff", isStaff);
         claims.put("isUser", isUser);
-        return createToken(claims, tenDangNhap);
+        return createToken(claims, nguoiDung.getTenDangNhap());
     }
 
     private String createToken(Map<String, Object> claims, String tenDangNhap) {
+        long issuedAt = System.currentTimeMillis();
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(tenDangNhap)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
+                .setIssuedAt(new Date(issuedAt))
+                .setExpiration(new Date(issuedAt + expirationMs))
                 .signWith(SignatureAlgorithm.HS256, getSigneKey())
                 .compact();
     }
@@ -91,6 +104,10 @@ public class JwtService {
 
     private Boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
+    }
+
+    public long getExpirationSeconds() {
+        return expirationMs / 1000L;
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {

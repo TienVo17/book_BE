@@ -18,6 +18,7 @@ Backend REST API cho website thương mại điện tử bán sách trực tuy�
 - Maven 3.9+
 - MySQL 8.0+ hoặc Docker Desktop
 - Biến `JWT_SECRET` do môi trường runtime cung cấp, là khóa ký Base64 hợp lệ
+- Khi bật refresh session, cung cấp `AUTH_REFRESH_HMAC_KEY` và `AUTH_CSRF_HMAC_KEY` riêng biệt, mỗi khóa tối thiểu 32 byte
 
 ## Chạy Bằng Docker
 
@@ -71,7 +72,10 @@ Backend mặc định tại `http://localhost:8080`.
 | `FLYWAY_CONNECT_RETRIES` | `10` | Số lần Flyway retry khi database chưa sẵn sàng |
 | `FLYWAY_CONNECT_RETRIES_INTERVAL` | `5` | Số giây giữa các lần retry |
 | `JWT_SECRET` | bắt buộc | Khóa ký JWT Base64 do môi trường runtime cấp |
-| `JWT_EXPIRATION_MS` | `28800000` | JWT expiration in milliseconds (mặc định 8 giờ) |
+| `JWT_EXPIRATION_MS` | `900000` | Access JWT expiration in milliseconds (mặc định 15 phút) |
+| `AUTH_REFRESH_ENABLED` | `false` | Bật opaque rotating refresh session và session API |
+| `AUTH_REFRESH_HMAC_KEY` | rỗng khi feature tắt | Khóa HMAC refresh tối thiểu 32 byte; bắt buộc khi bật feature |
+| `AUTH_CSRF_HMAC_KEY` | rỗng khi feature tắt | Khóa HMAC signed double-submit CSRF tối thiểu 32 byte; bắt buộc khi bật feature |
 | `MAIL_USERNAME` | rỗng | SMTP username |
 | `MAIL_PASSWORD` | rỗng | SMTP password |
 | `MAIL_FROM` | rỗng | Địa chỉ gửi cho mọi email. Bỏ trống thì đăng ký/quên mật khẩu trả `503` thay vì báo thành công giả. |
@@ -82,7 +86,6 @@ Backend mặc định tại `http://localhost:8080`.
 | `VNPAY_RETURN_URL` | `FRONTEND_URL` + `/xu-ly-kq-thanh-toan` | URL browser return từ VNPay; override khi cần |
 | `CLOUDINARY_URL` | rỗng | Chuỗi kết nối Cloudinary; bắt buộc cho upload/xóa ảnh sách và ảnh đánh giá, không có fallback local |
 | `FRONTEND_URL` | `http://localhost:3000` | Origin frontend duy nhất cho CORS, email links và VNPay return mặc định |
-| `AUTH_PROXY_REHEARSAL_ENABLED` | `false` | Bật tạm probe same-origin proxy dưới `/tai-khoan/_proxy-rehearsal/*`; phải tắt ngoài cửa sổ rehearsal |
 | `FLYWAY_REPAIR_ON_START` | `false` | Chỉ bật tạm thời khi cần khôi phục lịch sử migration hỏng |
 | `ADMIN_BOOTSTRAP_ENABLED` | `false` | Bật bootstrap admin một lần |
 | `ADMIN_BOOTSTRAP_USERNAME` | rỗng | Bắt buộc khi bật; không được dùng lại định danh seed cũ |
@@ -180,6 +183,8 @@ JPEG/PNG/WebP, mỗi ảnh tối đa 5 MB. Backend kiểm tra chữ ký nội du
 
 - `POST /tai-khoan/dang-ky`
 - `POST /tai-khoan/dang-nhap`
+- `GET /tai-khoan/csrf`, `POST /tai-khoan/refresh`, `POST /tai-khoan/dang-xuat`
+- `GET /tai-khoan/phien` — yêu cầu Bearer access token; refresh cookie đơn lẻ không xác thực endpoint này
 - `GET /tai-khoan/kich-hoat`
 - `GET /api/sach`
 - `GET /api/sach/search`

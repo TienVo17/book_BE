@@ -1,7 +1,9 @@
 package com.example.book_be.nguoidung.service;
 
+import com.example.book_be.nguoidung.baomat.JwtService;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.session.RefreshSessionService;
 import com.example.book_be.shared.config.FrontendUrlProvider;
 import com.example.book_be.shared.email.EmailService;
 import com.example.book_be.shared.email.HtmlEncoder;
@@ -30,6 +32,10 @@ public class TaiKhoanService {
     private EmailService emailService;
     @Autowired
     private FrontendUrlProvider frontendUrlProvider;
+    @Autowired
+    private RefreshSessionService refreshSessionService;
+    @Autowired
+    private JwtService jwtService;
 
     @Transactional
     public ResponseEntity<?> dangKyNguoiDung(NguoiDung nguoiDung) {
@@ -100,9 +106,28 @@ public class TaiKhoanService {
         }
     }
 
+    @Transactional
+    public AuthenticatedSession authenticateAndIssueSession(
+            String tenDangNhap,
+            String matKhau,
+            boolean rememberMe) {
+        NguoiDung nguoiDung = nguoiDungRepository
+                .findByTenDangNhapForAuthWrite(tenDangNhap)
+                .filter(user -> Boolean.TRUE.equals(user.getDaKichHoat()))
+                .filter(user -> bCryptPasswordEncoder.matches(matKhau, user.getMatKhau()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Tên đăng nhập hoặc mật khẩu không chính xác."));
+        RefreshSessionService.SessionGrant refreshGrant =
+                refreshSessionService.issueIfEnabled(nguoiDung, rememberMe);
+        String accessToken = jwtService.generateToken(nguoiDung);
+        return new AuthenticatedSession(nguoiDung, refreshGrant, accessToken);
+    }
+
     // ---- Đổi mật khẩu ----
+    @Transactional
     public ResponseEntity<?> doiMatKhau(String tenDangNhap, String matKhauCu, String matKhauMoi) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhap(tenDangNhap);
+        NguoiDung nguoiDung = nguoiDungRepository.findByTenDangNhapForAuthWrite(tenDangNhap)
+                .orElse(null);
         if (nguoiDung == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Người dùng không tồn tại");
         }
@@ -111,6 +136,7 @@ public class TaiKhoanService {
         }
         nguoiDung.setMatKhau(bCryptPasswordEncoder.encode(matKhauMoi));
         nguoiDungRepository.save(nguoiDung);
+        refreshSessionService.revokeAllByUser(nguoiDung.getMaNguoiDung());
         return ResponseEntity.ok("Đổi mật khẩu thành công");
     }
 
@@ -138,11 +164,11 @@ public class TaiKhoanService {
     }
 
     // ---- Đặt lại mật khẩu bằng token ----
+    @Transactional
     public ResponseEntity<?> datLaiMatKhau(String email, String token, String matKhauMoi) {
-        NguoiDung nguoiDung = nguoiDungRepository.findByEmail(email);
-        if (nguoiDung == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token không hợp lệ");
-        }
+        NguoiDung nguoiDung = nguoiDungRepository.findByEmailForAuthWrite(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Token không hợp lệ"));
         if (nguoiDung.getResetPasswordToken() == null || !nguoiDung.getResetPasswordToken().equals(token)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token không hợp lệ");
         }
@@ -154,7 +180,14 @@ public class TaiKhoanService {
         nguoiDung.setResetPasswordToken(null);
         nguoiDung.setResetPasswordTokenExpiry(null);
         nguoiDungRepository.save(nguoiDung);
+        refreshSessionService.revokeAllByUser(nguoiDung.getMaNguoiDung());
         return ResponseEntity.ok("Đặt lại mật khẩu thành công");
+    }
+
+    public record AuthenticatedSession(
+            NguoiDung user,
+            RefreshSessionService.SessionGrant refreshGrant,
+            String accessToken) {
     }
 
     // ---- Helper: gửi email reset password ----

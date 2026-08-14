@@ -2,12 +2,15 @@ package com.example.book_be.shared.security;
 
 import com.example.book_be.nguoidung.baomat.Jwtfilter;
 import com.example.book_be.nguoidung.service.UserService;
+import com.example.book_be.nguoidung.session.AuthCsrfTokenService;
+import com.example.book_be.nguoidung.session.AuthNoStoreFilter;
+import com.example.book_be.nguoidung.session.AuthOriginCsrfFilter;
 import com.example.book_be.shared.config.FrontendUrlProvider;
+import com.example.book_be.shared.web.ApiErrorWriter;
 import com.example.book_be.shared.web.CartMergeRequestSizeFilter;
 import com.example.book_be.shared.web.RequestTraceFilter;
-import com.example.book_be.shared.web.ProxyRehearsalNoStoreFilter;
-import com.example.book_be.shared.web.ProxyRehearsalController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,16 +67,33 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public FilterRegistrationBean<ProxyRehearsalNoStoreFilter> proxyRehearsalNoStoreFilterRegistration(
-            FrontendUrlProvider frontendUrlProvider) {
-        FilterRegistrationBean<ProxyRehearsalNoStoreFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new ProxyRehearsalNoStoreFilter(frontendUrlProvider));
-        registration.addUrlPatterns(
-                ProxyRehearsalController.ISSUE_PATH,
-                ProxyRehearsalController.REDIRECT_PATH,
-                ProxyRehearsalController.COMPLETE_PATH
-        );
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+    public AuthNoStoreFilter authNoStoreFilter() {
+        return new AuthNoStoreFilter();
+    }
+
+    @Bean
+    public AuthOriginCsrfFilter authOriginCsrfFilter(
+            FrontendUrlProvider frontendUrlProvider,
+            AuthCsrfTokenService csrfTokenService,
+            ApiErrorWriter apiErrorWriter,
+            @Value("${app.auth.refresh-enabled:false}") boolean refreshEnabled) {
+        return new AuthOriginCsrfFilter(
+                frontendUrlProvider, csrfTokenService, apiErrorWriter, refreshEnabled);
+    }
+
+    @Bean
+    public FilterRegistrationBean<AuthNoStoreFilter> disableAuthNoStoreContainerRegistration(
+            AuthNoStoreFilter filter) {
+        FilterRegistrationBean<AuthNoStoreFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<AuthOriginCsrfFilter> disableAuthOriginCsrfContainerRegistration(
+            AuthOriginCsrfFilter filter) {
+        FilterRegistrationBean<AuthOriginCsrfFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
         return registration;
     }
 
@@ -93,12 +113,20 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            AuthNoStoreFilter authNoStoreFilter,
+            AuthOriginCsrfFilter authOriginCsrfFilter) throws Exception {
         http.authorizeHttpRequests(config -> config
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                .requestMatchers(HttpMethod.GET, Endpoints.PROXY_REHEARSAL_GET_ENDPOINTS).permitAll()
-                .requestMatchers(HttpMethod.POST, Endpoints.PROXY_REHEARSAL_POST_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/csrf").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tai-khoan/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tai-khoan/dang-xuat").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/phien").authenticated()
+                // Public payment return must be evaluated before the protected /api/don-hang/** matcher.
+                .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
                 .requestMatchers(HttpMethod.GET, Endpoints.PUBLIC_GET_ENDPOINS).permitAll()
                 .requestMatchers(HttpMethod.POST, Endpoints.PUBLIC_POST_ENDPOINS).permitAll()
                 .requestMatchers(HttpMethod.PUT, Endpoints.PUBLIC_PUT_ENDPOINS).permitAll()
@@ -129,7 +157,6 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.DELETE, Endpoints.AUTH_DELETE_ENDPOINTS).authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/don-hang/them").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/submitOrder**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/findAll**").authenticated()
                 // Duong doc cong khai duy nhat cua danh gia. Matcher chinh xac (khong **)
                 // de no khong nuot cac route con phia duoi, nhat la co-the-danh-gia.
@@ -161,7 +188,9 @@ public class SecurityConfiguration {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler));
 
-        http.addFilterBefore(cartMergeRequestSizeFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(authNoStoreFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(authOriginCsrfFilter, AuthNoStoreFilter.class);
+        http.addFilterAfter(cartMergeRequestSizeFilter, AuthOriginCsrfFilter.class);
         http.addFilterAfter(jwtFilter, CartMergeRequestSizeFilter.class);
         http.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         http.csrf(AbstractHttpConfigurer::disable);

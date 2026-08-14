@@ -4,6 +4,7 @@ import com.example.book_be.nguoidung.dto.PhanQuyenBo;
 import com.example.book_be.nguoidung.dto.UserBo;
 import com.example.book_be.nguoidung.repository.NguoiDungRepository;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.session.RefreshSessionService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -26,6 +27,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private RefreshSessionService refreshSessionService;
 
     @Override
     public Page<NguoiDung> findAll(UserBo model) {
@@ -59,16 +63,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional
     @Override
     public void phanQuyen(PhanQuyenBo phanQuyenBo) {
-        // 1. Xóa tất cả các quyền liên quan đến mã người dùng
-        try{
-            String sqlDelete = "DELETE FROM nguoidung_quyen WHERE ma_nguoi_dung = :maNguoiDung";
-            Query deleteQuery = entityManager.createNativeQuery(sqlDelete);
-            deleteQuery.setParameter("maNguoiDung", phanQuyenBo.getUserId()); // ID người dùng
-            deleteQuery.executeUpdate();
-        }catch (Exception e){
-
-        }
-
+        nguoiDungRepository.findByIdForAuthWrite(phanQuyenBo.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại"));
+        String sqlDelete = "DELETE FROM nguoidung_quyen WHERE ma_nguoi_dung = :maNguoiDung";
+        Query deleteQuery = entityManager.createNativeQuery(sqlDelete);
+        deleteQuery.setParameter("maNguoiDung", phanQuyenBo.getUserId());
+        deleteQuery.executeUpdate();
 
         for (Integer roleId : phanQuyenBo.getQuyenIds()) {
             String sql = "INSERT INTO nguoidung_quyen (ma_nguoi_dung, ma_quyen) VALUES (:maNguoiDung, :maQuyen)";
@@ -77,5 +77,6 @@ public class AdminUserServiceImpl implements AdminUserService {
             query.setParameter("maQuyen", roleId); // ID quyền
             query.executeUpdate();
         }
+        refreshSessionService.revokeAllByUser(phanQuyenBo.getUserId());
     }
 }
