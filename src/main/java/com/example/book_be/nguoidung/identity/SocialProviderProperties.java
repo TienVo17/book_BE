@@ -1,5 +1,7 @@
 package com.example.book_be.nguoidung.identity;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class SocialProviderProperties {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SocialProviderProperties.class);
+
     private final boolean googleEnabled;
     private final String googleClientId;
     private final String googleClientSecret;
@@ -33,6 +37,18 @@ public class SocialProviderProperties {
         this.googleClientId = googleClientId;
         this.googleClientSecret = googleClientSecret;
         this.googleRedirectUri = googleRedirectUri;
+
+        // Ghi lai dung nhung gi ung dung DOC DUOC luc khoi dong. Khong co dong nay thi khi
+        // mot bien moi truong khong toi duoc ung dung, trieu chung duy nhat la provider im
+        // lang tat, va khong ai phan biet duoc "chua dat" voi "dat sai" ma khong phai doan.
+        // Chi ghi da-dat/chua-dat, khong bao gio ghi gia tri.
+        LOGGER.info("event=social_provider_config google_enabled={} client_id={} client_secret={} redirect_uri={}",
+                googleEnabled,
+                isSet(googleClientId), isSet(googleClientSecret), isSet(googleRedirectUri));
+    }
+
+    private static String isSet(String value) {
+        return value == null || value.isBlank() ? "unset" : "set";
     }
 
     public boolean isGoogleEnabled() { return googleEnabled; }

@@ -95,6 +95,36 @@ class SocialAuthControllerTest {
                 .andExpect(jsonPath("$.google").value(true));
     }
 
+    /**
+     * Distinguishing "variable never set" from "set but not reaching the app" is otherwise
+     * guesswork, because a missing variable simply leaves the provider silently disabled.
+     */
+    @Test
+    void status_reports_which_settings_the_application_actually_read() throws Exception {
+        mockMvc.perform(get("/tai-khoan/oauth/trang-thai"))
+                .andExpect(jsonPath("$.cauHinh.clientId").value(true))
+                .andExpect(jsonPath("$.cauHinh.clientSecret").value(true))
+                .andExpect(jsonPath("$.cauHinh.redirectUri").value(true));
+
+        disabledMockMvc().perform(get("/tai-khoan/oauth/trang-thai"))
+                .andExpect(jsonPath("$.cauHinh.clientId").value(false))
+                .andExpect(jsonPath("$.cauHinh.clientSecret").value(false));
+    }
+
+    /**
+     * The diagnostic must never turn into a way to read the settings themselves. Key names
+     * are expected in the payload; the configured values are what must never appear.
+     */
+    @Test
+    void status_never_exposes_configuration_values() throws Exception {
+        String body = mockMvc.perform(get("/tai-khoan/oauth/trang-thai"))
+                .andReturn().getResponse().getContentAsString();
+
+        // Gia tri thuc dat trong setUp: "client", "secret" va URL redirect.
+        assertThat(body).doesNotContain("\"client\"").doesNotContain("\"secret\"");
+        assertThat(body).doesNotContain("tienvo17.vercel.app");
+    }
+
     @Test
     void callback_for_a_linked_account_redirects_to_the_result_page() throws Exception {
         NguoiDung user = new NguoiDung();

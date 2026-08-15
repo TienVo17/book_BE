@@ -51,7 +51,19 @@ public class SocialAuthController {
     @GetMapping("/trang-thai")
     public ResponseEntity<?> trangThai(HttpServletResponse response) {
         AuthOriginCsrfFilter.applyNoStoreHeaders(response);
-        return ResponseEntity.ok(Map.of("google", properties.isGoogleEnabled()));
+        // `cauHinh` cho biet ung dung DOC DUOC nhung bien nao, de phan biet "chua dat bien"
+        // voi "dat roi nhung khong toi duoc ung dung" ma khong phai doan qua log.
+        // Chi bao da-dat/chua-dat; khong bao gio tra ve gia tri, nhat la client secret.
+        return ResponseEntity.ok(Map.of(
+                "google", properties.isGoogleEnabled(),
+                "cauHinh", Map.of(
+                        "clientId", isSet(properties.getGoogleClientId()),
+                        "clientSecret", isSet(properties.getGoogleClientSecret()),
+                        "redirectUri", isSet(properties.getGoogleRedirectUri()))));
+    }
+
+    private boolean isSet(String value) {
+        return value != null && !value.isBlank();
     }
 
     @GetMapping("/google/start")
