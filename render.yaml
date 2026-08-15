@@ -16,11 +16,35 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      # Cong tac tinh nang do dashboard quan ly, khong ghi cung o day.
+      #
+      # Truoc day file nay ghi value:"false". Blueprint ghi de dashboard, nen moi lan
+      # reprovision la refresh sessions bi tat: /tai-khoan/csrf, /refresh va /dang-xuat
+      # dong loat tra 404 va toan bo nguoi dung bi dang xuat, khong dang nhap lai duoc.
+      # sync:false giu nguyen gia tri dang chay tren dashboard.
       - key: AUTH_REFRESH_ENABLED
-        value: "false"
+        sync: false
       - key: AUTH_REFRESH_HMAC_KEY
         sync: false
       - key: AUTH_CSRF_HMAC_KEY
         sync: false
+
+      # Dang nhap qua provider. Tat ca deu tat cho den khi credential san sang; khi tat,
+      # cac endpoint /tai-khoan/oauth/** tra 404 va ung dung khoi dong duoc ma khong can
+      # khoa nao. Bat mot provider ma thieu cau hinh thi server dung han luc khoi dong
+      # thay vi hong giua luong dang nhap cua nguoi dung.
+      - key: AUTH_GOOGLE_ENABLED
+        sync: false
+      - key: AUTH_FACEBOOK_ENABLED
+        sync: false
+      - key: AUTH_OAUTH_ENCRYPTION_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+
       - key: FRONTEND_URL
         value: https://tienvo17.vercel.app
