@@ -35,6 +35,7 @@ class SocialAuthServiceTest {
         identityService = mock(AuthIdentityService.class);
         properties = new SocialProviderProperties(true, "client", "secret", REDIRECT);
         service = new SocialAuthService(transactionService, tokenExchange, verifier,
+                mock(FacebookTokenExchange.class), mock(FacebookIdentityVerifier.class),
                 identityService, properties);
     }
 
@@ -60,7 +61,7 @@ class SocialAuthServiceTest {
         when(transactionService.start(eq("google"), eq(OAuthFlowKind.LOGIN), eq(REDIRECT), any()))
                 .thenReturn(started());
 
-        SocialAuthService.Authorization authorization = service.startLogin();
+        SocialAuthService.Authorization authorization = service.startLogin("google");
 
         assertThat(authorization.authorizationUrl())
                 .startsWith("https://accounts.google.com/o/oauth2/v2/auth")
@@ -81,7 +82,7 @@ class SocialAuthServiceTest {
     void start_requests_only_identity_scopes() {
         when(transactionService.start(anyString(), any(), anyString(), any())).thenReturn(started());
 
-        String url = service.startLogin().authorizationUrl();
+        String url = service.startLogin("google").authorizationUrl();
 
         assertThat(url).contains("scope=openid+profile+email");
         assertThat(url).doesNotContain("drive", "gmail", "contacts");
@@ -99,7 +100,7 @@ class SocialAuthServiceTest {
         when(identityService.resolve(any()))
                 .thenReturn(new AuthIdentityService.Resolution(linked, false, "reader@example.com"));
 
-        SocialAuthService.CallbackResult result = service.completeCallback("code-1", "state-1", "binding-1");
+        SocialAuthService.CallbackResult result = service.completeCallback("google", "code-1", "state-1", "binding-1");
 
         assertThat(result.outcome()).isEqualTo(SocialAuthService.Outcome.AUTHENTICATED);
         assertThat(result.user()).isSameAs(linked);
@@ -114,7 +115,7 @@ class SocialAuthServiceTest {
         when(identityService.resolve(any()))
                 .thenReturn(new AuthIdentityService.Resolution(null, false, "new@example.com"));
 
-        SocialAuthService.CallbackResult result = service.completeCallback("code-1", "state-1", "binding-1");
+        SocialAuthService.CallbackResult result = service.completeCallback("google", "code-1", "state-1", "binding-1");
 
         assertThat(result.outcome()).isEqualTo(SocialAuthService.Outcome.SIGNUP_REQUIRED);
         assertThat(result.user()).isNull();
@@ -129,7 +130,7 @@ class SocialAuthServiceTest {
         when(identityService.resolve(any()))
                 .thenReturn(new AuthIdentityService.Resolution(null, true, "reader@example.com"));
 
-        SocialAuthService.CallbackResult result = service.completeCallback("code-1", "state-1", "binding-1");
+        SocialAuthService.CallbackResult result = service.completeCallback("google", "code-1", "state-1", "binding-1");
 
         assertThat(result.outcome()).isEqualTo(SocialAuthService.Outcome.LINK_REQUIRED);
         verify(identityService, never()).link(any(), any());
@@ -144,7 +145,7 @@ class SocialAuthServiceTest {
         when(transactionService.consume(anyString(), anyString(), anyString()))
                 .thenThrow(new AuthIdentityException("OAUTH_STATE_INVALID"));
 
-        assertThatThrownBy(() -> service.completeCallback("code-1", "bad-state", "binding-1"))
+        assertThatThrownBy(() -> service.completeCallback("google", "code-1", "bad-state", "binding-1"))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("OAUTH_STATE_INVALID");
 
@@ -160,7 +161,7 @@ class SocialAuthServiceTest {
         when(verifier.verify(any(), any()))
                 .thenThrow(new AuthIdentityException("OAUTH_TOKEN_INVALID"));
 
-        assertThatThrownBy(() -> service.completeCallback("code-1", "state-1", "binding-1"))
+        assertThatThrownBy(() -> service.completeCallback("google", "code-1", "state-1", "binding-1"))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("OAUTH_TOKEN_INVALID");
 
@@ -170,9 +171,10 @@ class SocialAuthServiceTest {
     @Test
     void a_disabled_provider_refuses_to_start_a_flow() {
         SocialAuthService disabled = new SocialAuthService(transactionService, tokenExchange,
-                verifier, identityService, new SocialProviderProperties(false, "", "", ""));
+                verifier, mock(FacebookTokenExchange.class), mock(FacebookIdentityVerifier.class),
+                identityService, new SocialProviderProperties(false, "", "", ""));
 
-        assertThatThrownBy(disabled::startLogin)
+        assertThatThrownBy(() -> disabled.startLogin("google"))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("PROVIDER_DISABLED");
     }

@@ -45,6 +45,12 @@ services:
         sync: false
       - key: GOOGLE_REDIRECT_URI
         sync: false
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_REDIRECT_URI
+        sync: false
 
       - key: FRONTEND_URL
         value: https://tienvo17.vercel.app

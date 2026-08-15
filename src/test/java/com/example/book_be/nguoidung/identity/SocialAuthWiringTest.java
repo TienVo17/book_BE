@@ -55,11 +55,20 @@ class SocialAuthWiringTest {
     @Autowired
     private GoogleIdTokenVerifier verifier;
 
+    @Autowired
+    private FacebookTokenExchange facebookTokenExchange;
+
+    @Autowired
+    private FacebookIdentityVerifier facebookVerifier;
+
     @Test
     void every_social_bean_resolves_while_all_providers_are_disabled() {
         assertThat(properties.isGoogleEnabled()).isFalse();
+        assertThat(properties.isFacebookEnabled()).isFalse();
         // Interface co dung mot ban cai dat: thieu no thi production khong boot duoc.
         assertThat(tokenExchange).isInstanceOf(GoogleHttpTokenExchange.class);
+        assertThat(facebookTokenExchange).isInstanceOf(FacebookHttpTokenExchange.class);
         assertThat(verifier).isNotNull();
+        assertThat(facebookVerifier).isNotNull();
     }
 }

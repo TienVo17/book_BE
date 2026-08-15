@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -56,33 +57,48 @@ public class SocialAuthController {
         // Chi bao da-dat/chua-dat; khong bao gio tra ve gia tri, nhat la client secret.
         return ResponseEntity.ok(Map.of(
                 "google", properties.isGoogleEnabled(),
+                "facebook", properties.isFacebookEnabled(),
                 "cauHinh", Map.of(
                         "clientId", isSet(properties.getGoogleClientId()),
                         "clientSecret", isSet(properties.getGoogleClientSecret()),
-                        "redirectUri", isSet(properties.getGoogleRedirectUri()))));
+                        "redirectUri", isSet(properties.getGoogleRedirectUri())),
+                "cauHinhFacebook", Map.of(
+                        "clientId", isSet(properties.getFacebookClientId()),
+                        "clientSecret", isSet(properties.getFacebookClientSecret()),
+                        "redirectUri", isSet(properties.getFacebookRedirectUri()))));
+    }
+
+    /** Ten provider la khong ro se tra false, nen route khong ton tai thay vi loi 500. */
+    private boolean isEnabled(String provider) {
+        return switch (provider) {
+            case "google" -> properties.isGoogleEnabled();
+            case "facebook" -> properties.isFacebookEnabled();
+            default -> false;
+        };
     }
 
     private boolean isSet(String value) {
         return value != null && !value.isBlank();
     }
 
-    @GetMapping("/google/start")
-    public ResponseEntity<Void> start(HttpServletResponse response) {
+    @GetMapping("/{provider}/start")
+    public ResponseEntity<Void> start(@PathVariable String provider, HttpServletResponse response) {
         AuthOriginCsrfFilter.applyNoStoreHeaders(response);
-        if (!properties.isGoogleEnabled()) {
+        if (!isEnabled(provider)) {
             // 404 chu khong phai 403: khong tiet lo rang route co ton tai nhung dang tat.
             return ResponseEntity.notFound().build();
         }
 
-        SocialAuthService.Authorization authorization = socialAuthService.startLogin();
+        SocialAuthService.Authorization authorization = socialAuthService.startLogin(provider);
         return ResponseEntity.status(302)
                 .header(HttpHeaders.SET_COOKIE, bindingCookie(authorization.browserBinding()).toString())
                 .header(HttpHeaders.LOCATION, authorization.authorizationUrl())
                 .build();
     }
 
-    @GetMapping("/google/callback")
+    @GetMapping("/{provider}/callback")
     public ResponseEntity<Void> callback(
+            @PathVariable String provider,
             @RequestParam(name = "code", required = false) String code,
             @RequestParam(name = "state", required = false) String state,
             @RequestParam(name = "error", required = false) String error,
@@ -90,7 +106,7 @@ public class SocialAuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
         AuthOriginCsrfFilter.applyNoStoreHeaders(response);
-        if (!properties.isGoogleEnabled()) {
+        if (!isEnabled(provider)) {
             return ResponseEntity.notFound().build();
         }
 
@@ -107,7 +123,7 @@ public class SocialAuthController {
 
         try {
             SocialAuthService.CallbackResult result =
-                    socialAuthService.completeCallback(code, state, binding);
+                    socialAuthService.completeCallback(provider, code, state, binding);
             return redirect(safeReturn, switch (result.outcome()) {
                 case AUTHENTICATED -> "thanh-cong";
                 case SIGNUP_REQUIRED -> "can-dang-ky";

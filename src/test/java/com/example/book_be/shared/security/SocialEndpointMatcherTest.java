@@ -25,12 +25,27 @@ class SocialEndpointMatcherTest {
     }
 
     @Test
-    void the_three_public_social_routes_are_declared_exactly() throws IOException {
+    void every_public_social_route_is_declared_exactly() throws IOException {
         String source = source();
 
         assertThat(source).contains("\"/tai-khoan/oauth/trang-thai\").permitAll()");
         assertThat(source).contains("\"/tai-khoan/oauth/google/start\").permitAll()");
         assertThat(source).contains("\"/tai-khoan/oauth/google/callback\").permitAll()");
+        assertThat(source).contains("\"/tai-khoan/oauth/facebook/start\").permitAll()");
+        assertThat(source).contains("\"/tai-khoan/oauth/facebook/callback\").permitAll()");
+    }
+
+    /**
+     * The controller maps {provider}, so a path-variable matcher here would open any provider
+     * name someone can invent, including ones with no configuration behind them.
+     */
+    @Test
+    void no_path_variable_matcher_stands_in_for_a_provider_name() throws IOException {
+        String source = source();
+
+        assertThat(source).doesNotContain("\"/tai-khoan/oauth/*/start\"");
+        assertThat(source).doesNotContain("\"/tai-khoan/oauth/*/callback\"");
+        assertThat(source).doesNotContain("\"/tai-khoan/oauth/{provider}");
     }
 
     /**

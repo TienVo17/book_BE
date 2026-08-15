@@ -150,6 +150,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/trang-thai").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/google/start").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/google/callback").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/facebook/start").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/facebook/callback").permitAll()
                 .requestMatchers("/tai-khoan/_proxy-rehearsal/**").permitAll()
                 // Public payment return must be evaluated before the protected /api/don-hang/** matcher.
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()

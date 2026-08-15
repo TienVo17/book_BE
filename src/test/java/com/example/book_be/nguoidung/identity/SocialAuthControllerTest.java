@@ -48,7 +48,7 @@ class SocialAuthControllerTest {
 
     @Test
     void start_redirects_to_the_provider_and_sets_the_browser_binding_cookie() throws Exception {
-        when(socialAuthService.startLogin())
+        when(socialAuthService.startLogin("google"))
                 .thenReturn(new SocialAuthService.Authorization(AUTH_URL, "binding-1"));
 
         MockHttpServletResponse response = mockMvc.perform(get("/tai-khoan/oauth/google/start"))
@@ -66,7 +66,7 @@ class SocialAuthControllerTest {
     /** Auth responses must never be cached by a CDN or the browser. */
     @Test
     void start_is_never_cacheable() throws Exception {
-        when(socialAuthService.startLogin())
+        when(socialAuthService.startLogin("google"))
                 .thenReturn(new SocialAuthService.Authorization(AUTH_URL, "binding-1"));
 
         mockMvc.perform(get("/tai-khoan/oauth/google/start"))
@@ -78,7 +78,25 @@ class SocialAuthControllerTest {
         disabledMockMvc().perform(get("/tai-khoan/oauth/google/start"))
                 .andExpect(status().isNotFound());
 
-        verify(socialAuthService, never()).startLogin();
+        verify(socialAuthService, never()).startLogin(anyString());
+    }
+
+    /** An invented provider name must not reach the service or reveal that the route exists. */
+    @Test
+    void an_unknown_provider_answers_404() throws Exception {
+        mockMvc.perform(get("/tai-khoan/oauth/tiktok/start"))
+                .andExpect(status().isNotFound());
+
+        verify(socialAuthService, never()).startLogin(anyString());
+    }
+
+    @Test
+    void facebook_start_is_404_while_that_provider_is_disabled() throws Exception {
+        // properties trong setUp chi bat Google; Facebook van tat.
+        mockMvc.perform(get("/tai-khoan/oauth/facebook/start"))
+                .andExpect(status().isNotFound());
+
+        verify(socialAuthService, never()).startLogin("facebook");
     }
 
     @Test
@@ -129,7 +147,7 @@ class SocialAuthControllerTest {
     void callback_for_a_linked_account_redirects_to_the_result_page() throws Exception {
         NguoiDung user = new NguoiDung();
         user.setMaNguoiDung(7);
-        when(socialAuthService.completeCallback(anyString(), anyString(), anyString()))
+        when(socialAuthService.completeCallback(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(new SocialAuthService.CallbackResult(
                         SocialAuthService.Outcome.AUTHENTICATED, user, null, null));
 
@@ -155,7 +173,7 @@ class SocialAuthControllerTest {
                 .andExpect(header().string(HttpHeaders.LOCATION,
                         org.hamcrest.Matchers.containsString("loi")));
 
-        verify(socialAuthService, never()).completeCallback(anyString(), anyString(), anyString());
+        verify(socialAuthService, never()).completeCallback(anyString(), anyString(), anyString(), anyString());
     }
 
     /** A user who declines consent is not an error to shout about; send them home quietly. */
@@ -167,7 +185,7 @@ class SocialAuthControllerTest {
                         .cookie(new Cookie(SocialAuthController.BINDING_COOKIE, "binding-1")))
                 .andExpect(status().isFound());
 
-        verify(socialAuthService, never()).completeCallback(anyString(), anyString(), anyString());
+        verify(socialAuthService, never()).completeCallback(anyString(), anyString(), anyString(), anyString());
     }
 
     /**
@@ -176,7 +194,7 @@ class SocialAuthControllerTest {
      */
     @Test
     void the_callback_never_redirects_off_origin() throws Exception {
-        when(socialAuthService.completeCallback(anyString(), anyString(), anyString()))
+        when(socialAuthService.completeCallback(anyString(), anyString(), anyString(), anyString()))
                 .thenThrow(new AuthIdentityException("OAUTH_STATE_INVALID"));
 
         MockHttpServletResponse response = mockMvc.perform(get("/tai-khoan/oauth/google/callback")
@@ -193,7 +211,7 @@ class SocialAuthControllerTest {
     /** The binding cookie is single-use; leaving it set would let a later callback reuse it. */
     @Test
     void the_binding_cookie_is_cleared_once_the_callback_completes() throws Exception {
-        when(socialAuthService.completeCallback(anyString(), anyString(), anyString()))
+        when(socialAuthService.completeCallback(anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(new SocialAuthService.CallbackResult(
                         SocialAuthService.Outcome.SIGNUP_REQUIRED, null, null, null));
 
@@ -211,7 +229,7 @@ class SocialAuthControllerTest {
 
     @Test
     void an_error_code_never_leaks_into_the_redirect_as_free_text() throws Exception {
-        when(socialAuthService.completeCallback(anyString(), anyString(), anyString()))
+        when(socialAuthService.completeCallback(anyString(), anyString(), anyString(), anyString()))
                 .thenThrow(new AuthIdentityException("OAUTH_TOKEN_INVALID"));
 
         MockHttpServletResponse response = mockMvc.perform(get("/tai-khoan/oauth/google/callback")
