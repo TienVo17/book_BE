@@ -38,8 +38,11 @@ class SocialAuthWiringTest {
             // cac test service, con o day chi quan tam den cac bean tu viet.
             excludeFilters = @ComponentScan.Filter(
                     type = FilterType.ASSIGNABLE_TYPE,
+                    // Cac lop nay phu thuoc repository JPA nen can EntityManager that; chung
+                    // duoc kiem tra rieng o cac test service va controller tuong ung.
                     classes = {OAuthTransactionService.class, AuthIdentityService.class,
-                            SocialSignupService.class, SocialAuthService.class}))
+                            SocialSignupService.class, SocialAuthService.class,
+                            SocialAuthController.class}))
     static class Config {
     }
 

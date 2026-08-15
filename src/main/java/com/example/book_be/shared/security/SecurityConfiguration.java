@@ -143,6 +143,13 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/tai-khoan/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/tai-khoan/dang-xuat").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/phien").authenticated()
+                // Dang nhap qua provider bat dau khi CHUA co phien, nen ba duong nay phai
+                // mo. Matcher chinh xac tung duong, khong dung /tai-khoan/oauth/** de mot
+                // route oauth them sau nay khong tu dong duoc mo theo.
+                // Khi provider tat, controller tra 404 truoc khi cham vao bat ky trang thai nao.
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/trang-thai").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/google/start").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/google/callback").permitAll()
                 .requestMatchers("/tai-khoan/_proxy-rehearsal/**").permitAll()
                 // Public payment return must be evaluated before the protected /api/don-hang/** matcher.
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()
