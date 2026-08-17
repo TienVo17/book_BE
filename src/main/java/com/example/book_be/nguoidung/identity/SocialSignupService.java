@@ -33,12 +33,18 @@ public class SocialSignupService {
         this.identityService = identityService;
     }
 
+    /**
+     * @param intent ho so dang do; dia chi email chi duoc dung khi chinh ho so nay danh dau
+     *               da xac minh - hoac provider khang dinh, hoac nguoi dung da nhap dung ma
+     *               do ung dung gui. Facebook khong bao gio thuoc ve truong hop thu nhat.
+     */
     @Transactional
-    public NguoiDung complete(ProviderIdentity claims, CompletionRequest request) {
-        String verifiedEmail = claims.trustedEmail();
+    public NguoiDung complete(OAuthSignupIntent intent, CompletionRequest request) {
+        ProviderIdentity claims = intent.toProviderIdentity();
+        String verifiedEmail = intent.isEmailVerified() ? intent.getEmail() : null;
         if (verifiedEmail == null || !verifiedEmail.equalsIgnoreCase(request.email())) {
-            // Provider chi chung minh duoc dia chi ma no da xac minh. Cho phep form gui dia
-            // chi khac dong nghia voi cho phep nhan bua email cua nguoi la.
+            // Chi dia chi da co bang chung moi dung duoc. Cho phep form gui dia chi khac
+            // dong nghia voi cho phep nhan bua email cua nguoi la.
             throw new AuthIdentityException("EMAIL_NOT_VERIFIED");
         }
         if (request.username() == null || request.username().isBlank()) {
@@ -71,7 +77,7 @@ public class SocialSignupService {
         // Tai khoan social khong co mat khau. De null thay vi hash ngau nhien de duong dang
         // nhap bang mat khau dong han, khong phu thuoc vao hanh vi cua bcrypt voi chuoi la.
         user.setMatKhau(null);
-        // Provider da xac minh email nen khong can vong kich hoat qua email lan nua.
+        // Dia chi da duoc xac minh o buoc truoc nen khong can vong kich hoat qua email nua.
         user.setDaKichHoat(true);
         List<Quyen> roles = new ArrayList<>();
         roles.add(userRole);

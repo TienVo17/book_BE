@@ -41,8 +41,8 @@ class SocialAuthWiringTest {
                     // Cac lop nay phu thuoc repository JPA nen can EntityManager that; chung
                     // duoc kiem tra rieng o cac test service va controller tuong ung.
                     classes = {OAuthTransactionService.class, AuthIdentityService.class,
-                            SocialSignupService.class, SocialAuthService.class,
-                            SocialAuthController.class}))
+                            SocialSignupService.class, SocialSignupIntentService.class,
+                            SocialAuthService.class, SocialAuthController.class}))
     static class Config {
     }
 

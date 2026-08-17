@@ -1,10 +1,16 @@
 package com.example.book_be.nguoidung.identity;
 
+import com.example.book_be.nguoidung.baomat.JwtService;
 import com.example.book_be.nguoidung.domain.NguoiDung;
+import com.example.book_be.nguoidung.session.RefreshCookieFactory;
+import com.example.book_be.nguoidung.session.RefreshSessionService;
+import com.example.book_be.shared.email.EmailService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -13,11 +19,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,23 +35,36 @@ class SocialAuthControllerTest {
 
     private SocialAuthService socialAuthService;
     private SocialProviderProperties properties;
+    private SocialSignupIntentService intentService;
+    private SocialSignupService signupService;
+    private RefreshSessionService refreshSessionService;
+    private RefreshCookieFactory refreshCookieFactory;
+    private JwtService jwtService;
+    private EmailService emailService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         socialAuthService = mock(SocialAuthService.class);
+        intentService = mock(SocialSignupIntentService.class);
+        signupService = mock(SocialSignupService.class);
+        refreshSessionService = mock(RefreshSessionService.class);
+        refreshCookieFactory = mock(RefreshCookieFactory.class);
+        jwtService = mock(JwtService.class);
+        emailService = mock(EmailService.class);
         properties = new SocialProviderProperties(true, "client", "secret",
                 "https://tienvo17.vercel.app/tai-khoan/oauth/google/callback");
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(new SocialAuthController(socialAuthService, properties))
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller(properties)).build();
+    }
+
+    private SocialAuthController controller(SocialProviderProperties config) {
+        return new SocialAuthController(socialAuthService, config, intentService, signupService,
+                refreshSessionService, refreshCookieFactory, jwtService, emailService);
     }
 
     private MockMvc disabledMockMvc() {
         SocialProviderProperties disabled = new SocialProviderProperties(false, "", "", "");
-        return MockMvcBuilders
-                .standaloneSetup(new SocialAuthController(socialAuthService, disabled))
-                .build();
+        return MockMvcBuilders.standaloneSetup(controller(disabled)).build();
     }
 
     @Test
@@ -158,6 +179,103 @@ class SocialAuthControllerTest {
                 .andExpect(status().isFound())
                 .andExpect(header().string(HttpHeaders.LOCATION,
                         org.hamcrest.Matchers.startsWith("/tai-khoan/oauth/ket-qua")));
+    }
+
+    /**
+     * Danh tinh da xac minh phai duoc giao lai cho buoc hoan tat, neu khong thi callback chi
+     * hien duoc mot trang "can dang ky" khong dan di dau - moi lan dang nhap deu ket thuc o
+     * do vi khong co gi tao ra `auth_identity`.
+     */
+    @Test
+    void a_signup_callback_hands_the_verified_identity_to_the_completion_step() throws Exception {
+        ProviderIdentity identity = new ProviderIdentity("google", "https://accounts.google.com",
+                "sub-1", "nguoi@example.com", true, "Tien");
+        when(socialAuthService.completeCallback(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(new SocialAuthService.CallbackResult(
+                        SocialAuthService.Outcome.SIGNUP_REQUIRED, null, identity, null));
+        when(intentService.create(identity)).thenReturn("intent-token-1");
+
+        MockHttpServletResponse response = mockMvc.perform(get("/tai-khoan/oauth/google/callback")
+                        .param("code", "code-1")
+                        .param("state", "state-1")
+                        .cookie(new Cookie(SocialAuthController.BINDING_COOKIE, "binding-1")))
+                .andExpect(status().isFound())
+                .andExpect(header().string(HttpHeaders.LOCATION,
+                        org.hamcrest.Matchers.containsString("can-dang-ky")))
+                .andReturn().getResponse();
+
+        verify(intentService).create(identity);
+        assertThat(String.join(";", response.getHeaders(HttpHeaders.SET_COOKIE)))
+                .contains(SocialAuthController.INTENT_COOKIE)
+                .contains("HttpOnly");
+    }
+
+    /** Ho so phai bi tieu truoc khi tao tai khoan: gui lai cung mot form khong duoc tao them. */
+    @Test
+    void completion_consumes_the_intent_before_creating_the_account() throws Exception {
+        OAuthSignupIntent intent = new OAuthSignupIntent();
+        intent.setProvider("google");
+        NguoiDung created = new NguoiDung();
+        created.setMaNguoiDung(11);
+        created.setTenDangNhap("reader");
+        when(intentService.consume("intent-token-1")).thenReturn(intent);
+        when(signupService.complete(any(), any())).thenReturn(created);
+        when(jwtService.generateToken(created)).thenReturn("access-1");
+
+        mockMvc.perform(post("/tai-khoan/oauth/hoan-tat-dang-ky")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tenDangNhap\":\"reader\",\"email\":\"nguoi@example.com\"}")
+                        .cookie(new Cookie(SocialAuthController.INTENT_COOKIE, "intent-token-1")))
+                .andExpect(status().isOk());
+
+        InOrder order = inOrder(intentService, signupService);
+        order.verify(intentService).consume("intent-token-1");
+        order.verify(signupService).complete(any(), any());
+    }
+
+    /** Ma xac minh chi duoc di qua email. Tra ve trong phan hoi la bo qua han buoc xac minh. */
+    @Test
+    void the_email_code_never_travels_back_in_the_response() throws Exception {
+        when(intentService.startEmailVerification(anyString(), anyString())).thenReturn("482915");
+
+        String body = mockMvc.perform(post("/tai-khoan/oauth/gui-ma-xac-minh-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nguoi@example.com\"}")
+                        .cookie(new Cookie(SocialAuthController.INTENT_COOKIE, "intent-token-1")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("482915");
+        verify(emailService).sendEmail(org.mockito.ArgumentMatchers.eq("nguoi@example.com"),
+                anyString(), anyString());
+    }
+
+    /**
+     * Gui email that bai khong duoc doi phan hoi: mot phan hoi khac di la mot cong cu do xem
+     * dia chi nao ton tai. Ma van nam trong ho so nen nguoi dung co the yeu cau gui lai.
+     */
+    @Test
+    void a_failed_send_looks_exactly_like_a_successful_one() throws Exception {
+        when(intentService.startEmailVerification(anyString(), anyString())).thenReturn("482915");
+        org.mockito.Mockito.doThrow(new IllegalStateException("smtp down"))
+                .when(emailService).sendEmail(anyString(), anyString(), anyString());
+
+        mockMvc.perform(post("/tai-khoan/oauth/gui-ma-xac-minh-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"nguoi@example.com\"}")
+                        .cookie(new Cookie(SocialAuthController.INTENT_COOKIE, "intent-token-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.daGui").value(true));
+    }
+
+    /** Ho so het han hoac khong co la loi cua nguoi goi, khong phai su co may chu. */
+    @Test
+    void a_missing_intent_answers_with_a_stable_code_not_a_server_error() throws Exception {
+        when(intentService.require(null)).thenThrow(new AuthIdentityException("SIGNUP_INTENT_INVALID"));
+
+        mockMvc.perform(get("/tai-khoan/oauth/dang-ky-cho"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SIGNUP_INTENT_INVALID"));
     }
 
     /**

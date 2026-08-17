@@ -152,6 +152,13 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/google/callback").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/facebook/start").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/facebook/callback").permitAll()
+                // Buoc hoan tat dang ky cung chua co phien: nguoi dung chi moi co ho so dang
+                // do, chua co tai khoan. Cookie ho so la thu duy nhat cho phep goi bon duong
+                // nay, va ba duong POST con phai qua kiem tra Origin/CSRF.
+                .requestMatchers(HttpMethod.GET, "/tai-khoan/oauth/dang-ky-cho").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tai-khoan/oauth/gui-ma-xac-minh-email").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tai-khoan/oauth/xac-minh-email").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tai-khoan/oauth/hoan-tat-dang-ky").permitAll()
                 .requestMatchers("/tai-khoan/_proxy-rehearsal/**").permitAll()
                 // Public payment return must be evaluated before the protected /api/don-hang/** matcher.
                 .requestMatchers(HttpMethod.GET, "/api/don-hang/vnpay-payment").permitAll()

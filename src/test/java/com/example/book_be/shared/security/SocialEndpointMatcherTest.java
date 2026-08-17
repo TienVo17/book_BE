@@ -6,6 +6,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -19,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SocialEndpointMatcherTest {
     private static final Path SOURCE = Path.of(
             "src/main/java/com/example/book_be/shared/security/SecurityConfiguration.java");
+    private static final Path CSRF_FILTER_SOURCE = Path.of(
+            "src/main/java/com/example/book_be/nguoidung/session/AuthOriginCsrfFilter.java");
 
     private String source() throws IOException {
         return Files.readString(SOURCE, StandardCharsets.UTF_8);
@@ -33,6 +39,9 @@ class SocialEndpointMatcherTest {
         assertThat(source).contains("\"/tai-khoan/oauth/google/callback\").permitAll()");
         assertThat(source).contains("\"/tai-khoan/oauth/facebook/start\").permitAll()");
         assertThat(source).contains("\"/tai-khoan/oauth/facebook/callback\").permitAll()");
+        // Buoc hoan tat chay khi chua co phien: nguoi dung moi co ho so dang do, chua co
+        // tai khoan. Cookie ho so la thu duy nhat cho phep goi duong nay.
+        assertThat(source).contains("\"/tai-khoan/oauth/dang-ky-cho\").permitAll()");
     }
 
     /**
@@ -64,15 +73,45 @@ class SocialEndpointMatcherTest {
         assertThat(source).doesNotContain("\"/tai-khoan/**\"");
     }
 
+    /** Bat dau va callback deu la dieu huong tren thanh dia chi, nen chi GET. */
     @Test
-    void social_routes_are_read_only_get_endpoints() throws IOException {
+    void provider_start_and_callback_stay_get_only() throws IOException {
         String source = source();
 
-        // Bat dau va callback deu la dieu huong tren thanh dia chi, nen chi GET. Mo them
-        // POST se tao ra mot duong khong CSRF-protected vao chinh luong dang nhap.
-        assertThat(source).doesNotContain("HttpMethod.POST, \"/tai-khoan/oauth");
+        assertThat(source).doesNotContain("HttpMethod.POST, \"/tai-khoan/oauth/google");
+        assertThat(source).doesNotContain("HttpMethod.POST, \"/tai-khoan/oauth/facebook");
         assertThat(source).doesNotContain("HttpMethod.PUT, \"/tai-khoan/oauth");
         assertThat(source).doesNotContain("HttpMethod.DELETE, \"/tai-khoan/oauth");
+    }
+
+    /**
+     * Buoc hoan tat dang ky bat buoc phai la POST, nen lenh cam POST tron truoc day khong con
+     * dung nua. Dieu that su can giu la ly do cua lenh cam do: mot POST mo ma khong qua
+     * Origin/CSRF la mot duong vao khong duoc bao ve cua chinh luong dang nhap.
+     *
+     * Nen thay vi cam, o day liet ke chinh xac va doi chieu sang danh sach cua
+     * AuthOriginCsrfFilter. Them mot POST moi ma quen bao ve se lam test nay do.
+     */
+    @Test
+    void every_public_social_post_route_is_csrf_protected() throws IOException {
+        String source = source();
+        String filter = Files.readString(CSRF_FILTER_SOURCE, StandardCharsets.UTF_8);
+
+        List<String> postPaths = new ArrayList<>();
+        Matcher matcher = Pattern
+                .compile("HttpMethod\\.POST, \"(/tai-khoan/oauth/[^\"]+)\"")
+                .matcher(source);
+        while (matcher.find()) {
+            postPaths.add(matcher.group(1));
+        }
+
+        assertThat(postPaths).containsExactlyInAnyOrder(
+                "/tai-khoan/oauth/gui-ma-xac-minh-email",
+                "/tai-khoan/oauth/xac-minh-email",
+                "/tai-khoan/oauth/hoan-tat-dang-ky");
+        for (String path : postPaths) {
+            assertThat(filter).contains("\"" + path + "\"");
+        }
     }
 
     /** Fail-closed van phai la dong cuoi cung cua chuoi matcher. */

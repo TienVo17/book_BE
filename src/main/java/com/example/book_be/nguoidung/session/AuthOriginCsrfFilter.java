@@ -18,7 +18,13 @@ import java.util.Set;
 public class AuthOriginCsrfFilter extends OncePerRequestFilter {
     public static final String CSRF_HEADER = "X-CSRF-Token";
     private static final Set<String> PROTECTED_PATHS = Set.of(
-            "/tai-khoan/refresh", "/tai-khoan/dang-xuat");
+            "/tai-khoan/refresh", "/tai-khoan/dang-xuat",
+            // Buoc hoan tat dang ky bang provider chay khi chua co phien, va cookie ho so
+            // duoc gui kem tu dong. Thieu kiem tra Origin/CSRF thi mot trang la co the tao
+            // tai khoan hoac dot het luot nhap ma thay nguoi dung.
+            "/tai-khoan/oauth/gui-ma-xac-minh-email",
+            "/tai-khoan/oauth/xac-minh-email",
+            "/tai-khoan/oauth/hoan-tat-dang-ky");
 
     private final String frontendOrigin;
     private final AuthCsrfTokenService csrfTokenService;

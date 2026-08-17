@@ -46,6 +46,23 @@ class SocialSignupServiceTest {
         return new ProviderIdentity("google", ISSUER, subject, email, true, "Reader");
     }
 
+    /** Ho so da co bang chung email - truong hop Google noi `email_verified`. */
+    private OAuthSignupIntent intent(String subject, String email) {
+        return intent("google", ISSUER, subject, email, true);
+    }
+
+    private OAuthSignupIntent intent(String provider, String issuer, String subject,
+                                     String email, boolean emailVerified) {
+        OAuthSignupIntent intent = new OAuthSignupIntent();
+        intent.setProvider(provider);
+        intent.setIssuer(issuer);
+        intent.setProviderSubject(subject);
+        intent.setEmail(email);
+        intent.setEmailVerified(emailVerified);
+        intent.setTenHienThi("Reader");
+        return intent;
+    }
+
     private SocialSignupService.CompletionRequest request(String username, String email) {
         return new SocialSignupService.CompletionRequest(username, email, "Doc", "Gia");
     }
@@ -55,7 +72,7 @@ class SocialSignupServiceTest {
         when(userRepository.existsByTenDangNhap("reader")).thenReturn(false);
         when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
 
-        NguoiDung created = service.complete(claims("sub-1", "new@example.com"),
+        NguoiDung created = service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com"));
 
         assertThat(created.getTenDangNhap()).isEqualTo("reader");
@@ -74,7 +91,7 @@ class SocialSignupServiceTest {
         when(userRepository.existsByTenDangNhap(anyString())).thenReturn(false);
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
 
-        NguoiDung created = service.complete(claims("sub-1", "new@example.com"),
+        NguoiDung created = service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com"));
 
         assertThat(created.getMatKhau()).isNull();
@@ -84,7 +101,7 @@ class SocialSignupServiceTest {
     void taken_username_is_rejected_before_any_identity_is_linked() {
         when(userRepository.existsByTenDangNhap("reader")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.complete(claims("sub-1", "new@example.com"),
+        assertThatThrownBy(() -> service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com")))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("USERNAME_TAKEN");
@@ -101,7 +118,7 @@ class SocialSignupServiceTest {
     void completion_email_must_match_the_verified_provider_email() {
         when(userRepository.existsByTenDangNhap(anyString())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.complete(claims("sub-1", "verified@example.com"),
+        assertThatThrownBy(() -> service.complete(intent("sub-1", "verified@example.com"),
                 request("reader", "someone-else@example.com")))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("EMAIL_NOT_VERIFIED");
@@ -120,7 +137,7 @@ class SocialSignupServiceTest {
         when(identityService.link(any(), any()))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        assertThatThrownBy(() -> service.complete(claims("sub-1", "new@example.com"),
+        assertThatThrownBy(() -> service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com")))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("IDENTITY_RACE");
@@ -133,12 +150,44 @@ class SocialSignupServiceTest {
         when(userRepository.existsByTenDangNhap(anyString())).thenReturn(false);
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.complete(claims("sub-1", "new@example.com"),
+        assertThatThrownBy(() -> service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com")))
                 .isInstanceOf(AuthIdentityException.class)
                 .hasMessageContaining("IDENTITY_ALREADY_LINKED");
 
         verify(userRepository, never()).save(any());
+    }
+
+    /**
+     * Facebook never proves an address, so its intent arrives unverified. Accepting it because
+     * the form happens to echo the same string would let anyone claim a stranger's email.
+     */
+    @Test
+    void an_unverified_address_is_rejected_even_when_the_form_matches_it() {
+        when(userRepository.existsByTenDangNhap(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.complete(
+                intent("facebook", "https://www.facebook.com", "fb-1", "new@example.com", false),
+                request("reader", "new@example.com")))
+                .isInstanceOf(AuthIdentityException.class)
+                .hasMessageContaining("EMAIL_NOT_VERIFIED");
+
+        verify(userRepository, never()).save(any());
+    }
+
+    /** Bang chung do chinh ung dung tao ra dung ngang bang chung cua provider. */
+    @Test
+    void an_address_verified_by_the_application_completes_the_signup() {
+        when(userRepository.existsByTenDangNhap(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+
+        NguoiDung created = service.complete(
+                intent("facebook", "https://www.facebook.com", "fb-1", "new@example.com", true),
+                request("reader", "new@example.com"));
+
+        assertThat(created.getEmail()).isEqualTo("new@example.com");
+        assertThat(created.getDaKichHoat()).isTrue();
     }
 
     @Test
@@ -147,7 +196,7 @@ class SocialSignupServiceTest {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(quyenRepository.findByTenQuyen("USER")).thenReturn(null);
 
-        assertThatThrownBy(() -> service.complete(claims("sub-1", "new@example.com"),
+        assertThatThrownBy(() -> service.complete(intent("sub-1", "new@example.com"),
                 request("reader", "new@example.com")))
                 .isInstanceOf(AuthIdentityException.class);
 
