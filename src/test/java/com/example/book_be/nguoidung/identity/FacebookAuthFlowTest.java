@@ -77,16 +77,22 @@ class FacebookAuthFlowTest {
     }
 
     /**
-     * Requesting more than public_profile and email would pull in Graph data the application
-     * has no reason to hold, and would drag the app into a heavier App Review.
+     * Only public_profile is requested, and deliberately not email.
+     *
+     * Facebook cannot state that an address was verified, so {@link FacebookIdentityVerifier}
+     * always reports it unverified and {@link ProviderIdentity#trustedEmail()} discards it.
+     * Signup therefore has to send its own verification code either way, which leaves the
+     * email permission buying nothing but a prefilled form field — in exchange for App Review.
+     * public_profile carries advanced access by default, so login needs no review at all.
      */
     @Test
-    void start_requests_only_public_profile_and_email() {
+    void start_requests_only_public_profile() {
         when(transactionService.start(anyString(), any(), anyString(), any())).thenReturn(started());
 
         String url = service.startLogin("facebook").authorizationUrl();
 
-        assertThat(url).contains("scope=public_profile%2Cemail");
+        assertThat(url).contains("scope=public_profile");
+        assertThat(url).doesNotContain("email");
         assertThat(url).doesNotContain("user_friends", "publish", "pages");
     }
 

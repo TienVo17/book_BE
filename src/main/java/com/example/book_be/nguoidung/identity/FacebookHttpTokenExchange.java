@@ -75,7 +75,9 @@ public class FacebookHttpTokenExchange implements FacebookTokenExchange {
         String proof = appSecretProof(token, appSecret);
 
         Map<String, String> profileQuery = new LinkedHashMap<>();
-        profileQuery.put("fields", "id,name,email");
+        // Khong hoi `email`: scope khong xin quyen do, va dia chi tu Facebook luon bi coi la
+        // chua xac minh nen bi bo di. Hoi mot truong roi vut la thu du lieu khong can giu.
+        profileQuery.put("fields", "id,name");
         profileQuery.put("access_token", token);
         profileQuery.put("appsecret_proof", proof);
         Map<?, ?> profile = getJson(BASE + "/me?" + buildQuery(profileQuery));

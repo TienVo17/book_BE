@@ -29,7 +29,16 @@ public class SocialAuthService {
 
     /** Chi xin danh tinh. Xin them scope la xin quyen doc du lieu khong lien quan den dang nhap. */
     private static final String GOOGLE_SCOPES = "openid profile email";
-    private static final String FACEBOOK_SCOPES = "public_profile,email";
+    /**
+     * Facebook khong xin `email`, khac voi Google.
+     *
+     * Graph khong cho biet dia chi da duoc xac minh hay chua, nen `FacebookIdentityVerifier`
+     * luon danh dau chua xac minh va `ProviderIdentity.trustedEmail()` bo di. Dang ky van phai
+     * tu gui ma xac minh, nen quyen `email` chi con tac dung dien san mot o trong form — doi
+     * lay mot vong App Review cua Meta. `public_profile` co advanced access san cho moi app,
+     * nen dang nhap chay duoc ma khong can duyet.
+     */
+    private static final String FACEBOOK_SCOPES = "public_profile";
 
     private final OAuthTransactionService transactionService;
     private final GoogleTokenExchange googleTokenExchange;
