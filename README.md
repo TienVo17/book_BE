@@ -102,12 +102,26 @@ Backend mặc định tại `http://localhost:8080`.
 
 ### Free-tier backend heartbeat
 
+Render Free instances have a 512 MiB memory limit. Repeated startup OOM kills
+were confirmed in Render service events. The intended Free Blueprint profile is
+`JAVA_TOOL_OPTIONS=-Xms64m -Xmx192m -XX:+UseSerialGC`; it budgets heap and selects
+Serial GC, while non-heap/native memory still counts toward the instance limit.
+This value is repository-managed in `render.yaml` and Blueprint reconciliation
+can overwrite dashboard overrides. For manually created services, apply it as a
+service environment variable and deploy; committing the Blueprint alone does
+not update that live service. The application and migration settings are unchanged.
+To roll back, remove the Blueprint entry and deployed environment variable, then
+deploy the reviewed source revision. Do not change Flyway repair or DB settings.
+
 The optional scheduled-only Cloudflare Worker in [`ops/keep-alive/`](ops/keep-alive/)
 calls `/health` and the small database-backed `/api/the-loai` every five minutes.
 It does not move Java or MySQL, expose an HTTP route, or use credentials. Each
 probe has a 110-second timeout including body reading; HTML loading pages fail
 JSON validation. A failed health probe still allows the catalogue probe to run.
-Status/timing logs exclude response bodies. This mitigates idle shutdown and
+The account namespace initialized for this heartbeat is
+`book-be-tienvo17.workers.dev`; the Worker itself keeps HTTP and preview URLs
+disabled. This namespace is account-wide. Status/timing logs exclude response
+bodies. This mitigates idle shutdown and
 does not guarantee availability; frontend recovery remains necessary.
 
 From this repository, validate and deploy using an authenticated account:
