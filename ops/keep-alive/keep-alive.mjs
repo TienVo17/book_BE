@@ -19,7 +19,7 @@ export default {
       try {
         const response = await fetch(`${BACKEND_ORIGIN}${target.path}`, {
           method: 'GET',
-          redirect: 'error',
+          redirect: 'manual',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
           signal: controller.signal,

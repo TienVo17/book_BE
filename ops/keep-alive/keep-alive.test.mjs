@@ -46,3 +46,22 @@ test('a working liveness endpoint does not conceal a failed database request', a
     ? Response.json({ status: 'UP' }) : Promise.reject(new TypeError('network'));
   await assert.rejects(worker.scheduled(), /readiness check failed/);
 });
+
+test('rejects redirects without following their destination and still checks catalogue', async () => {
+  const calls = [];
+  const logs = [];
+  console.log = entry => logs.push(JSON.parse(entry));
+  globalThis.fetch = async (url, options) => {
+    calls.push(url);
+    assert.equal(options.redirect, 'manual');
+    return url.endsWith('/health')
+      ? new Response(null, { status: 302, headers: { Location: 'https://example.com/redirected' } })
+      : Response.json([]);
+  };
+  await assert.rejects(worker.scheduled(), /readiness check failed/);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(url => url.startsWith('https://book-be-jakn.onrender.com/')));
+  assert.equal(logs[0].status, 302);
+  assert.equal(logs[0].ok, false);
+  assert.equal(logs[1].ok, true);
+});
