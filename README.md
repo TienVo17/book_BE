@@ -118,6 +118,8 @@ calls `/health` and the small database-backed `/api/the-loai` every five minutes
 It does not move Java or MySQL, expose an HTTP route, or use credentials. Each
 probe has a 110-second timeout including body reading; HTML loading pages fail
 JSON validation. A failed health probe still allows the catalogue probe to run.
+Redirects use Workers-supported `manual` mode and are rejected as non-200
+responses; their destinations are never followed.
 The account namespace initialized for this heartbeat is
 `book-be-tienvo17.workers.dev`; the Worker itself keeps HTTP and preview URLs
 disabled. This namespace is account-wide. Status/timing logs exclude response
