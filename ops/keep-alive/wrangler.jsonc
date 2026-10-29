@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "book-be-keep-alive",
+  "main": "keep-alive.mjs",
+  "compatibility_date": "2026-10-29",
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "observability": { "enabled": true }
+}

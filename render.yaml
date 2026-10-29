@@ -8,6 +8,9 @@ services:
     dockerContext: .
     healthCheckPath: /health
     envVars:
+      # Limit heap and reduce GC overhead on the Free 512 MiB instance.
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xms64m -Xmx192m -XX:+UseSerialGC
       - key: DB_URL
         sync: false
       - key: DB_USERNAME
