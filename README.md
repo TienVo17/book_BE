@@ -100,7 +100,51 @@ Backend mặc định tại `http://localhost:8080`.
 
 **Khởi động bình thường không tự repair.** Nếu `flyway_schema_history` còn dòng `failed` từ một lần deploy hỏng giữa chừng, ứng dụng sẽ dừng lại thay vì tự sửa metadata — để backup và đối chiếu checksum diễn ra trước, không phải sau. Khi thực sự cần khôi phục, đặt `FLYWAY_REPAIR_ON_START=true` cho đúng một lần deploy, xác minh kết quả, rồi tắt lại. `repair()` chỉ sửa metadata lịch sử; nó không rollback hay sửa dữ liệu/schema đã áp dụng. Không sửa nội dung một migration đã từng chạy — luôn thêm migration mới.
 
+### Free-tier backend heartbeat
+
+The optional scheduled-only Cloudflare Worker in [`ops/keep-alive/`](ops/keep-alive/)
+calls `/health` and the small database-backed `/api/the-loai` every five minutes.
+It does not move Java or MySQL, expose an HTTP route, or use credentials. Each
+probe has a 110-second timeout including body reading; HTML loading pages fail
+JSON validation. A failed health probe still allows the catalogue probe to run.
+Status/timing logs exclude response bodies. This mitigates idle shutdown and
+does not guarantee availability; frontend recovery remains necessary.
+
+From this repository, validate and deploy using an authenticated account:
+
+```powershell
+node --test ops/keep-alive/keep-alive.test.mjs
+wrangler deploy --dry-run --config ops/keep-alive/wrangler.jsonc
+wrangler whoami
+wrangler deploy --config ops/keep-alive/wrangler.jsonc
+wrangler tail book-be-keep-alive --format json
+```
+
+The owning account is the account shown by the verified deployment. Select it
+explicitly if the login has multiple accounts. Source and dry-run success alone
+do not mean the heartbeat is active. Keep provider tokens outside Git and chat.
+Use Workers Free; do not add paid bindings or upgrade the account.
+
+Inspect Cloudflare → Workers & Pages → `book-be-keep-alive` → Settings → Trigger
+Events and Observability. Cron changes can take up to 15 minutes to propagate.
+Verify five executions spanning at least 20 minutes, with both probe
+logs reporting `ok:true`. `/health` alone does not establish database readiness.
+To stop warming, set `triggers.crons` to `[]`, deploy, and verify the trigger and
+subsequent executions disappear. Reverting Worker code alone need not remove cron.
+
+The existing [`keep-alive.yml`](.github/workflows/keep-alive.yml) is a secondary
+best-effort scheduled/manual diagnostic. GitHub schedules can run late or be
+dropped. Its bounded curl retries now exit nonzero on failure, without long sleep
+loops or warning-only success. Run manually with
+`gh workflow run keep-alive.yml --repo TienVo17/book_BE` and inspect Actions runs.
+
+Check Render's shared monthly free-instance-hour allowance before continuous
+warming: one always-running service uses most of it and other free services share
+the allowance. See [Render Free limits](https://render.com/docs/free) and
+[Cloudflare Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/).
+
 ## Tạo Admin Đầu Tiên
+
 
 Bootstrap admin mặc định **tắt**. Bật đúng một lần trên môi trường cần khởi tạo:
 
